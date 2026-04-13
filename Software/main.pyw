@@ -60,7 +60,14 @@ def connect_serial(config):
         ser.stopbits = config['stopbits']
         return ser
     except serial.SerialException as e:
-        print(f'ERROR:COM_PORT:Cannot open {port} — {e}', flush=True)
+        cause = e.__cause__ or e.__context__
+        msg = str(e)
+        if isinstance(cause, PermissionError) or ('Access is denied' in msg or 'PermissionError' in msg):
+            print(f'ERROR:COM_PORT:{port} is in use by another program. Close any serial monitors (Arduino IDE, PuTTY, etc.) and it will reconnect automatically.', flush=True)
+        elif isinstance(cause, FileNotFoundError) or ('could not find' in msg.lower() or 'file not found' in msg.lower()):
+            print(f'ERROR:COM_PORT:{port} not found. Check the correct port is selected in Settings.', flush=True)
+        else:
+            print(f'ERROR:COM_PORT:Cannot open {port} — {e}', flush=True)
         return None
 
 # Voicemeeter setup

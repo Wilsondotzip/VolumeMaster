@@ -60,7 +60,10 @@ export function setupSettingsListeners() {
       audioBanner?.classList.add('hidden');
       return;
     } else if (type === 'com-port-error') {
-      comPortBanner?.classList.remove('hidden');
+      if (comPortBanner) {
+        comPortBanner.textContent = message || 'Device disconnected. Check your device is connected and the correct port is selected in Settings — reconnecting automatically.';
+        comPortBanner.classList.remove('hidden');
+      }
       return;
     } else if (type === 'serial-ok') {
       comPortBanner?.classList.add('hidden');

@@ -57,17 +57,41 @@
 
   <body class="flex flex-col h-screen">
     <!-- Device Header -->
-    <div class="flex items-center gap-2 px-1 pt-1 pb-2 shrink-0 border-b border-slate-700 mb-2">
-      <span class="text-xs text-slate-500 uppercase tracking-wider font-semibold">Device</span>
-      <span id="deviceName" class="text-sm font-semibold text-indigo-400"></span>
-      <button id="editDeviceNameBtn" title="Rename device" class="text-slate-500 hover:text-indigo-400 transition text-sm leading-none">✎</button>
+    <div
+      class="flex items-center gap-2 px-1 pt-1 pb-2 shrink-0 border-b border-slate-700 mb-2"
+    >
+      <span
+        class="text-xs text-slate-500 uppercase tracking-wider font-semibold"
+        >Device</span
+      >
+      <span
+        id="deviceName"
+        class="text-sm font-semibold text-indigo-400"
+      ></span>
+      <button
+        id="editDeviceNameBtn"
+        title="Rename device"
+        class="text-slate-500 hover:text-indigo-400 transition text-sm leading-none"
+      >
+        ✎
+      </button>
       <input
         id="deviceNameInput"
         type="text"
         class="hidden flex-1 p-0.5 px-1.5 text-sm border border-slate-600 rounded bg-slate-800 text-gray-300 focus:outline-indigo-400 focus:ring-1 focus:ring-indigo-400"
       />
-      <button id="confirmDeviceNameBtn" class="hidden px-2 py-0.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded transition">✓</button>
-      <button id="cancelDeviceNameBtn" class="hidden px-2 py-0.5 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded transition">✕</button>
+      <button
+        id="confirmDeviceNameBtn"
+        class="hidden px-2 py-0.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded transition"
+      >
+        ✓
+      </button>
+      <button
+        id="cancelDeviceNameBtn"
+        class="hidden px-2 py-0.5 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded transition"
+      >
+        ✕
+      </button>
     </div>
 
     <!-- Tabs -->
@@ -159,12 +183,22 @@
         </div>
         <div id="vmChannelColumns" class="flex gap-3 h-full overflow-hidden">
           <div class="flex flex-col min-w-0 flex-1 overflow-hidden">
-            <div class="text-xs text-slate-500 font-semibold uppercase mb-1">Inputs</div>
-            <div id="vmInputList" class="custom-scroll flex flex-col gap-1 overflow-y-auto"></div>
+            <div class="text-xs text-slate-500 font-semibold uppercase mb-1">
+              Inputs
+            </div>
+            <div
+              id="vmInputList"
+              class="custom-scroll flex flex-col gap-1 overflow-y-auto"
+            ></div>
           </div>
           <div class="flex flex-col min-w-0 flex-1 overflow-hidden">
-            <div class="text-xs text-slate-500 font-semibold uppercase mb-1">Outputs</div>
-            <div id="vmOutputList" class="custom-scroll flex flex-col gap-1 overflow-y-auto"></div>
+            <div class="text-xs text-slate-500 font-semibold uppercase mb-1">
+              Outputs
+            </div>
+            <div
+              id="vmOutputList"
+              class="custom-scroll flex flex-col gap-1 overflow-y-auto"
+            ></div>
           </div>
         </div>
       </div>
@@ -199,7 +233,10 @@
       </div>
 
       <!-- Preset Name Input (shown when creating a new preset) -->
-      <div id="presetNameRow" class="hidden flex items-center gap-2 mb-3 shrink-0">
+      <div
+        id="presetNameRow"
+        class="hidden flex items-center gap-2 mb-3 shrink-0"
+      >
         <input
           id="presetNameInput"
           type="text"
@@ -296,11 +333,30 @@
             + New
           </button>
         </div>
-        <p class="text-xs text-slate-500 mt-2">Each device has its own COM port, mappings, and backend process.</p>
-        <div class="mt-3 pt-3 border-t border-slate-700 flex items-center gap-2">
-          <button id="removeDeviceBtn" class="px-3 py-1.5 text-sm bg-slate-700 hover:bg-red-700 text-gray-300 hover:text-white rounded transition font-medium">Remove This Device</button>
-          <button id="confirmRemoveBtn" class="hidden px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition font-medium">Confirm Remove</button>
-          <button id="cancelRemoveBtn" class="hidden px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 text-white rounded transition font-medium">Cancel</button>
+        <p class="text-xs text-slate-500 mt-2">
+          Each device has its own COM port, mappings, and backend process.
+        </p>
+        <div
+          class="mt-3 pt-3 border-t border-slate-700 flex items-center gap-2"
+        >
+          <button
+            id="removeDeviceBtn"
+            class="px-3 py-1.5 text-sm bg-slate-700 hover:bg-red-700 text-gray-300 hover:text-white rounded transition font-medium"
+          >
+            Remove This Device
+          </button>
+          <button
+            id="confirmRemoveBtn"
+            class="hidden px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition font-medium"
+          >
+            Confirm Remove
+          </button>
+          <button
+            id="cancelRemoveBtn"
+            class="hidden px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 text-white rounded transition font-medium"
+          >
+            Cancel
+          </button>
         </div>
       </div>
 
@@ -322,7 +378,9 @@
       </div>
 
       <div class="bg-slate-800 rounded-lg shadow p-4 border border-slate-700">
-        <h2 class="text-lg font-semibold text-indigo-400 mb-4">Notifications</h2>
+        <h2 class="text-lg font-semibold text-indigo-400 mb-4">
+          Notifications
+        </h2>
         <label class="flex items-center gap-3 cursor-pointer select-none">
           <input
             type="checkbox"
@@ -342,24 +400,41 @@
       <div
         id="vmErrorBanner"
         class="hidden px-3 py-2 rounded border text-xs font-medium text-center"
-        style="background:rgba(127,29,29,0.92);border-color:#b91c1c;color:#fecaca;backdrop-filter:blur(4px)"
+        style="
+          background: rgba(127, 29, 29, 0.92);
+          border-color: #b91c1c;
+          color: #fecaca;
+          backdrop-filter: blur(4px);
+        "
       >
-        VoiceMeeter is not running. VM mappings are disabled.
-        Disable VoiceMeeter in Settings if not in use, as it may slow things down.
+        VoiceMeeter is not running. VM mappings are disabled. Disable
+        VoiceMeeter in Settings if not in use, as it may slow things down.
       </div>
       <div
         id="audioErrorBanner"
         class="hidden px-3 py-2 rounded border text-xs font-medium text-center"
-        style="background:rgba(113,63,18,0.92);border-color:#b45309;color:#fde68a;backdrop-filter:blur(4px)"
+        style="
+          background: rgba(113, 63, 18, 0.92);
+          border-color: #b45309;
+          color: #fde68a;
+          backdrop-filter: blur(4px);
+        "
       >
-        Windows Audio is unavailable. Volume control is disabled until audio is restored.
+        Windows Audio is unavailable. Volume control is disabled until audio is
+        restored.
       </div>
       <div
         id="comPortErrorBanner"
         class="hidden px-3 py-2 rounded border text-xs font-medium text-center"
-        style="background:rgba(127,29,29,0.92);border-color:#b91c1c;color:#fecaca;backdrop-filter:blur(4px)"
+        style="
+          background: rgba(127, 29, 29, 0.92);
+          border-color: #b91c1c;
+          color: #fecaca;
+          backdrop-filter: blur(4px);
+        "
       >
-        COM port unavailable. Check your device is connected and the correct port is selected in Settings, then click Run.
+        Device disconnected. Check your device is connected and the correct port
+        is selected in Settings.
       </div>
     </div>
 
