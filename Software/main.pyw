@@ -163,9 +163,13 @@ def setup_mic_interfaces():
     if not wanted:
         return
 
-    capture_devices = AudioUtilities.GetAllDevices(
-        data_flow=EDataFlow.eCapture.value, device_state=1
-    )
+    try:
+        capture_devices = AudioUtilities.GetAllDevices(
+            data_flow=EDataFlow.eCapture.value, device_state=1
+        )
+    except Exception as e:
+        print(f'ERROR:AUDIO_UNAVAILABLE:Could not enumerate capture devices: {e}', flush=True)
+        return
 
     for device in capture_devices:
         try:

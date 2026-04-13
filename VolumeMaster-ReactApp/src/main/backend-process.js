@@ -102,7 +102,13 @@ function startBackend(deviceId, deviceDir) {
 
   proc.on('error', (err) => {
     console.error(`[${deviceId}] error:`, err);
-    sendStatusToDevice(deviceId, 'error', `Backend error: ${err.message}`);
+    let message = `Backend error: ${err.message}`;
+    if (err.code === 'EACCES' || err.code === 'EPERM') {
+      message = 'Access denied launching backend — antivirus or permissions may be blocking VolumeMaster-Headless.exe.';
+    } else if (err.code === 'ENOENT') {
+      message = 'Backend executable not found. Try reinstalling VolumeMaster.';
+    }
+    sendStatusToDevice(deviceId, 'error', message);
     const b = backends.get(deviceId);
     if (b) b.process = null;
     updateTrayImage();
@@ -111,7 +117,10 @@ function startBackend(deviceId, deviceDir) {
 
   proc.on('close', (code) => {
     console.log(`[${deviceId}] Backend exited with code ${code}`);
-    sendStatusToDevice(deviceId, 'warning', `Backend exited with code ${code}`);
+    const message = code === 1
+      ? 'Backend stopped. Check banners above for details.'
+      : `Backend exited unexpectedly (code ${code}). Antivirus may have intervened.`;
+    sendStatusToDevice(deviceId, 'warning', message);
     const b = backends.get(deviceId);
     if (b) b.process = null;
     updateTrayImage();
