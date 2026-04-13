@@ -50,8 +50,6 @@ export function setupSettingsListeners() {
     } else if (type === 'warning') {
       document.getElementById('saveAndRunBtn').textContent = 'Run';
       vmBanner?.classList.add('hidden');
-      audioBanner?.classList.add('hidden');
-      comPortBanner?.classList.add('hidden');
     } else if (type === 'vm-error') {
       vmBanner?.classList.remove('hidden');
       return;

@@ -13,41 +13,60 @@ const { registerIpcHandlers } = require('./main/ipc-handlers');
 const { startBackend, killAllBackends } = require('./main/backend-process');
 const deviceManager = require('./main/device-manager');
 
-app.whenReady().then(() => {
-  deviceManager.migrateIfNeeded();
-  registerIpcHandlers();
-
-  const devices = deviceManager.getAllDevices();
-  for (const device of devices) {
-    createWindow(device.id);
-    startBackend(device.id, deviceManager.getDeviceDir(device.id));
-  }
-
-  createTray();
-
-  if (process.argv.includes('--hidden')) {
-    for (const win of BrowserWindow.getAllWindows()) win.hide();
-  }
-
-  app.on('activate', () => {
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    // Someone tried to open a second instance — focus the existing windows instead
     for (const win of BrowserWindow.getAllWindows()) {
-      if (!win.isVisible()) win.show();
+      if (win.isMinimized()) win.restore();
+      win.show();
+      win.focus();
     }
   });
-});
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
+  app.whenReady().then(() => {
+    // Kill any headless processes left over from a previous crash (will-quit never fired)
+    try {
+      require('child_process').execSync('taskkill /F /IM VolumeMaster-Headless.exe', { stdio: 'ignore' });
+    } catch { /* none running — that's fine */ }
 
-app.on('before-quit', () => {
-  app.isQuiting = true;
-});
+    deviceManager.migrateIfNeeded();
+    registerIpcHandlers();
 
-app.on('will-quit', (event) => {
-  event.preventDefault();
-  killAllBackends().finally(() => app.exit(0));
-});
+    const devices = deviceManager.getAllDevices();
+    for (const device of devices) {
+      createWindow(device.id);
+      startBackend(device.id, deviceManager.getDeviceDir(device.id));
+    }
+
+    createTray();
+
+    if (process.argv.includes('--hidden')) {
+      for (const win of BrowserWindow.getAllWindows()) win.hide();
+    }
+
+    app.on('activate', () => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isVisible()) win.show();
+      }
+    });
+  });
+
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit();
+  });
+
+  app.on('before-quit', () => {
+    app.isQuiting = true;
+  });
+
+  app.on('will-quit', (event) => {
+    event.preventDefault();
+    killAllBackends().finally(() => app.exit(0));
+  });
+}
 
 try {
   require('electron-reloader')(module);

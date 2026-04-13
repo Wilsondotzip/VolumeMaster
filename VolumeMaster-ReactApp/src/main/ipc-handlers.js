@@ -179,11 +179,16 @@ function registerIpcHandlers() {
   });
 
   ipcMain.handle('list-input-devices', async () => {
-    const devices = portAudio.getDevices();
-    const cleanDevices = devices
-      .filter((d) => d.maxInputChannels > 0 && d.hostAPIName === 'Windows WASAPI')
-      .map((d) => d.name);
-    return [...new Set(cleanDevices)];
+    try {
+      const devices = portAudio.getDevices();
+      const cleanDevices = devices
+        .filter((d) => d.maxInputChannels > 0 && d.hostAPIName === 'Windows WASAPI')
+        .map((d) => d.name);
+      return [...new Set(cleanDevices)];
+    } catch (err) {
+      console.error('Failed to list input devices:', err);
+      return [];
+    }
   });
 
   ipcMain.handle('get-volume-notifications', (event) => {
