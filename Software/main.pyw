@@ -46,9 +46,12 @@ def load_config():
     with open('config.yaml', 'r', encoding='UTF-8') as file:
         return yaml.safe_load(file) or {}
 
-def connect_serial(config, default_port):
+def connect_serial(config):
     """Try once to open the serial port. Returns a Serial object or None."""
-    port = default_port if config['comport'] == 'COM' else config['comport']
+    port = config.get('comport', '')
+    if not port or port == 'COM':
+        print('ERROR:COM_PORT:No COM port selected. Please select a port in Settings.', flush=True)
+        return None
     try:
         ser = serial.Serial(port)
         ser.baudrate = config['baudrate']
@@ -57,7 +60,7 @@ def connect_serial(config, default_port):
         ser.stopbits = config['stopbits']
         return ser
     except serial.SerialException as e:
-        print(f'ERROR:COM_PORT:Cannot open {port or "(none)"} — {e}', flush=True)
+        print(f'ERROR:COM_PORT:Cannot open {port} — {e}', flush=True)
         return None
 
 # Voicemeeter setup
@@ -128,7 +131,6 @@ def build_mappings(config):
 
 # Load config and initialize
 config = load_config()
-default_com = find_arduino_port()
 
 mappings = build_mappings(config)
 buttons = {
@@ -149,6 +151,7 @@ session_cache = {}
 master_volume_interface = None
 mic_interfaces = {}
 _audio_available = True  # tracks state so we only print on change
+_reconnect_serial = False  # set by reload_config when comport changes
 
 
 def setup_mic_interfaces():
@@ -223,10 +226,11 @@ def setup_audio_interfaces():
 
 
 def reload_config():
-    global config, mappings, buttons, volumes
+    global config, mappings, buttons, volumes, _reconnect_serial
     print('[Watcher] Reloading config...')
     try:
-        config = {}
+        old_port = config.get('comport')
+
         mappings = {}
         buttons = {}
         volumes = {}
@@ -237,6 +241,9 @@ def reload_config():
             key: val.split(';') for key, val in config.get('Buttons', {}).items() if val
         }
         volumes = {k: 0 for k in mappings}
+
+        if config.get('comport') != old_port:
+            _reconnect_serial = True
 
         setup_audio_interfaces()
         print('[Watcher] Reloaded successfully.')
@@ -298,9 +305,19 @@ def main():
         while True:
             now = time.monotonic()
 
+            # If comport changed via settings, close current connection and reconnect
+            global _reconnect_serial
+            if _reconnect_serial and ser is not None:
+                _reconnect_serial = False
+                try:
+                    ser.close()
+                except Exception:
+                    pass
+                ser = None
+
             # Reconnect serial if not connected
             if ser is None:
-                ser = connect_serial(config, default_com)
+                ser = connect_serial(config)
                 if ser is None:
                     # No serial — still refresh audio so banners stay current
                     if time.time() - timeSinceLastRefresh > 2:
