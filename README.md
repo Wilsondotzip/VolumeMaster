@@ -23,7 +23,7 @@ A Python script runs in the background to turn the Arduino's serial inputs into 
 ![Image2](https://user-images.githubusercontent.com/58171274/208288002-e05144c8-9d7c-4ace-b45a-9c51406f2135.jpg)
 
 ## Requirements
-Currently only **Windows** is tested and supported to work. Adding Linux support is something high on our priority list.
+**Windows** is the primary supported platform. This project also includes Linux support via the `VolumeMaster-Linux` directory.
 If you have windows you're all set nothing else is needed! Go grab the [latest release](https://github.com/Wilsondotzip/HAMixer/releases) and run it inside its own folder with the config file. You can run either the GUI or headless version.
 
 Alternatively  you can use the [source code](https://github.com/Wilsondotzip/HardwareApplicationMixer/tree/main/Software/Source) instead. 
