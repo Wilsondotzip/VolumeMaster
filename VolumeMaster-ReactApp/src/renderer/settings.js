@@ -62,6 +62,9 @@ export function setupSettingsListeners() {
     } else if (type === 'com-port-error') {
       comPortBanner?.classList.remove('hidden');
       return;
+    } else if (type === 'serial-ok') {
+      comPortBanner?.classList.add('hidden');
+      return;
     }
     if (type !== 'info') showAlert(type, message);
   });

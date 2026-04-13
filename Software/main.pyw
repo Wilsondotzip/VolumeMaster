@@ -46,18 +46,19 @@ def load_config():
     with open('config.yaml', 'r', encoding='UTF-8') as file:
         return yaml.safe_load(file) or {}
 
-def setup_serial(config, default_port):
+def connect_serial(config, default_port):
+    """Try once to open the serial port. Returns a Serial object or None."""
     port = default_port if config['comport'] == 'COM' else config['comport']
     try:
         ser = serial.Serial(port)
+        ser.baudrate = config['baudrate']
+        ser.bytesize = config['bytesize']
+        ser.parity = config['parity']
+        ser.stopbits = config['stopbits']
+        return ser
     except serial.SerialException as e:
         print(f'ERROR:COM_PORT:Cannot open {port or "(none)"} — {e}', flush=True)
-        sys.exit(1)
-    ser.baudrate = config['baudrate']
-    ser.bytesize = config['bytesize']
-    ser.parity = config['parity']
-    ser.stopbits = config['stopbits']
-    return ser
+        return None
 
 # Voicemeeter setup
 veme = 0
@@ -128,7 +129,6 @@ def build_mappings(config):
 # Load config and initialize
 config = load_config()
 default_com = find_arduino_port()
-serial_conn = setup_serial(config, default_com)
 
 mappings = build_mappings(config)
 buttons = {
@@ -284,7 +284,7 @@ def main():
     last_update_time = 0
     timeSinceLastRefresh = time.time()
     update_interval = 0.00001
-    timeSinceLastSerialInput = None
+    ser = None
 
     setup_audio_interfaces()
 
@@ -293,24 +293,44 @@ def main():
     try:
         while True:
             now = time.monotonic()
+
+            # Reconnect serial if not connected
+            if ser is None:
+                ser = connect_serial(config, default_com)
+                if ser is None:
+                    # No serial — still refresh audio so banners stay current
+                    if time.time() - timeSinceLastRefresh > 2:
+                        timeSinceLastRefresh = time.time()
+                        try:
+                            setup_audio_interfaces()
+                        except Exception as e:
+                            print(f'[Audio] Session refresh failed: {e}', flush=True)
+                    time.sleep(2)
+                    continue
+                print('STATUS:SERIAL_OK', flush=True)
+
             if volume_cache:
-                if serial_conn.timeout != 0:
-                    serial_conn.timeout = 0
+                if ser.timeout != 0:
+                    ser.timeout = 0
             else:
-                if serial_conn.timeout is not None:
-                    serial_conn.timeout = None
+                if ser.timeout is not None:
+                    ser.timeout = None
 
             try:
-                line = serial_conn.readline().decode().strip()
-            except:
+                line = ser.readline().decode().strip()
+            except Exception:
                 print('ERROR:COM_PORT:Device disconnected from serial port.', flush=True)
-                sys.exit(1)
+                try:
+                    ser.close()
+                except Exception:
+                    pass
+                ser = None
+                continue
 
             if '@' in line:
                 try:
                     value_str, index_str = line.split('@')
                     value, index = int(value_str), int(index_str)
-                    timeSinceLastSerialInput = time.time()
                     volume_cache.append((index, value))
                 except ValueError:
                     print("Malformed input:", line)

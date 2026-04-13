@@ -74,6 +74,8 @@ function startBackend(deviceId, deviceDir) {
         sendStatusToDevice(deviceId, 'audio-ok', '');
       } else if (trimmed.startsWith('ERROR:COM_PORT:')) {
         sendStatusToDevice(deviceId, 'com-port-error', trimmed.slice('ERROR:COM_PORT:'.length));
+      } else if (trimmed === 'STATUS:SERIAL_OK') {
+        sendStatusToDevice(deviceId, 'serial-ok', '');
       } else if (trimmed.startsWith('VOLUME:')) {
         const parts = trimmed.split(':');
         if (parts.length === 3) {
