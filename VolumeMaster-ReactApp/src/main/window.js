@@ -36,11 +36,10 @@ function createWindow(deviceId) {
     win.hide();
   });
 
-  win.on('close', (event) => {
-    if (!require('electron').app.isQuiting) {
-      event.preventDefault();
-      win.hide();
-    }
+  win.on('close', () => {
+    const { app } = require('electron');
+    app.isQuiting = true;
+    app.quit();
   });
 
   return win;
