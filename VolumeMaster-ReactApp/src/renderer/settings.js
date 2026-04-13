@@ -39,15 +39,31 @@ export function setupSettingsListeners() {
 
   window.api.onBackendStatus(({ type, message }) => {
     const vmBanner = document.getElementById('vmErrorBanner');
+    const audioBanner = document.getElementById('audioErrorBanner');
+    const comPortBanner = document.getElementById('comPortErrorBanner');
+
     if (type === 'success') {
       document.getElementById('saveAndRunBtn').textContent = 'Stop';
       vmBanner?.classList.add('hidden');
+      audioBanner?.classList.add('hidden');
+      comPortBanner?.classList.add('hidden');
     } else if (type === 'warning') {
       document.getElementById('saveAndRunBtn').textContent = 'Run';
       vmBanner?.classList.add('hidden');
+      audioBanner?.classList.add('hidden');
+      comPortBanner?.classList.add('hidden');
     } else if (type === 'vm-error') {
       vmBanner?.classList.remove('hidden');
-      return; // don't show a toast for this
+      return;
+    } else if (type === 'audio-error') {
+      audioBanner?.classList.remove('hidden');
+      return;
+    } else if (type === 'audio-ok') {
+      audioBanner?.classList.add('hidden');
+      return;
+    } else if (type === 'com-port-error') {
+      comPortBanner?.classList.remove('hidden');
+      return;
     }
     if (type !== 'info') showAlert(type, message);
   });

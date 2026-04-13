@@ -68,6 +68,12 @@ function startBackend(deviceId, deviceDir) {
       if (!trimmed) continue;
       if (trimmed.startsWith('ERROR:VM_NOT_RUNNING:')) {
         sendStatusToDevice(deviceId, 'vm-error', trimmed.slice('ERROR:VM_NOT_RUNNING:'.length));
+      } else if (trimmed.startsWith('ERROR:AUDIO_UNAVAILABLE:')) {
+        sendStatusToDevice(deviceId, 'audio-error', trimmed.slice('ERROR:AUDIO_UNAVAILABLE:'.length));
+      } else if (trimmed === 'STATUS:AUDIO_OK') {
+        sendStatusToDevice(deviceId, 'audio-ok', '');
+      } else if (trimmed.startsWith('ERROR:COM_PORT:')) {
+        sendStatusToDevice(deviceId, 'com-port-error', trimmed.slice('ERROR:COM_PORT:'.length));
       } else if (trimmed.startsWith('VOLUME:')) {
         const parts = trimmed.split(':');
         if (parts.length === 3) {

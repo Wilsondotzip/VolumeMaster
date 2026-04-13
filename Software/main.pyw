@@ -50,8 +50,9 @@ def setup_serial(config, default_port):
     port = default_port if config['comport'] == 'COM' else config['comport']
     try:
         ser = serial.Serial(port)
-    except serial.SerialException:
-        sys.exit("Failed to open serial port.")
+    except serial.SerialException as e:
+        print(f'ERROR:COM_PORT:Cannot open {port or "(none)"} — {e}', flush=True)
+        sys.exit(1)
     ser.baudrate = config['baudrate']
     ser.bytesize = config['bytesize']
     ser.parity = config['parity']
@@ -147,6 +148,7 @@ atexit.register(lambda: vmr.logout() if veme else None)
 session_cache = {}
 master_volume_interface = None
 mic_interfaces = {}
+_audio_available = True  # tracks state so we only print on change
 
 
 def setup_mic_interfaces():
@@ -177,22 +179,43 @@ def setup_mic_interfaces():
 
 
 def setup_audio_interfaces():
-    global session_cache, master_volume_interface
+    global session_cache, master_volume_interface, _audio_available
 
-    sessions = AudioUtilities.GetAllSessions()
+    try:
+        sessions = AudioUtilities.GetAllSessions()
+    except Exception as e:
+        if _audio_available:
+            print(f'ERROR:AUDIO_UNAVAILABLE:Windows Audio is unavailable: {e}', flush=True)
+            _audio_available = False
+        return
+
     session_cache.clear()
 
     for session in sessions:
         if session.Process:
-            pid = session.Process.pid
-            exe_name = session.Process.name()
-            session_cache[(pid, exe_name)] = session.SimpleAudioVolume
+            try:
+                pid = session.Process.pid
+                exe_name = session.Process.name()
+                session_cache[(pid, exe_name)] = session.SimpleAudioVolume
+            except Exception:
+                pass
 
     if any('master' in entry.get('apps', []) for entry in mappings.values()):
-        device = AudioUtilities.GetSpeakers()
-        master_volume_interface = device.EndpointVolume
+        try:
+            device = AudioUtilities.GetSpeakers()
+            master_volume_interface = device.EndpointVolume
+        except Exception as e:
+            if _audio_available:
+                print(f'ERROR:AUDIO_UNAVAILABLE:No default audio output device: {e}', flush=True)
+                _audio_available = False
+            master_volume_interface = None
+            return
 
     setup_mic_interfaces()
+
+    if not _audio_available:
+        print('STATUS:AUDIO_OK', flush=True)
+        _audio_available = True
 
 
 def reload_config():
@@ -280,7 +303,8 @@ def main():
             try:
                 line = serial_conn.readline().decode().strip()
             except:
-                sys.exit("Serial disconnect error.")
+                print('ERROR:COM_PORT:Device disconnected from serial port.', flush=True)
+                sys.exit(1)
 
             if '@' in line:
                 try:
@@ -311,8 +335,15 @@ def main():
 
             if time.time() - timeSinceLastRefresh > 2:
                 timeSinceLastRefresh = time.time()
-                setup_audio_interfaces()
+                try:
+                    setup_audio_interfaces()
+                except Exception as e:
+                    print(f'[Audio] Session refresh failed: {e}', flush=True)
 
+    except OSError:
+        # Stdout pipe closed — Electron shut down while backend was writing.
+        # Exit silently; no stderr traceback, so Electron won't crash-loop.
+        pass
     finally:
         observer.stop()
         observer.join()
