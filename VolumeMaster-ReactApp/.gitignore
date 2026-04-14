@@ -2,3 +2,6 @@ node_modules
 src/iconCache
 out/
 release/
+VolumeMaster-Headless.exe
+VolumeMaster-Headless.spec
+build
