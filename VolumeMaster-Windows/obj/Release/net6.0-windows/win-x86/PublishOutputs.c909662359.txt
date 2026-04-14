@@ -1,7 +1,0 @@
-X:\Work\Long Projects\HardwareApplicationMixer\Software\HAM-Windows.pdb
-X:\Work\Long Projects\HardwareApplicationMixer\Software\D3DCompiler_47_cor3.dll
-X:\Work\Long Projects\HardwareApplicationMixer\Software\PenImc_cor3.dll
-X:\Work\Long Projects\HardwareApplicationMixer\Software\PresentationNative_cor3.dll
-X:\Work\Long Projects\HardwareApplicationMixer\Software\vcruntime140_cor3.dll
-X:\Work\Long Projects\HardwareApplicationMixer\Software\wpfgfx_cor3.dll
-X:\Work\Long Projects\HardwareApplicationMixer\Software\HAM-Windows.exe
