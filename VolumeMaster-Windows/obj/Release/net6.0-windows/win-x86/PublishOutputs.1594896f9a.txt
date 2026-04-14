@@ -1,7 +1,0 @@
-\\SPIKE\media\Work\Long Projects\HAM-Windows\bin\Release\net6.0-windows\publish\win-x86\HAM-Windows.pdb
-\\SPIKE\media\Work\Long Projects\HAM-Windows\bin\Release\net6.0-windows\publish\win-x86\D3DCompiler_47_cor3.dll
-\\SPIKE\media\Work\Long Projects\HAM-Windows\bin\Release\net6.0-windows\publish\win-x86\PenImc_cor3.dll
-\\SPIKE\media\Work\Long Projects\HAM-Windows\bin\Release\net6.0-windows\publish\win-x86\PresentationNative_cor3.dll
-\\SPIKE\media\Work\Long Projects\HAM-Windows\bin\Release\net6.0-windows\publish\win-x86\vcruntime140_cor3.dll
-\\SPIKE\media\Work\Long Projects\HAM-Windows\bin\Release\net6.0-windows\publish\win-x86\wpfgfx_cor3.dll
-\\SPIKE\media\Work\Long Projects\HAM-Windows\bin\Release\net6.0-windows\publish\win-x86\HAM-Windows.exe

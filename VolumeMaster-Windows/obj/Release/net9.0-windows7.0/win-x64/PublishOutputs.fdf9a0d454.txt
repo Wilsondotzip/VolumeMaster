@@ -1,5 +1,0 @@
-C:\Users\wspal\Desktop\VolumeMaster\VolumeMaster.pdb
-C:\Users\wspal\Desktop\VolumeMaster\config.yaml
-C:\Users\wspal\Desktop\VolumeMaster\VolumeMaster-Headless.exe
-C:\Users\wspal\Desktop\VolumeMaster\icon.ico
-C:\Users\wspal\Desktop\VolumeMaster\VolumeMaster.exe
