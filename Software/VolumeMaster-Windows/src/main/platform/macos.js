@@ -4,8 +4,7 @@ const path = require('path');
 
 /**
  * macOS platform implementation.
- * Audio input devices and process icon extraction are stubs until
- * a native macOS backend (Swift/Rust) is implemented.
+ * Audio input devices and process icon extraction are stubs
  */
 
 /**
@@ -30,13 +29,13 @@ async function getProcessList() {
       if (base) seen.add(base);
     });
 
-  // macOS processes don't have a reliable "isGUI" flag from ps — default false
+  // macOS processes don't have a reliable "isGUI" flag from ps — default false (will need some way around this...)
   return [...seen].map((name) => ({ name, isGUI: false }));
 }
 
 /**
  * Returns audio input device names.
- * Stub — returns empty until Swift/CoreAudio backend is implemented.
+ * Stub — returns empty 
  * @returns {Promise<string[]>}
  */
 async function getAudioInputDevices() {
@@ -46,7 +45,7 @@ async function getAudioInputDevices() {
 /**
  * Resolves a process name to its executable path.
  * Uses `which` for PATH-based lookups; returns null for unknown processes.
- * @param {string} exeName
+ * Not sure if this is needed for MacOS, but it was part of the Windows implementation so included for parity. depends how the backend is implemented
  * @returns {Promise<string|null>}
  */
 async function findProcessExePath(exeName) {
