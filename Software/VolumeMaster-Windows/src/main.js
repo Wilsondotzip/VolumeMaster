@@ -7,6 +7,7 @@ if (process.platform === 'win32') {
   app.commandLine.appendSwitch('disable-features', 'AllowNativeOleApiForDragDrop');
 }
 
+const platform = require('./main/platform');
 const { createWindow } = require('./main/window');
 const { createTray } = require('./main/tray');
 const { registerIpcHandlers } = require('./main/ipc-handlers');
@@ -28,9 +29,7 @@ if (!gotLock) {
 
   app.whenReady().then(() => {
     // Kill any headless processes left over from a previous crash (will-quit never fired)
-    try {
-      require('child_process').execSync('taskkill /F /IM VolumeMaster-Headless.exe', { stdio: 'ignore' });
-    } catch { /* none running — that's fine */ }
+    platform.forceKillAllBackends();
 
     deviceManager.migrateIfNeeded();
     registerIpcHandlers();

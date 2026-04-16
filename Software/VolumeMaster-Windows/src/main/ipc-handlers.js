@@ -1,13 +1,10 @@
-const util = require('util');
 const { SerialPort } = require('serialport');
-const portAudio = require('naudiodon');
 
+const platform = require('./platform');
 const { loadConfig, saveConfig, cloneConfigSnapshot } = require('./config-store');
 const { getAppIcon } = require('./icon-service');
 const { startBackend, killBackend, getBackendProcess } = require('./backend-process');
 const deviceManager = require('./device-manager');
-
-const exec = util.promisify(require('child_process').exec);
 
 /** Resolves the deviceId and deviceDir for the window that sent an IPC event. */
 function getDeviceContext(event) {
@@ -54,30 +51,7 @@ function registerIpcHandlers() {
 
   ipcMain.handle('list-processes', async () => {
     try {
-      const { stdout } = await exec(
-        `powershell -NoProfile -Command "Get-Process | Select-Object ProcessName, MainWindowTitle"`,
-        { encoding: 'utf8' }
-      );
-
-      const seen = new Map();
-      stdout
-        .split(/\r?\n/)
-        .map((l) => l.trim())
-        .filter(Boolean)
-        .slice(2)
-        .forEach((line) => {
-          const parts = line.split(/\s{2,}/);
-          const name = parts[0];
-          const windowTitle = parts[1] || '';
-          const exeName = name.endsWith('.exe') ? name : `${name}.exe`;
-
-          const existing = seen.get(exeName);
-          if (!existing || (!existing.isGUI && windowTitle !== '')) {
-            seen.set(exeName, { name: exeName, isGUI: windowTitle !== '' });
-          }
-        });
-
-      return [...seen.values()];
+      return await platform.getProcessList();
     } catch (err) {
       console.error('Failed to list processes:', err);
       return [];
@@ -180,11 +154,7 @@ function registerIpcHandlers() {
 
   ipcMain.handle('list-input-devices', async () => {
     try {
-      const devices = portAudio.getDevices();
-      const cleanDevices = devices
-        .filter((d) => d.maxInputChannels > 0 && d.hostAPIName === 'Windows WASAPI')
-        .map((d) => d.name);
-      return [...new Set(cleanDevices)];
+      return await platform.getAudioInputDevices();
     } catch (err) {
       console.error('Failed to list input devices:', err);
       return [];
