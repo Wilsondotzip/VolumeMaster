@@ -10,7 +10,7 @@
     "prebuild": "pyinstaller --onefile --noconsole --name VolumeMaster-Headless src/backend/main.pyw --distpath .",
     "build": "electron-builder",
     "dist": "electron-builder",
-    "build:mac": "electron-builder --mac dir"
+    "build:mac": "electron-rebuild && electron-builder --mac dir"
   },
   "build": {
     "appId": "com.williamspalding.volumemaster",
@@ -63,6 +63,7 @@
   },
   "devDependencies": {
     "@electron/fuses": "^1.8.0",
+    "@electron/rebuild": "^3.7.1",
     "autoprefixer": "^10.4.27",
     "electron": "^37.2.0",
     "electron-builder": "^26.8.1",
