@@ -9,7 +9,8 @@
     "start": "electron .",
     "prebuild": "pyinstaller --onefile --noconsole --name VolumeMaster-Headless src/backend/main.pyw --distpath .",
     "build": "electron-builder",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "build:mac": "electron-builder --mac dir"
   },
   "build": {
     "appId": "com.williamspalding.volumemaster",
@@ -25,18 +26,22 @@
       "!**/node_modules/@emnapi",
       "!**/node_modules/@esbuild"
     ],
-    "extraResources": [
-      {
-        "from": "VolumeMaster-Headless.exe",
-        "to": "VolumeMaster-Headless.exe"
-      }
-    ],
     "directories": {
       "output": "release"
     },
     "win": {
       "target": "nsis",
-      "icon": "src/assets/icons/icon.ico"
+      "icon": "src/assets/icons/icon.ico",
+      "extraResources": [
+        {
+          "from": "VolumeMaster-Headless.exe",
+          "to": "VolumeMaster-Headless.exe"
+        }
+      ]
+    },
+    "mac": {
+      "target": "dir",
+      "icon": "src/assets/icons/icon.icns"
     },
     "nsis": {
       "oneClick": false,
@@ -47,12 +52,14 @@
     "@tailwindcss/cli": "^4.2.2",
     "@tailwindcss/postcss": "^4.2.2",
     "icojs": "^0.20.1",
-    "naudiodon": "^2.3.6",
     "ps-list": "^8.1.1",
     "serialport": "^13.0.0",
     "tree-kill": "^1.2.2",
     "x64": "^1.0.0",
     "yaml": "^2.8.3"
+  },
+  "optionalDependencies": {
+    "naudiodon": "^2.3.6"
   },
   "devDependencies": {
     "@electron/fuses": "^1.8.0",

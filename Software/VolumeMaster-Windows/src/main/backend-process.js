@@ -1,12 +1,10 @@
-const path = require('path');
 const { spawn } = require('child_process');
 const treeKill = require('tree-kill');
 
+const platform = require('./platform');
 const { setTrayImageNormal, setTrayImageCrashed } = require('./tray');
 const deviceManager = require('./device-manager');
 const { handleVolumeChange } = require('./notification-window');
-
-const headlessExePath = path.join(process.resourcesPath, 'VolumeMaster-Headless.exe');
 
 // Map<deviceId, { process, retryTimeout }>
 const backends = new Map();
@@ -49,7 +47,7 @@ function startBackend(deviceId, deviceDir) {
   }
 
   console.log(`[${deviceId}] Starting backend...`);
-  const proc = spawn(headlessExePath, [], {
+  const proc = spawn(platform.getBackendBinaryPath(), [], {
     detached: false,
     stdio: 'pipe',
     shell: false,
@@ -145,11 +143,7 @@ async function killAllBackends() {
   const ids = [...backends.keys()];
   await Promise.all(ids.map((id) => killBackend(id)));
   // Synchronous fallback: force-kill any instances that slipped through
-  try {
-    require('child_process').execSync('taskkill /F /IM VolumeMaster-Headless.exe', { stdio: 'ignore' });
-  } catch {
-    // Throws if no processes found — that's fine
-  }
+  platform.forceKillAllBackends();
 }
 
 function getBackendProcess(deviceId) {

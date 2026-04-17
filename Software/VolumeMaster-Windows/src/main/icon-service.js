@@ -1,12 +1,8 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const util = require('util');
 
-const exec = util.promisify(require('child_process').exec);
-
-// In-memory cache: exe name → resolved full path, survives across calls
-const exePathCache = new Map();
+const platform = require('./platform');
 
 function cacheDir() {
   return path.join(require('electron').app.getPath('userData'), 'iconCache');
@@ -42,28 +38,6 @@ function saveIconToCache(key, nativeImage) {
   }
 }
 
-async function findRunningProcessExePath(exeName) {
-  // Check in-memory cache first to avoid repeated PowerShell spawns
-  if (exePathCache.has(exeName)) {
-    return exePathCache.get(exeName);
-  }
-
-  try {
-    const baseName = path.basename(exeName, '.exe');
-    const cmd = `powershell -NoProfile -NonInteractive -Command "Get-Process -Name '${baseName}' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path -First 1"`;
-    const { stdout } = await exec(cmd, { encoding: 'utf8', timeout: 5000 });
-    const resolved = stdout.trim();
-    if (resolved && fs.existsSync(resolved)) {
-      exePathCache.set(exeName, resolved);
-      return resolved;
-    }
-  } catch {
-    // Process not found or PowerShell timed out
-  }
-
-  return null;
-}
-
 async function getAppIcon(exeNameOrPath) {
   if (!exeNameOrPath || typeof exeNameOrPath !== 'string') return null;
 
@@ -73,12 +47,12 @@ async function getAppIcon(exeNameOrPath) {
   const cached = loadIconFromCache(cacheKey);
   if (cached) return cached;
 
-  // Resolve to an absolute path — direct path skips PowerShell entirely
+  // Resolve to an absolute path — direct path skips platform lookup entirely
   let resolvedPath;
   if (path.isAbsolute(exeNameOrPath) && fs.existsSync(exeNameOrPath)) {
     resolvedPath = exeNameOrPath;
   } else {
-    resolvedPath = await findRunningProcessExePath(exeNameOrPath);
+    resolvedPath = await platform.findProcessExePath(exeNameOrPath);
   }
 
   if (!resolvedPath) return null;
@@ -97,4 +71,4 @@ async function getAppIcon(exeNameOrPath) {
   }
 }
 
-module.exports = { getAppIcon, findRunningProcessExePath };
+module.exports = { getAppIcon };
