@@ -267,7 +267,11 @@ def process_audio_change(index, value):
     if 'apps' in mapping:
         for name in mapping['apps']:
             if name.lower() == 'master' and master_volume_interface:
-                master_volume_interface.SetMasterVolumeLevelScalar(volume_scalar, None)
+                try:
+                    master_volume_interface.SetMasterVolumeLevelScalar(volume_scalar, None)
+                except Exception:
+                    global master_volume_interface
+                    master_volume_interface = None
                 continue
 
             target_str = name.lower()
@@ -276,7 +280,7 @@ def process_audio_change(index, value):
                     try:
                         vol_interface.SetMasterVolume(volume_scalar, None)
                     except Exception:
-                        pass
+                        session_cache.pop((pid, exe_name), None)
 
     if 'mics' in mapping:
         for mic_name in mapping['mics']:
@@ -287,15 +291,19 @@ def process_audio_change(index, value):
                     interface.SetMasterVolumeLevelScalar(volume_scalar, None)
                 except Exception as e:
                     print(f"Failed to set mic volume for '{mic_name}': {e}")
+                    mic_interfaces.pop(key, None)
             else:
                 print(f"Mic not found in cache: '{mic_name}' — will retry on next refresh")
 
     if set_input_gain and set_output_gain and 'vm' in mapping:
         for target in mapping['vm']:
-            if target.lower().startswith('input'):
-                set_input_gain(target.strip('Input'), value)
-            elif target.lower().startswith('output'):
-                set_output_gain(target.strip('Output'), value)
+            try:
+                if target.lower().startswith('input'):
+                    set_input_gain(target.strip('Input'), value)
+                elif target.lower().startswith('output'):
+                    set_output_gain(target.strip('Output'), value)
+            except Exception as e:
+                print(f"Failed to set VoiceMeeter gain for '{target}': {e}")
 
 
 def main():
