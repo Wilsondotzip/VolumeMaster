@@ -261,6 +261,7 @@ def reload_config():
 
 
 def process_audio_change(index, value):
+    global master_volume_interface
     mapping = mappings.get(index, {})
     volume_scalar = round(value / 100, 2)
 
@@ -270,7 +271,6 @@ def process_audio_change(index, value):
                 try:
                     master_volume_interface.SetMasterVolumeLevelScalar(volume_scalar, None)
                 except Exception:
-                    global master_volume_interface
                     master_volume_interface = None
                 continue
 
