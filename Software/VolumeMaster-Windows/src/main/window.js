@@ -15,8 +15,10 @@ function createWindow(deviceId) {
       })();
 
   const win = new BrowserWindow({
-    width: 1000,
-    height: 700,
+    width: 1200,
+    height: 800,
+    minWidth: 700,
+    minHeight: 700,
     ...positionOpts,
     title,
     icon: path.join(__dirname, '..', 'assets', 'icons', 'icon.ico'),
