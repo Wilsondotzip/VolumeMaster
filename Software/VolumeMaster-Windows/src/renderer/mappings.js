@@ -362,7 +362,7 @@ function createAppCard(app, knobId) {
 
   const icon = document.createElement('img');
   icon.alt = app;
-  icon.className = 'w-10 h-10 rounded sm:hidden md:block';
+  icon.className = 'w-10 h-10 rounded responsive-icon shrink-0';
   icon.draggable = false;
   card.classList.add('app-card');
 
@@ -371,11 +371,11 @@ function createAppCard(app, knobId) {
 
   const label = document.createElement('div');
   label.textContent = display.title || sanitizeAppName(app);
-  label.className = 'text-lg font-medium shrink text-wrap';
+  label.className = 'text-lg font-medium break-words';
 
   const subtitle = document.createElement('div');
   subtitle.textContent = display.subtitle || app;
-  subtitle.className = 'text-xs text-slate-500 truncate';
+  subtitle.className = 'text-xs text-slate-500 break-words';
 
   textWrap.append(label, subtitle);
   card.append(icon, textWrap);
