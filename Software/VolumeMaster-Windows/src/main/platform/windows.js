@@ -8,33 +8,63 @@ const exec = util.promisify(require('child_process').exec);
 // In-memory cache: exe name → resolved full path, survives across calls
 const exePathCache = new Map();
 
+function normalizeProcessTitle(windowTitle, processName) {
+  const fallback = processName.endsWith('.exe') ? processName : `${processName}.exe`;
+  if (!windowTitle) return fallback;
+
+  const separators = [' - ', ' — ', ' | '];
+  for (const separator of separators) {
+    const parts = windowTitle
+      .split(separator)
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (parts.length > 1) {
+      return parts[parts.length - 1];
+    }
+  }
+
+  return windowTitle;
+}
+
 /**
- * Returns a list of running processes.
- * @returns {Promise<Array<{name: string, isGUI: boolean}>>}
+ * Returns a list of running processes and their friendly titles by invoking PowerShell to query the system.
+ * Each entry includes:
+ *   - name: the executable name (e.g. "chrome.exe")
+ *   - title: a user-friendly title derived from the window title or process name
+ * @returns {Promise<Array<{name: string, title: string, path: string|null, isGUI: boolean}>>}
  */
 async function getProcessList() {
   const { stdout } = await exec(
-    `powershell -NoProfile -Command "Get-Process | Select-Object ProcessName, MainWindowTitle"`,
-    { encoding: 'utf8' }
+    `powershell -NoProfile -Command "Get-Process | Select-Object ProcessName, MainWindowTitle, Path | ConvertTo-Json -Depth 2"`,
+    { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 } // maxBuffer increased to handle large process lists with long titles/paths without truncation
   );
 
-  const seen = new Map();
-  stdout
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .slice(2)
-    .forEach((line) => {
-      const parts = line.split(/\s{2,}/);
-      const name = parts[0];
-      const windowTitle = parts[1] || '';
-      const exeName = name.endsWith('.exe') ? name : `${name}.exe`;
+  const raw = stdout.trim();
+  if (!raw) return [];
 
-      const existing = seen.get(exeName);
-      if (!existing || (!existing.isGUI && windowTitle !== '')) {
-        seen.set(exeName, { name: exeName, isGUI: windowTitle !== '' });
-      }
-    });
+  const parsed = JSON.parse(raw);
+  const rows = Array.isArray(parsed) ? parsed : [parsed];
+  const seen = new Map();
+
+  rows.forEach((row) => {
+    const processName = typeof row?.ProcessName === 'string' ? row.ProcessName.trim() : '';
+    if (!processName) return;
+
+    const exeName = processName.endsWith('.exe') ? processName : `${processName}.exe`;
+    const windowTitle = typeof row?.MainWindowTitle === 'string' ? row.MainWindowTitle.trim() : '';
+    const resolvedPath = typeof row?.Path === 'string' && row.Path.trim() ? row.Path.trim() : null;
+    const nextEntry = {
+      name: exeName,
+      title: normalizeProcessTitle(windowTitle, processName),
+      path: resolvedPath,
+      isGUI: windowTitle !== '',
+    };
+
+    const existing = seen.get(exeName);
+    if (!existing || (!existing.isGUI && nextEntry.isGUI)) {
+      seen.set(exeName, nextEntry);
+    }
+  });
 
   return [...seen.values()];
 }

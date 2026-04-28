@@ -5,7 +5,7 @@
  * Loads the correct OS-specific implementation based on process.platform.
  *
  * Each platform module must implement:
- *   getProcessList()         → Promise<Array<{name: string, isGUI: boolean}>>
+ *   getProcessList()         → Promise<Array<{name: string, title: string, path: string|null, isGUI: boolean}>>
  *   getAudioInputDevices()   → Promise<string[]>
  *   findProcessExePath(exe)  → Promise<string|null>
  *   getBackendBinaryPath()   → string

@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { saveConfigAndSync } from './config-sync.js';
-import { sanitizeAppName } from './utils.js';
+import { getProcessDisplayInfo, sanitizeAppName } from './utils.js';
 import { getVMLabel, isVMItem, vmItemId } from './voicemeeter.js';
 
 // Live volume levels keyed by knobId string
@@ -354,6 +354,7 @@ function createEmptyMessage() {
 }
 
 function createAppCard(app, knobId) {
+  const display = getProcessDisplayInfo(app);
   const card = document.createElement('div');
   card.className =
     'flex items-center gap-4 mb-3 p-3 rounded border border-gray-300 hover:bg-red-100 cursor-pointer transition overflow-hidden';
@@ -365,11 +366,19 @@ function createAppCard(app, knobId) {
   icon.draggable = false;
   card.classList.add('app-card');
 
-  const label = document.createElement('div');
-  label.textContent = sanitizeAppName(app);
-  label.className = 'text-lg font-medium shrink capitalize text-wrap';
+  const textWrap = document.createElement('div');
+  textWrap.className = 'flex min-w-0 flex-col';
 
-  card.append(icon, label);
+  const label = document.createElement('div');
+  label.textContent = display.title || sanitizeAppName(app);
+  label.className = 'text-lg font-medium shrink text-wrap';
+
+  const subtitle = document.createElement('div');
+  subtitle.textContent = display.subtitle || app;
+  subtitle.className = 'text-xs text-slate-500 truncate';
+
+  textWrap.append(label, subtitle);
+  card.append(icon, textWrap);
 
   card.onclick = async () => {
     await removeAppFromKnob(knobId, app);

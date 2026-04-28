@@ -1,6 +1,7 @@
-import { state } from './state.js';
-import { sanitizeAppName } from './utils.js';
 import { VM_CHANNELS } from './voicemeeter.js';
+import { state } from './state.js';
+
+const DEFAULT_PROCESS_ICON = 'assets/icons/default.png';
 
 export async function loadProcessList() {
   state.runningProcesses = await window.api.listProcesses();
@@ -40,17 +41,59 @@ export function renderProcessSearch() {
     state.runningProcesses
       .filter((proc) => {
         if (!proc || !proc.name) return false;
-        const matchesSearch = proc.name.toLowerCase().includes(searchFilter);
+        const title = typeof proc.title === 'string' ? proc.title : '';
+        const matchesSearch =
+          proc.name.toLowerCase().includes(searchFilter) || title.toLowerCase().includes(searchFilter);
         const matchesType = typeFilter === 'all' || (typeFilter === 'gui' && proc.isGUI);
         return matchesSearch && matchesType;
       })
       .forEach((proc) => {
         const item = document.createElement('div');
-        item.textContent = sanitizeAppName(proc.name);
         item.id = `process-item-${proc.name}`;
         item.className =
-          'px-2 py-1 bg-slate-700 text-indigo-200 rounded cursor-move hover:bg-indigo-600 transition whitespace-nowrap capitalize max-h-8';
+          'flex items-center gap-2 px-2 py-1 bg-slate-700 text-indigo-200 rounded cursor-move hover:bg-indigo-600 transition overflow-hidden max-h-12 min-w-0';
         item.setAttribute('draggable', 'true');
+
+        const icon = document.createElement('img');
+        const processTitle = typeof proc.title === 'string' && proc.title.trim() ? proc.title.trim() : proc.name;
+        icon.alt = processTitle;
+        icon.className = 'w-4 h-4 shrink-0 rounded';
+        icon.draggable = false;
+        icon.src = DEFAULT_PROCESS_ICON;
+
+        const textWrap = document.createElement('div');
+        textWrap.className = 'flex flex-col min-w-0 leading-tight';
+
+        const title = document.createElement('span');
+        title.className = 'text-[10px] font-semibold truncate';
+        title.textContent = processTitle;
+
+        const subtitle = document.createElement('span');
+        subtitle.className = 'text-xs text-slate-300 truncate';
+        subtitle.textContent = proc.name;
+
+        textWrap.append(title, subtitle);
+        item.append(icon, textWrap);
+
+        const iconKey = proc.path || proc.name;
+        const cachedIcon = state.iconCache.get(iconKey) || state.iconCache.get(proc.name);
+        if (cachedIcon) {
+          icon.src = cachedIcon;
+        } else {
+          window.api
+            .getAppIcon(iconKey)
+            .then((src) => {
+              const resolved = src || DEFAULT_PROCESS_ICON;
+              state.iconCache.set(iconKey, resolved);
+              if (iconKey === proc.name) {
+                state.iconCache.set(proc.name, resolved);
+              }
+              icon.src = resolved;
+            })
+            .catch(() => {
+              icon.src = DEFAULT_PROCESS_ICON;
+            });
+        }
         item.addEventListener('dragstart', (e) => {
           state.mappingDragActive = true;
           state.mappingDragPayload = { name: proc.name };
