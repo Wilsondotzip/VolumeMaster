@@ -347,14 +347,14 @@ def main():
                     continue
                 print('STATUS:SERIAL_OK', flush=True)
 
-            if volume_cache:
-                if ser.timeout != 0:
-                    ser.timeout = 0
-            else:
-                if ser.timeout is not None:
-                    ser.timeout = None
-
             try:
+                if volume_cache:
+                    if ser.timeout != 0:
+                        ser.timeout = 0
+                else:
+                    if ser.timeout is not None:
+                        ser.timeout = None
+
                 line = ser.readline().decode().strip()
             except Exception:
                 print('ERROR:COM_PORT:Device disconnected from serial port.', flush=True)

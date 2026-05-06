@@ -122,6 +122,7 @@ function startBackend(deviceId, deviceDir) {
     const b = backends.get(deviceId);
     if (b) b.process = null;
     updateTrayImage();
+    scheduleRetry(deviceId, deviceDir);
   });
 }
 
