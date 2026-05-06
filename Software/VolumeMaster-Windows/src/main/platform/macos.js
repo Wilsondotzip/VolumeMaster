@@ -9,7 +9,7 @@ const path = require('path');
 
 /**
  * Returns a list of running processes using `ps`.
- * @returns {Promise<Array<{name: string, isGUI: boolean}>>}
+ * @returns {Promise<Array<{name: string, title: string, path: string|null, isGUI: boolean}>>}
  */
 async function getProcessList() {
   const { execFile } = require('child_process');
@@ -30,7 +30,7 @@ async function getProcessList() {
     });
 
   // macOS processes don't have a reliable "isGUI" flag from ps — default false (will need some way around this...)
-  return [...seen].map((name) => ({ name, isGUI: false }));
+  return [...seen].map((name) => ({ name, title: name, path: null, isGUI: false }));
 }
 
 /**

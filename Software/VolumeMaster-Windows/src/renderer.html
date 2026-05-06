@@ -52,6 +52,29 @@
       #alertContainer > * {
         pointer-events: auto;
       }
+      /* Responsive icon transition: fade and collapse icon under 1000px */
+      .responsive-icon {
+        display: inline-block;
+        width: 40px;
+        height: 40px;
+        min-width: 40px;
+        min-height: 40px;
+        opacity: 1;
+        overflow: hidden;
+        transition: opacity 180ms ease, width 180ms ease, margin 180ms ease, height 180ms ease;
+        flex-shrink: 0;
+      }
+      .app-card { gap: 1rem; }
+      @media (max-width: 1000px) {
+        .responsive-icon {
+          opacity: 0;
+          width: 0 !important;
+          min-width: 0 !important;
+          margin-right: 0 !important;
+          pointer-events: none;
+        }
+        .app-card { gap: 0.25rem; }
+      }
     </style>
   </head>
 

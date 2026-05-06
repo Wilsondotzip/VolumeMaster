@@ -46,7 +46,7 @@ export function renderProcessSearch() {
       })
       .forEach((proc) => {
         const item = document.createElement('div');
-        item.textContent = sanitizeAppName(proc.name);
+        item.textContent = (typeof proc.title === 'string' && proc.title.trim()) ? proc.title.trim() : sanitizeAppName(proc.name);
         item.id = `process-item-${proc.name}`;
         item.className =
           'px-2 py-1 bg-slate-700 text-indigo-200 rounded cursor-move hover:bg-indigo-600 transition whitespace-nowrap capitalize max-h-8';
