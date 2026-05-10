@@ -122,18 +122,18 @@ def build_mappings(config):
 
         apps = val.get('ProcessNames')
         if isinstance(apps, list):
-            entry['apps'] = [a.strip() for a in apps if isinstance(a, str) and a.strip()]
+            entry['apps'] = [a.strip().lower() for a in apps if isinstance(a, str) and a.strip()]
 
         vm = val.get('VoiceMeeter')
         if vm:
             if isinstance(vm, list):
-                entry['vm'] = [v.strip() for v in vm if isinstance(v, str) and v.strip()]
+                entry['vm'] = [v.strip().lower() for v in vm if isinstance(v, str) and v.strip()]
             elif isinstance(vm, str):
-                entry['vm'] = [vm.strip()]
+                entry['vm'] = [vm.strip().lower()]
 
         mics = val.get('MicNames')
         if isinstance(mics, list):
-            entry['mics'] = [m.strip() for m in mics if isinstance(m, str) and m.strip()]
+            entry['mics'] = [m.strip().lower() for m in mics if isinstance(m, str) and m.strip()]
 
         mappings[index] = entry
     return mappings
@@ -145,7 +145,7 @@ mappings = build_mappings(config)
 buttons = {
     key: val.split(';') for key, val in config.get('Buttons', {}).items() if val
 }
-volumes = {k: 0 for k in mappings}
+volumes = {}
 
 # Setup Voicemeeter if enabled
 set_input_gain = set_output_gain = set_button_toggle = None
@@ -170,7 +170,7 @@ def setup_mic_interfaces():
     wanted = set()
     for entry in mappings.values():
         for name in entry.get('mics', []):
-            wanted.add(name.lower())
+            wanted.add(name)  # Already lowercased from build_mappings
 
     if not wanted:
         return
@@ -194,8 +194,8 @@ def setup_mic_interfaces():
             print(f"Could not open mic device '{device.FriendlyName}': {e}")
 
 
-def setup_audio_interfaces():
-    global session_cache, master_volume_interface, _audio_available
+def setup_audio_interfaces(ser=None):
+    global session_cache, master_volume_interface, _audio_available, volumes
 
     try:
         sessions = AudioUtilities.GetAllSessions()
@@ -205,16 +205,36 @@ def setup_audio_interfaces():
             _audio_available = False
         return
 
-    session_cache.clear()
+    new_session_cache = {}
+    newly_opened = False
 
     for session in sessions:
         if session.Process:
             try:
                 pid = session.Process.pid
-                exe_name = session.Process.name()
-                session_cache[(pid, exe_name)] = session.SimpleAudioVolume
+                # Store the lowercase executable name immediately for fast matching
+                exe_name_lower = session.Process.name().lower()
+                key = (pid, exe_name_lower)
+                vol_interface = session.SimpleAudioVolume
+                
+                new_session_cache[key] = vol_interface
+                
+                if key not in session_cache:
+                    newly_opened = True
             except Exception:
                 pass
+
+    session_cache = new_session_cache
+
+    # If a new process was detected, request a SYNC pulse from the Arduino.
+    # We clear the volumes cache first so that the incoming values aren't
+    # ignored as duplicates, forcing the volume to apply to the new process.
+    if newly_opened and ser is not None:
+        try:
+            volumes.clear()
+            ser.write(b"SYNC\n")
+        except Exception:
+            pass
 
     if any('master' in entry.get('apps', []) for entry in mappings.values()):
         try:
@@ -240,16 +260,11 @@ def reload_config():
     try:
         old_port = config.get('comport')
 
-        mappings = {}
-        buttons = {}
-        volumes = {}
-
         config = load_config()
         mappings = build_mappings(config)
         buttons = {
             key: val.split(';') for key, val in config.get('Buttons', {}).items() if val
         }
-        volumes = {k: 0 for k in mappings}
 
         if config.get('comport') != old_port:
             _reconnect_serial = True
@@ -267,52 +282,52 @@ def process_audio_change(index, value):
 
     if 'apps' in mapping:
         for name in mapping['apps']:
-            if name.lower() == 'master' and master_volume_interface:
+            if name == 'master' and master_volume_interface:
                 try:
                     master_volume_interface.SetMasterVolumeLevelScalar(volume_scalar, None)
                 except Exception:
                     master_volume_interface = None
                 continue
 
-            target_str = name.lower()
-            for (pid, exe_name), vol_interface in list(session_cache.items()):
-                if target_str in exe_name.lower():
+            for (pid, exe_name_lower), vol_interface in list(session_cache.items()):
+                if name in exe_name_lower:
                     try:
                         vol_interface.SetMasterVolume(volume_scalar, None)
                     except Exception:
-                        session_cache.pop((pid, exe_name), None)
+                        session_cache.pop((pid, exe_name_lower), None)
 
     if 'mics' in mapping:
         for mic_name in mapping['mics']:
-            key = mic_name.lower()
-            interface = mic_interfaces.get(key)
+            interface = mic_interfaces.get(mic_name)
             if interface:
                 try:
                     interface.SetMasterVolumeLevelScalar(volume_scalar, None)
                 except Exception as e:
                     print(f"Failed to set mic volume for '{mic_name}': {e}")
-                    mic_interfaces.pop(key, None)
+                    mic_interfaces.pop(mic_name, None)
             else:
                 print(f"Mic not found in cache: '{mic_name}' — will retry on next refresh")
 
     if set_input_gain and set_output_gain and 'vm' in mapping:
         for target in mapping['vm']:
             try:
-                if target.lower().startswith('input'):
+                if target.startswith('input'):
                     set_input_gain(target.strip('Input'), value)
-                elif target.lower().startswith('output'):
+                elif target.startswith('output'):
                     set_output_gain(target.strip('Output'), value)
             except Exception as e:
                 print(f"Failed to set VoiceMeeter gain for '{target}': {e}")
 
 
 def main():
-    volumes = {}
+    global volumes
     volume_cache = deque()
     last_update_time = 0
     timeSinceLastRefresh = time.time()
     update_interval = 0.00001
     ser = None
+    sync_needed = False
+    sync_time_target = 0
 
     setup_audio_interfaces()
 
@@ -346,16 +361,32 @@ def main():
                     time.sleep(2)
                     continue
                 print('STATUS:SERIAL_OK', flush=True)
+                sync_needed = True
+                # Wait 2.5 seconds to ensure Arduino has fully initialized before sending SYNC
+                sync_time_target = time.monotonic() + 2.5
+
+            if sync_needed and ser is not None and time.monotonic() > sync_time_target:
+                sync_needed = False
+                try:
+                    # Clear volumes cache so the initial SYNC pulse values are fully 
+                    # applied to all already-open processes, bypassing deduplication
+                    volumes.clear()
+                    ser.write(b"SYNC\n")
+                except Exception:
+                    pass
 
             try:
                 if volume_cache:
                     if ser.timeout != 0:
                         ser.timeout = 0
                 else:
-                    if ser.timeout is not None:
-                        ser.timeout = None
+                    # 0.1s timeout prevents readline from blocking indefinitely, allowing background tasks to run
+                    if ser.timeout != 0.1:
+                        ser.timeout = 0.1
 
                 line = ser.readline().decode().strip()
+                if not line:
+                    pass
             except Exception:
                 print('ERROR:COM_PORT:Device disconnected from serial port.', flush=True)
                 try:
@@ -374,7 +405,7 @@ def main():
                     print("Malformed input:", line)
                     continue
 
-            elif set_button_toggle:
+            elif line and set_button_toggle:
                 if line.endswith('!='):
                     set_button_toggle(line.strip('!='), False)
                 else:
@@ -394,7 +425,7 @@ def main():
             if time.time() - timeSinceLastRefresh > 2:
                 timeSinceLastRefresh = time.time()
                 try:
-                    setup_audio_interfaces()
+                    setup_audio_interfaces(ser)
                 except Exception as e:
                     print(f'[Audio] Session refresh failed: {e}', flush=True)
 

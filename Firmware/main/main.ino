@@ -24,8 +24,7 @@ void loop() {
     knobValues[i] = checkKnob(knobPins[i], knobValues[i], i);
   }
 
-  
-
+  handleSerialInput();
 }
 
 int checkKnob(uint8_t pin, int prevVal, int index) {
@@ -114,6 +113,11 @@ void processSerialCommand(String input) {
   } else if (input.startsWith("V:")) {
     Serial.println( VERSION);
     
+  } else if (input == "SYNC") {
+    // Send current positions for all knobs to backend
+    for (int i = 0; i < knobCount; i++) {
+      sendUpdate(knobValues[i], i + 1);
+    }
   }
 }
 
