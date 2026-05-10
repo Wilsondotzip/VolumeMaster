@@ -71,15 +71,25 @@ async function getProcessList() {
 
 /**
  * Returns a list of audio input device names via Windows WASAPI.
+ * Uses PowerShell + PnP device enumeration to avoid loading PortAudio native
+ * modules (naudiodon/segfault-handler), which crash on wake from sleep.
+ * Capture endpoints have InstanceId starting with SWD\MMDEVAPI\{0.0.1 (eCapture flow).
  * @returns {Promise<string[]>}
  */
 async function getAudioInputDevices() {
-  const portAudio = require('naudiodon');
-  const devices = portAudio.getDevices();
-  const cleanDevices = devices
-    .filter((d) => d.maxInputChannels > 0 && d.hostAPIName === 'Windows WASAPI')
-    .map((d) => d.name);
-  return [...new Set(cleanDevices)];
+  try {
+    const { stdout } = await exec(
+      `powershell -NoProfile -Command "Get-PnpDevice -Class AudioEndpoint -Status OK | Where-Object {$_.InstanceId -like 'SWD\\MMDEVAPI\\{0.0.1*'} | Select-Object -ExpandProperty FriendlyName | ConvertTo-Json"`,
+      { encoding: 'utf8', timeout: 15000 }
+    );
+    const raw = stdout.trim();
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    const names = Array.isArray(parsed) ? parsed : [parsed];
+    return [...new Set(names.filter(Boolean))];
+  } catch {
+    return [];
+  }
 }
 
 /**

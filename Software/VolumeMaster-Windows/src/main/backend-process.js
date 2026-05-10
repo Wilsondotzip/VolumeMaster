@@ -11,7 +11,12 @@ const backends = new Map();
 
 function sendStatusToDevice(deviceId, type, message) {
   const win = deviceManager.getWindowForDevice(deviceId);
-  if (win) win.webContents.send('backend-status', { type, message });
+  if (!win || win.isDestroyed()) return;
+  try {
+    win.webContents.send('backend-status', { type, message });
+  } catch {
+    // Renderer may be reloading or in a crashed state (e.g. GPU reset on wake from sleep)
+  }
 }
 
 function updateTrayImage() {
@@ -58,6 +63,9 @@ function startBackend(deviceId, deviceDir) {
   backends.set(deviceId, { process: proc, retryTimeout: existing?.retryTimeout || null });
   updateTrayImage();
   sendStatusToDevice(deviceId, 'success', 'Backend started successfully.');
+
+  proc.stdout.on('error', (err) => console.error(`[${deviceId}] stdout error:`, err));
+  proc.stderr.on('error', (err) => console.error(`[${deviceId}] stderr error:`, err));
 
   proc.stdout.on('data', (data) => {
     const lines = data.toString().split(/\r?\n/);
