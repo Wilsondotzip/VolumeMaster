@@ -8,6 +8,7 @@
   "scripts": {
     "start": "electron .",
     "prebuild": "pyinstaller --onefile --noconsole --name VolumeMaster-Headless src/backend/main.pyw --distpath .",
+    "test": "pyinstaller --onefile --noconsole --name VolumeMaster-Headless src/backend/main.pyw --distpath . && move VolumeMaster-Headless.exe node_modules/electron/dist/resources/VolumeMaster-Headless.exe && electron .",
     "build": "electron-builder",
     "dist": "electron-builder",
     "build:mac": "electron-builder --mac dir"
