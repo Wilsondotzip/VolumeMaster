@@ -32,12 +32,14 @@ export function setupSubTabs() {
     subTabApps: document.getElementById('subContentApps'),
     subTabDevices: document.getElementById('subContentDevices'),
     subTabVoiceMeeter: document.getElementById('subContentVoiceMeeter'),
+    subTabCategories: document.getElementById('subContentCategories'),
   };
 
   const buttons = {
     subTabApps: document.getElementById('subTabApps'),
     subTabDevices: document.getElementById('subTabDevices'),
     subTabVoiceMeeter: document.getElementById('subTabVoiceMeeter'),
+    subTabCategories: document.getElementById('subTabCategories'),
   };
 
   Object.entries(buttons).forEach(([id, btn]) => {

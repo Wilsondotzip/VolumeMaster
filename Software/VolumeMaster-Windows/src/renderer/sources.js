@@ -1,6 +1,7 @@
 import { state } from './state.js';
 import { sanitizeAppName } from './utils.js';
 import { VM_CHANNELS } from './voicemeeter.js';
+import { CATEGORIES, CATEGORY_PREFIX } from './categories.js';
 
 export async function loadProcessList() {
   state.runningProcesses = await window.api.listProcesses();
@@ -124,6 +125,54 @@ export function renderVoiceMeeterChannels() {
 
   channels.inputs.forEach(({ id, label }) => inputList.appendChild(buildItem(id, label)));
   channels.outputs.forEach(({ id, label }) => outputList.appendChild(buildItem(id, label)));
+}
+
+export function renderCategoryList() {
+  const list = document.getElementById('categoryList');
+  if (!list) return;
+  while (list.firstChild) list.removeChild(list.firstChild);
+
+  CATEGORIES.forEach(({ id, icon, label, description }) => {
+    const dragName = `${CATEGORY_PREFIX}${id}`;
+    const card = document.createElement('div');
+    card.className =
+      'flex items-center gap-3 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg cursor-move hover:bg-emerald-700 hover:border-emerald-500 transition group';
+    card.setAttribute('draggable', 'true');
+
+    const iconEl = document.createElement('div');
+    iconEl.className =
+      'w-8 h-8 rounded-md bg-slate-600 group-hover:bg-emerald-600 flex items-center justify-center text-lg shrink-0 transition';
+    iconEl.textContent = icon;
+
+    const textWrap = document.createElement('div');
+    textWrap.className = 'flex flex-col min-w-0';
+
+    const labelEl = document.createElement('div');
+    labelEl.className = 'text-sm text-indigo-200 group-hover:text-white truncate transition font-medium';
+    labelEl.textContent = label;
+
+    const descEl = document.createElement('div');
+    descEl.className = 'text-xs text-slate-400 truncate';
+    descEl.textContent = description;
+
+    textWrap.append(labelEl, descEl);
+    card.append(iconEl, textWrap);
+
+    card.addEventListener('dragstart', (e) => {
+      state.mappingDragActive = true;
+      state.mappingDragPayload = { name: dragName };
+      e.dataTransfer.clearData();
+      e.dataTransfer.setData('text/plain', dragName);
+      e.dataTransfer.effectAllowed = 'copy';
+      card.style.opacity = '0.5';
+    });
+    card.addEventListener('dragend', () => {
+      state.mappingDragActive = false;
+      card.style.opacity = '1';
+    });
+
+    list.appendChild(card);
+  });
 }
 
 export function renderInputDeviceList() {
