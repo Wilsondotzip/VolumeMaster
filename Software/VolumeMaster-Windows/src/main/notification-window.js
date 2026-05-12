@@ -57,6 +57,8 @@ function getOrCreateWindow(cb) {
   notifWin.webContents.once('did-finish-load', () => cb(notifWin));
 }
 
+const CATEGORY_ICONS = { Games: '🎮', Browser: '🌐', Chat: '💬', Media: '🎵' };
+
 function getLabel(config, index) {
   const mapping = config.Mappings?.[index] ?? config.Mappings?.[String(index)];
   if (!mapping) return null;
@@ -65,6 +67,11 @@ function getLabel(config, index) {
     ...(mapping.ProcessNames || []),
     ...(mapping.MicNames || []),
   ].map((n) => (n === 'master' ? 'Master Volume' : n.replace(/\.exe$/i, '')));
+
+  for (const catId of (mapping.Categories || [])) {
+    const icon = CATEGORY_ICONS[catId] ?? '📦';
+    names.push(`${icon} ${catId}`);
+  }
 
   if (names.length === 0) return null;
   const joined = names.join(', ');
