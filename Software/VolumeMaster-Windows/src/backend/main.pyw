@@ -13,6 +13,58 @@ from ctypes import POINTER, cast
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
+CATEGORIES = {
+    'Games': {
+        'path_fragments': [
+            r'steamapps\common',
+            r'epic games',
+            r'gog galaxy\games',
+            r'xboxgames',
+            r'riot games',
+            r'ea games',
+            r'ubisoft\games',
+            r'battle.net',
+            r'rockstar games',
+            r'origin games',
+        ],
+        'known_names': frozenset(),
+    },
+    'Browser': {
+        'path_fragments': [],
+        'known_names': frozenset({
+            'chrome.exe', 'firefox.exe', 'msedge.exe', 'brave.exe',
+            'opera.exe', 'vivaldi.exe', 'waterfox.exe', 'librewolf.exe',
+            'palemoon.exe', 'iridium.exe',
+        }),
+    },
+    'Chat': {
+        'path_fragments': [],
+        'known_names': frozenset({
+            'discord.exe', 'slack.exe', 'teams.exe', 'telegram.exe',
+            'signal.exe', 'zoom.exe', 'skype.exe', 'webex.exe',
+            'mattermost.exe', 'wire.exe', 'element.exe', 'whatsapp.exe',
+        }),
+    },
+    'Media': {
+        'path_fragments': [],
+        'known_names': frozenset({
+            'spotify.exe', 'vlc.exe', 'foobar2000.exe', 'winamp.exe',
+            'mpc-hc64.exe', 'mpc-hc.exe', 'musicbee.exe', 'itunes.exe',
+            'plex.exe', 'aimp.exe', 'potplayermini64.exe',
+        }),
+    },
+}
+
+
+def _matches_category(exe_name_lower, path_lower, cat_name):
+    cat = CATEGORIES.get(cat_name)
+    if not cat:
+        return False
+    if exe_name_lower in cat['known_names']:
+        return True
+    return any(frag in path_lower for frag in cat['path_fragments'])
+
+
 class ConfigHandler(FileSystemEventHandler):
     def __init__(self, on_change):
         self.on_change = on_change
@@ -135,6 +187,10 @@ def build_mappings(config):
         if isinstance(mics, list):
             entry['mics'] = [m.strip().lower() for m in mics if isinstance(m, str) and m.strip()]
 
+        cats = val.get('Categories')
+        if isinstance(cats, list):
+            entry['categories'] = [c.strip() for c in cats if isinstance(c, str) and c.strip()]
+
         mappings[index] = entry
     return mappings
 
@@ -157,6 +213,7 @@ if config.get('vm'):
 atexit.register(lambda: vmr.logout() if veme else None)
 
 session_cache = {}
+session_paths = {}  # (pid, exe_name_lower) -> exe_path_lower
 master_volume_interface = None
 mic_interfaces = {}
 _audio_available = True  # tracks state so we only print on change
@@ -195,7 +252,7 @@ def setup_mic_interfaces():
 
 
 def setup_audio_interfaces(ser=None):
-    global session_cache, master_volume_interface, _audio_available, volumes
+    global session_cache, session_paths, master_volume_interface, _audio_available, volumes
 
     try:
         sessions = AudioUtilities.GetAllSessions()
@@ -206,6 +263,7 @@ def setup_audio_interfaces(ser=None):
         return
 
     new_session_cache = {}
+    new_session_paths = {}
     newly_opened = False
 
     for session in sessions:
@@ -216,15 +274,22 @@ def setup_audio_interfaces(ser=None):
                 exe_name_lower = session.Process.name().lower()
                 key = (pid, exe_name_lower)
                 vol_interface = session.SimpleAudioVolume
-                
+
                 new_session_cache[key] = vol_interface
-                
+
+                if key not in new_session_paths:
+                    try:
+                        new_session_paths[key] = session.Process.exe().lower()
+                    except Exception:
+                        new_session_paths[key] = ''
+
                 if key not in session_cache:
                     newly_opened = True
             except Exception:
                 pass
 
     session_cache = new_session_cache
+    session_paths = new_session_paths
 
     # If a new process was detected, request a SYNC pulse from the Arduino.
     # We clear the volumes cache first so that the incoming values aren't
@@ -307,6 +372,16 @@ def process_audio_change(index, value):
                     mic_interfaces.pop(mic_name, None)
             else:
                 print(f"Mic not found in cache: '{mic_name}' — will retry on next refresh")
+
+    if 'categories' in mapping:
+        for cat_name in mapping['categories']:
+            for (pid, exe_name_lower), vol_interface in list(session_cache.items()):
+                path_lower = session_paths.get((pid, exe_name_lower), '')
+                if _matches_category(exe_name_lower, path_lower, cat_name):
+                    try:
+                        vol_interface.SetMasterVolume(volume_scalar, None)
+                    except Exception:
+                        session_cache.pop((pid, exe_name_lower), None)
 
     if set_input_gain and set_output_gain and 'vm' in mapping:
         for target in mapping['vm']:
