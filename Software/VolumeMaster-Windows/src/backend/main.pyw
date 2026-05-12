@@ -312,9 +312,9 @@ def process_audio_change(index, value):
         for target in mapping['vm']:
             try:
                 if target.startswith('input'):
-                    set_input_gain(target.strip('Input'), value)
+                    set_input_gain(target.removeprefix('input'), value)
                 elif target.startswith('output'):
-                    set_output_gain(target.strip('Output'), value)
+                    set_output_gain(target.removeprefix('output'), value)
             except Exception as e:
                 print(f"Failed to set VoiceMeeter gain for '{target}': {e}")
 
