@@ -3,8 +3,16 @@ import { sanitizeAppName } from './utils.js';
 import { VM_CHANNELS } from './voicemeeter.js';
 import { CATEGORIES, CATEGORY_PREFIX } from './categories.js';
 
+export async function loadAudioSessions() {
+  const names = await window.api.listAudioSessions();
+  state.audioSessionNames = new Set(names.map((n) => n.toLowerCase()));
+}
+
 export async function loadProcessList() {
-  state.runningProcesses = await window.api.listProcesses();
+  await Promise.all([
+    window.api.listProcesses().then((p) => { state.runningProcesses = p; }),
+    loadAudioSessions(),
+  ]);
   renderProcessSearch();
 }
 
@@ -42,16 +50,41 @@ export function renderProcessSearch() {
       .filter((proc) => {
         if (!proc || !proc.name) return false;
         const matchesSearch = proc.name.toLowerCase().includes(searchFilter);
-        const matchesType = typeFilter === 'all' || (typeFilter === 'gui' && proc.isGUI);
+        const matchesType =
+          typeFilter === 'all' ||
+          (typeFilter === 'gui' && proc.isGUI) ||
+          (typeFilter === 'audio' && state.audioSessionNames.has(proc.name.toLowerCase()));
         return matchesSearch && matchesType;
       })
       .forEach((proc) => {
         const item = document.createElement('div');
-        item.textContent = (typeof proc.title === 'string' && proc.title.trim()) ? proc.title.trim() : sanitizeAppName(proc.name);
         item.id = `process-item-${proc.name}`;
         item.className =
-          'px-2 py-1 bg-slate-700 text-indigo-200 rounded cursor-move hover:bg-indigo-600 transition whitespace-nowrap capitalize max-h-8';
+          'flex items-center gap-1.5 px-2 py-1 bg-slate-700 text-indigo-200 rounded cursor-move hover:bg-indigo-600 transition whitespace-nowrap capitalize max-h-8';
         item.setAttribute('draggable', 'true');
+
+        const icon = document.createElement('img');
+        icon.className = 'w-4 h-4 rounded shrink-0';
+        icon.draggable = false;
+        icon.src = 'assets/icons/default.png';
+        icon.onerror = () => { icon.src = 'assets/icons/default.png'; };
+
+        const label = document.createElement('span');
+        label.textContent = (typeof proc.title === 'string' && proc.title.trim()) ? proc.title.trim() : sanitizeAppName(proc.name);
+
+        item.append(icon, label);
+
+        if (state.iconCache.has(proc.name)) {
+          icon.src = state.iconCache.get(proc.name);
+        } else {
+          const lookupPath = proc.path || proc.name;
+          window.api.getAppIcon(lookupPath).then((src) => {
+            const finalSrc = src || 'assets/icons/default.png';
+            state.iconCache.set(proc.name, finalSrc);
+            icon.src = finalSrc;
+          }).catch(() => {});
+        }
+
         item.addEventListener('dragstart', (e) => {
           state.mappingDragActive = true;
           state.mappingDragPayload = { name: proc.name };

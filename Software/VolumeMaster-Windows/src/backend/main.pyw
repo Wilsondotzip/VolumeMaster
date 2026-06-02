@@ -3,6 +3,8 @@ import os
 import yaml
 import serial
 import atexit
+import threading
+import queue
 from pycaw.pycaw import AudioUtilities, ISimpleAudioVolume, IAudioEndpointVolume, AudioSession
 from pycaw.constants import EDataFlow, ERole
 from comtypes import CLSCTX_ALL
@@ -12,6 +14,22 @@ from collections import deque
 from ctypes import POINTER, cast
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+
+_stdin_queue = queue.Queue()
+
+def _start_stdin_reader():
+    def _reader():
+        try:
+            for line in sys.stdin:
+                cmd = line.strip()
+                if cmd:
+                    _stdin_queue.put(cmd)
+        except Exception:
+            pass
+    t = threading.Thread(target=_reader, daemon=True)
+    t.start()
+
+_start_stdin_reader()
 
 CATEGORIES = {
     'Games': {
@@ -411,6 +429,12 @@ def main():
     try:
         while True:
             now = time.monotonic()
+
+            while not _stdin_queue.empty():
+                cmd = _stdin_queue.get_nowait()
+                if cmd == 'LIST_SESSIONS':
+                    names = list({exe for (_, exe) in session_cache.keys()})
+                    print(f"SESSIONS:{','.join(names)}", flush=True)
 
             # If comport changed via settings, close current connection and reconnect
             global _reconnect_serial
