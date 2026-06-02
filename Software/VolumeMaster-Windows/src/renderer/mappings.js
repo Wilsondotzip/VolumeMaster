@@ -2,6 +2,7 @@ import { state } from './state.js';
 import { saveConfigAndSync } from './config-sync.js';
 import { getProcessDisplayInfo, sanitizeAppName } from './utils.js';
 import { getVMLabel, isVMItem, vmItemId } from './voicemeeter.js';
+import { isCategoryItem, categoryId, getCategoryMeta, CATEGORY_PREFIX } from './categories.js';
 
 // Live volume levels keyed by knobId string
 const knobVolumes = {};
@@ -175,10 +176,11 @@ function createKnobSection(knobId) {
   const processNames = state.config.Mappings[knobId]?.ProcessNames || [];
   const micNames = state.config.Mappings[knobId]?.MicNames || [];
   const vmTargets = state.config.Mappings[knobId]?.VoiceMeeter || [];
+  const categoryTargets = state.config.Mappings[knobId]?.Categories || [];
   const apps = [...processNames, ...micNames];
 
   const version = state.config.vmversion || 'banana';
-  const hasAny = apps.length > 0 || vmTargets.length > 0;
+  const hasAny = apps.length > 0 || vmTargets.length > 0 || categoryTargets.length > 0;
 
   if (!hasAny) {
     cardHost.appendChild(createEmptyMessage());
@@ -194,6 +196,9 @@ function createKnobSection(knobId) {
     });
     vmTargets.forEach((vmId) => {
       cardHost.appendChild(createVMCard(vmId, getVMLabel(vmId, version), knobId));
+    });
+    categoryTargets.forEach((catId) => {
+      cardHost.appendChild(createCategoryCard(catId, knobId));
     });
   }
 
@@ -435,6 +440,41 @@ function createAppCard(app, knobId) {
   return card;
 }
 
+function createCategoryCard(catId, knobId) {
+  const meta = getCategoryMeta(catId);
+  const dragName = `${CATEGORY_PREFIX}${catId}`;
+  const card = document.createElement('div');
+  card.className =
+    'flex items-center gap-3 mb-3 p-3 rounded border border-emerald-600 bg-emerald-900 bg-opacity-30 hover:bg-red-900 hover:bg-opacity-30 hover:border-red-500 cursor-pointer transition overflow-hidden';
+  card.setAttribute('data-appname', dragName);
+
+  const icon = document.createElement('div');
+  icon.className =
+    'w-10 h-10 rounded bg-emerald-700 flex items-center justify-center text-xl shrink-0';
+  icon.textContent = meta?.icon ?? '📦';
+
+  const textCol = document.createElement('div');
+  textCol.className = 'flex flex-col min-w-0';
+
+  const labelEl = document.createElement('div');
+  labelEl.textContent = meta?.label ?? catId;
+  labelEl.className = 'text-sm font-semibold text-emerald-300';
+
+  const sub = document.createElement('div');
+  sub.textContent = 'Category';
+  sub.className = 'text-xs text-slate-500';
+
+  textCol.append(labelEl, sub);
+  card.append(icon, textCol);
+
+  card.onclick = async () => {
+    await removeAppFromKnob(knobId, dragName);
+    card.remove();
+  };
+
+  return card;
+}
+
 function readDroppedMappingName(dataTransfer) {
   let name = '';
   try {
@@ -475,13 +515,23 @@ async function handleDrop(event, knobId) {
     const mapping = state.config.Mappings[knobId];
     const isInputDevice = state.inputDevices.includes(droppedApp);
     const isVM = isVMItem(droppedApp);
+    const isCategory = isCategoryItem(droppedApp);
 
     if (droppedApp === 'master') {
       console.warn(`[handleDrop] Cannot drop 'master' - use Add Master Volume button`);
       return;
     }
 
-    if (isVM) {
+    if (isCategory) {
+      const catId = categoryId(droppedApp);
+      if (!Array.isArray(mapping.Categories)) mapping.Categories = [];
+      if (mapping.Categories.includes(catId)) {
+        console.warn(`[handleDrop] "${catId}" already mapped to knob ${knobId}`);
+        return;
+      }
+      mapping.Categories.push(catId);
+      configUpdated = true;
+    } else if (isVM) {
       const vmId = vmItemId(droppedApp);
       if (!Array.isArray(mapping.VoiceMeeter)) mapping.VoiceMeeter = [];
       if (mapping.VoiceMeeter.includes(vmId)) {
@@ -549,7 +599,9 @@ async function handleDrop(event, knobId) {
 
     const isVM = isVMItem(droppedApp);
     let card;
-    if (isVM) {
+    if (isCategoryItem(droppedApp)) {
+      card = createCategoryCard(categoryId(droppedApp), knobId);
+    } else if (isVM) {
       const vmId = vmItemId(droppedApp);
       const version = state.config.vmversion || 'banana';
       card = createVMCard(vmId, getVMLabel(vmId, version), knobId);
@@ -581,12 +633,31 @@ function mappingHasAnyTargets(mapping) {
   const pn = mapping.ProcessNames?.length ?? 0;
   const mn = mapping.MicNames?.length ?? 0;
   const vm = mapping.VoiceMeeter?.length ?? 0;
-  return pn > 0 || mn > 0 || vm > 0;
+  const cats = mapping.Categories?.length ?? 0;
+  return pn > 0 || mn > 0 || vm > 0 || cats > 0;
 }
 
 async function removeAppFromKnob(knobId, appName) {
   const mapping = state.config.Mappings[knobId];
   if (!mapping) return;
+
+  if (isCategoryItem(appName)) {
+    const catId = categoryId(appName);
+    if (!Array.isArray(mapping.Categories)) return;
+    const idx = mapping.Categories.indexOf(catId);
+    if (idx === -1) return;
+    mapping.Categories.splice(idx, 1);
+    await saveConfigAndSync();
+    window._autoSaveActivePreset?.();
+    const knobSection = document.getElementById(`knob-section-${knobId}`);
+    const cardHost = getKnobCardHost(knobSection);
+    const searchRoot = cardHost || knobSection;
+    if (!mappingHasAnyTargets(mapping)) {
+      const hasEmptyMsg = [...searchRoot.querySelectorAll('p')].some((p) => p.textContent === 'No apps mapped.');
+      if (!hasEmptyMsg && cardHost) cardHost.appendChild(createEmptyMessage());
+    }
+    return;
+  }
 
   let list;
   if (isVMItem(appName)) {

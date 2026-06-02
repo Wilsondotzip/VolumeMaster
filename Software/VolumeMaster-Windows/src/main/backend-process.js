@@ -9,6 +9,9 @@ const { handleVolumeChange } = require('./notification-window');
 // Map<deviceId, { process, retryTimeout }>
 const backends = new Map();
 
+// Pending LIST_SESSIONS responses: Map<deviceId, resolve>
+const sessionRequests = new Map();
+
 function sendStatusToDevice(deviceId, type, message) {
   const win = deviceManager.getWindowForDevice(deviceId);
   if (!win || win.isDestroyed()) return;
@@ -82,6 +85,13 @@ function startBackend(deviceId, deviceDir) {
         sendStatusToDevice(deviceId, 'com-port-error', trimmed.slice('ERROR:COM_PORT:'.length));
       } else if (trimmed === 'STATUS:SERIAL_OK') {
         sendStatusToDevice(deviceId, 'serial-ok', '');
+      } else if (trimmed.startsWith('SESSIONS:')) {
+        const resolve = sessionRequests.get(deviceId);
+        if (resolve) {
+          sessionRequests.delete(deviceId);
+          const names = trimmed.slice('SESSIONS:'.length).split(',').filter(Boolean);
+          resolve(names);
+        }
       } else if (trimmed.startsWith('VOLUME:')) {
         const parts = trimmed.split(':');
         if (parts.length === 3) {
@@ -159,9 +169,31 @@ function getBackendProcess(deviceId) {
   return backends.get(deviceId)?.process || null;
 }
 
+function requestAudioSessions(deviceId) {
+  return new Promise((resolve) => {
+    const proc = backends.get(deviceId)?.process;
+    if (!proc) { resolve([]); return; }
+    sessionRequests.set(deviceId, resolve);
+    try {
+      proc.stdin.write('LIST_SESSIONS\n');
+    } catch {
+      sessionRequests.delete(deviceId);
+      resolve([]);
+      return;
+    }
+    setTimeout(() => {
+      if (sessionRequests.get(deviceId) === resolve) {
+        sessionRequests.delete(deviceId);
+        resolve([]);
+      }
+    }, 2000);
+  });
+}
+
 module.exports = {
   startBackend,
   killBackend,
   killAllBackends,
   getBackendProcess,
+  requestAudioSessions,
 };

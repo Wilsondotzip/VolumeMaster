@@ -158,6 +158,12 @@
         >
           VoiceMeeter
         </button>
+        <button
+          id="subTabCategories"
+          class="pb-1.5 text-xs font-semibold text-slate-500 hover:text-indigo-400 transition"
+        >
+          Categories
+        </button>
       </div>
 
       <!-- Applications Panel -->
@@ -173,6 +179,7 @@
             id="processFilter"
             class="p-1.5 text-sm border border-slate-700 rounded bg-slate-800 text-gray-300 focus:outline-indigo-400 focus:ring-1 focus:ring-indigo-400"
           >
+            <option value="audio">Audio</option>
             <option value="gui">GUI</option>
             <option value="all">All</option>
           </select>
@@ -191,6 +198,18 @@
       >
         <div
           id="inputDeviceList"
+          class="custom-scroll flex flex-col gap-2 overflow-y-auto h-full"
+        ></div>
+      </div>
+
+      <!-- Categories Panel -->
+      <div
+        id="subContentCategories"
+        class="hidden flex flex-col shrink-0"
+        style="height: 7rem"
+      >
+        <div
+          id="categoryList"
           class="custom-scroll flex flex-col gap-2 overflow-y-auto h-full"
         ></div>
       </div>
