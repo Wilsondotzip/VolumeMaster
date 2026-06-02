@@ -3,7 +3,7 @@ const { SerialPort } = require('serialport');
 const platform = require('./platform');
 const { loadConfig, saveConfig, cloneConfigSnapshot } = require('./config-store');
 const { getAppIcon } = require('./icon-service');
-const { startBackend, killBackend, getBackendProcess } = require('./backend-process');
+const { startBackend, killBackend, getBackendProcess, requestAudioSessions } = require('./backend-process');
 const deviceManager = require('./device-manager');
 
 /** Resolves the deviceId and deviceDir for the window that sent an IPC event. */
@@ -177,6 +177,15 @@ function registerIpcHandlers() {
   ipcMain.handle('get-backend-status', (event) => {
     const { deviceId } = getDeviceContext(event);
     return !!getBackendProcess(deviceId);
+  });
+
+  ipcMain.handle('list-audio-sessions', async (event) => {
+    const { deviceId } = getDeviceContext(event);
+    try {
+      return await requestAudioSessions(deviceId);
+    } catch {
+      return [];
+    }
   });
 
   ipcMain.handle('get-last-preset', (event) => {

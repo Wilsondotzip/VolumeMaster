@@ -2,6 +2,7 @@ export const state = {
   config: { Mappings: {}, exePaths: {} },
   runningProcesses: [],
   inputDevices: [],
+  audioSessionNames: new Set(),
   iconCache: new Map(),
   /** Set during knob-mapping drags; Chromium sometimes omits dataTransfer.types on dragover. */
   mappingDragActive: false,

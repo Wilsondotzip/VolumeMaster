@@ -9,6 +9,7 @@ import {
   loadInputDevices,
   setupProcessSearchFocus,
   renderVoiceMeeterChannels,
+  renderCategoryList,
 } from './sources.js';
 import { renderAllKnobsAndApps, updateKnobVolume } from './mappings.js';
 import { setupPresets } from './presets.js';
@@ -52,6 +53,7 @@ async function bootstrapFromConfig() {
 
   await Promise.all([loadProcessList(), loadInputDevices()]);
   renderVoiceMeeterChannels();
+  renderCategoryList();
   await renderAllKnobsAndApps();
   await applyVoiceMeeterUiFromMain();
   await applyInitialBackendStatus();

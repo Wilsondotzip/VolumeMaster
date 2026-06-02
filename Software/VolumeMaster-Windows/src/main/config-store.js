@@ -35,6 +35,7 @@ function detachMappingArrays(cfg) {
     }
     m.ProcessNames = coerceNameList(m.ProcessNames);
     m.MicNames = coerceNameList(m.MicNames);
+    m.Categories = coerceNameList(m.Categories);
   }
   return cfg;
 }

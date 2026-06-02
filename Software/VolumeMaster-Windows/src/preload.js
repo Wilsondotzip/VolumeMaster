@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('api', {
   openExeDialog: () => ipcRenderer.invoke('open-exe-dialog'),
   getAppIcon: (nameOrPath) => ipcRenderer.invoke('get-app-icon', nameOrPath),
   listProcesses: () => ipcRenderer.invoke('list-processes'),
+  listAudioSessions: () => ipcRenderer.invoke('list-audio-sessions'),
   listSerialPorts: () => ipcRenderer.invoke('list-serial-ports'),
   getComPort: () => ipcRenderer.invoke('get-com-port'),
   setComPort: (port) => ipcRenderer.invoke('set-com-port', port),

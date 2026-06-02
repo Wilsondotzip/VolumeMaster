@@ -1,9 +1,18 @@
 import { state } from './state.js';
 import { sanitizeAppName } from './utils.js';
 import { VM_CHANNELS } from './voicemeeter.js';
+import { CATEGORIES, CATEGORY_PREFIX } from './categories.js';
+
+export async function loadAudioSessions() {
+  const names = await window.api.listAudioSessions();
+  state.audioSessionNames = new Set(names.map((n) => n.toLowerCase()));
+}
 
 export async function loadProcessList() {
-  state.runningProcesses = await window.api.listProcesses();
+  await Promise.all([
+    window.api.listProcesses().then((p) => { state.runningProcesses = p; }),
+    loadAudioSessions(),
+  ]);
   renderProcessSearch();
 }
 
@@ -41,16 +50,41 @@ export function renderProcessSearch() {
       .filter((proc) => {
         if (!proc || !proc.name) return false;
         const matchesSearch = proc.name.toLowerCase().includes(searchFilter);
-        const matchesType = typeFilter === 'all' || (typeFilter === 'gui' && proc.isGUI);
+        const matchesType =
+          typeFilter === 'all' ||
+          (typeFilter === 'gui' && proc.isGUI) ||
+          (typeFilter === 'audio' && state.audioSessionNames.has(proc.name.toLowerCase()));
         return matchesSearch && matchesType;
       })
       .forEach((proc) => {
         const item = document.createElement('div');
-        item.textContent = (typeof proc.title === 'string' && proc.title.trim()) ? proc.title.trim() : sanitizeAppName(proc.name);
         item.id = `process-item-${proc.name}`;
         item.className =
-          'px-2 py-1 bg-slate-700 text-indigo-200 rounded cursor-move hover:bg-indigo-600 transition whitespace-nowrap capitalize max-h-8';
+          'flex items-center gap-1.5 px-2 py-1 bg-slate-700 text-indigo-200 rounded cursor-move hover:bg-indigo-600 transition whitespace-nowrap capitalize max-h-8';
         item.setAttribute('draggable', 'true');
+
+        const icon = document.createElement('img');
+        icon.className = 'w-4 h-4 rounded shrink-0';
+        icon.draggable = false;
+        icon.src = 'assets/icons/default.png';
+        icon.onerror = () => { icon.src = 'assets/icons/default.png'; };
+
+        const label = document.createElement('span');
+        label.textContent = (typeof proc.title === 'string' && proc.title.trim()) ? proc.title.trim() : sanitizeAppName(proc.name);
+
+        item.append(icon, label);
+
+        if (state.iconCache.has(proc.name)) {
+          icon.src = state.iconCache.get(proc.name);
+        } else {
+          const lookupPath = proc.path || proc.name;
+          window.api.getAppIcon(lookupPath).then((src) => {
+            const finalSrc = src || 'assets/icons/default.png';
+            state.iconCache.set(proc.name, finalSrc);
+            icon.src = finalSrc;
+          }).catch(() => {});
+        }
+
         item.addEventListener('dragstart', (e) => {
           state.mappingDragActive = true;
           state.mappingDragPayload = { name: proc.name };
@@ -124,6 +158,54 @@ export function renderVoiceMeeterChannels() {
 
   channels.inputs.forEach(({ id, label }) => inputList.appendChild(buildItem(id, label)));
   channels.outputs.forEach(({ id, label }) => outputList.appendChild(buildItem(id, label)));
+}
+
+export function renderCategoryList() {
+  const list = document.getElementById('categoryList');
+  if (!list) return;
+  while (list.firstChild) list.removeChild(list.firstChild);
+
+  CATEGORIES.forEach(({ id, icon, label, description }) => {
+    const dragName = `${CATEGORY_PREFIX}${id}`;
+    const card = document.createElement('div');
+    card.className =
+      'flex items-center gap-3 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg cursor-move hover:bg-emerald-700 hover:border-emerald-500 transition group';
+    card.setAttribute('draggable', 'true');
+
+    const iconEl = document.createElement('div');
+    iconEl.className =
+      'w-8 h-8 rounded-md bg-slate-600 group-hover:bg-emerald-600 flex items-center justify-center text-lg shrink-0 transition';
+    iconEl.textContent = icon;
+
+    const textWrap = document.createElement('div');
+    textWrap.className = 'flex flex-col min-w-0';
+
+    const labelEl = document.createElement('div');
+    labelEl.className = 'text-sm text-indigo-200 group-hover:text-white truncate transition font-medium';
+    labelEl.textContent = label;
+
+    const descEl = document.createElement('div');
+    descEl.className = 'text-xs text-slate-400 truncate';
+    descEl.textContent = description;
+
+    textWrap.append(labelEl, descEl);
+    card.append(iconEl, textWrap);
+
+    card.addEventListener('dragstart', (e) => {
+      state.mappingDragActive = true;
+      state.mappingDragPayload = { name: dragName };
+      e.dataTransfer.clearData();
+      e.dataTransfer.setData('text/plain', dragName);
+      e.dataTransfer.effectAllowed = 'copy';
+      card.style.opacity = '0.5';
+    });
+    card.addEventListener('dragend', () => {
+      state.mappingDragActive = false;
+      card.style.opacity = '1';
+    });
+
+    list.appendChild(card);
+  });
 }
 
 export function renderInputDeviceList() {
