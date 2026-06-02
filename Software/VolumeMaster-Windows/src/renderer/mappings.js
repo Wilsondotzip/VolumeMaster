@@ -164,7 +164,7 @@ function createKnobSection(knobId) {
     'bg-slate-800 rounded-lg shadow p-3 flex min-h-0 min-w-0 flex-1 flex-col border border-slate-700';
 
   section.appendChild(createKnobHeader(knobId));
-  section.appendChild(createMasterVolumeButton(knobId));
+  section.appendChild(createButtonRow(knobId));
 
   const cardHost = document.createElement('div');
   cardHost.setAttribute('data-knob-card-host', '');
@@ -201,26 +201,30 @@ function createKnobSection(knobId) {
   return section;
 }
 
-function createMasterVolumeButton(knobId) {
-  const button = document.createElement('button');
+function createButtonRow(knobId) {
+  const row = document.createElement('div');
+  row.className = 'flex gap-2 mb-3';
+
+  const masterBtn = document.createElement('button');
   const apps = state.config.Mappings[knobId]?.ProcessNames || [];
-  const hasMasterVolume = apps.includes('master');
+  masterBtn.textContent = 'Master Volume';
+  masterBtn.setAttribute('data-action', 'add-master');
+  masterBtn.type = 'button';
+  masterBtn.className =
+    'flex-1 py-2 px-3 text-sm font-medium rounded transition bg-indigo-600 hover:bg-indigo-700 text-white';
+  if (apps.includes('master')) masterBtn.style.display = 'none';
+  masterBtn.onclick = () => addMasterVolume(knobId);
 
-  button.textContent = 'Add Master Volume';
-  button.setAttribute('data-action', 'add-master');
-  button.type = 'button';
-  button.className =
-    'w-full mb-3 py-2 px-3 text-sm font-medium rounded transition bg-indigo-600 hover:bg-indigo-700 text-white';
+  const browseBtn = document.createElement('button');
+  browseBtn.type = 'button';
+  browseBtn.title = 'Add custom executable';
+  browseBtn.className =
+    'py-2 px-3 text-sm font-medium rounded transition bg-slate-700 hover:bg-slate-600 text-slate-300 shrink-0';
+  browseBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`;
+  browseBtn.onclick = () => addCustomExe(knobId);
 
-  if (hasMasterVolume) {
-    button.style.display = 'none';
-  }
-
-  button.onclick = async () => {
-    await addMasterVolume(knobId);
-  };
-
-  return button;
+  row.append(masterBtn, browseBtn);
+  return row;
 }
 
 function createVolumeCard(knobId, iconText, labelTest) {
@@ -246,6 +250,35 @@ function createVolumeCard(knobId, iconText, labelTest) {
   };
 
   return card;
+}
+
+async function addCustomExe(knobId) {
+  const exePath = await window.api.openExeDialog();
+  if (!exePath) return;
+
+  const basename = exePath.split(/[\\/]/).pop();
+  const nameLower = basename.toLowerCase();
+
+  if (!state.config.Mappings[knobId]) {
+    state.config.Mappings[knobId] = { ProcessNames: [], MicNames: [] };
+  }
+  const mapping = state.config.Mappings[knobId];
+  if (!Array.isArray(mapping.ProcessNames)) mapping.ProcessNames = [];
+  if (mapping.ProcessNames.includes(basename)) return;
+
+  if (!state.config.exePaths) state.config.exePaths = {};
+  state.config.exePaths[nameLower] = exePath;
+
+  mapping.ProcessNames.push(basename);
+  await saveConfigAndSync();
+  window._autoSaveActivePreset?.();
+
+  const knobSection = document.getElementById(`knob-section-${knobId}`);
+  if (!knobSection) return;
+  const cardHost = getKnobCardHost(knobSection);
+  const emptyMsg = cardHost?.querySelector('p');
+  if (emptyMsg?.textContent === 'No apps mapped.') emptyMsg.remove();
+  if (cardHost) cardHost.appendChild(createAppCard(basename, knobId));
 }
 
 async function addMasterVolume(knobId) {
