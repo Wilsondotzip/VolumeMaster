@@ -239,6 +239,10 @@ final class Backend {
             appVolume.setVolumes(targets: appTargets, value: value)
         }
 
+        if !mapping.categories.isEmpty {
+            appVolume.setVolumesForCategories(mapping.categories, value: value)
+        }
+
         for micName in mapping.mics {
             let key = micName.lowercased()
             if let device = micDevices[key] {

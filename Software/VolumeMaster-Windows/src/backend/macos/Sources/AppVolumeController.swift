@@ -19,6 +19,7 @@ final class AppVolumeController {
     private struct RunningApp {
         let name: String
         let bundleID: String
+        let bundlePath: String
     }
 
     // bundle id → compiled script exposing a setvol(v) handler
@@ -36,7 +37,8 @@ final class AppVolumeController {
     func refreshRunningApps() {
         runningApps = NSWorkspace.shared.runningApplications.compactMap { app in
             guard let name = app.localizedName, let bundleID = app.bundleIdentifier else { return nil }
-            return RunningApp(name: name, bundleID: bundleID)
+            let bundlePath = app.bundleURL?.path ?? ""
+            return RunningApp(name: name, bundleID: bundleID, bundlePath: bundlePath)
         }
         detectFineTune()
     }
@@ -88,6 +90,26 @@ final class AppVolumeController {
             sendFineTuneVolumes(bundleIDs: apps.map { $0.bundleID }, value: value)
         } else {
             applyViaAppleScript(apps: apps, value: value)
+        }
+    }
+
+    /// Applies `value` (0–100) to every running app that matches any of the
+    /// given category names (e.g. "Games", "Browser", "Chat", "Media").
+    func setVolumesForCategories(_ categories: [String], value: Int) {
+        var matched: [RunningApp] = []
+        var seen = Set<String>()
+        for app in runningApps {
+            guard seen.insert(app.bundleID).inserted else { continue }
+            for cat in categories where matchesCategory(bundleID: app.bundleID, bundlePath: app.bundlePath, categoryName: cat) {
+                matched.append(app)
+                break
+            }
+        }
+        guard !matched.isEmpty else { return }
+        if fineTuneInstalled {
+            sendFineTuneVolumes(bundleIDs: matched.map { $0.bundleID }, value: value)
+        } else {
+            applyViaAppleScript(apps: matched, value: value)
         }
     }
 

@@ -4,6 +4,7 @@ import Yams
 struct MappingEntry {
     var apps: [String] = []
     var mics: [String] = []
+    var categories: [String] = []
 }
 
 struct Config {
@@ -42,6 +43,10 @@ struct Config {
                 }
                 if let mics = entry["MicNames"] as? [Any] {
                     mapping.mics = mics.compactMap { ($0 as? String)?.trimmingCharacters(in: .whitespaces) }
+                        .filter { !$0.isEmpty }
+                }
+                if let cats = entry["Categories"] as? [Any] {
+                    mapping.categories = cats.compactMap { ($0 as? String)?.trimmingCharacters(in: .whitespaces) }
                         .filter { !$0.isEmpty }
                 }
                 config.mappings[index] = mapping
