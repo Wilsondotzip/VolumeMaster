@@ -208,6 +208,7 @@ final class Backend {
         guard let mapping = config.mappings[index] else { return }
         let scalar = Float32(value) / 100
 
+        var appTargets: [String] = []
         for name in mapping.apps {
             if name.lowercased() == "master" {
                 if let device = masterDevice {
@@ -215,7 +216,12 @@ final class Backend {
                 }
                 continue
             }
-            appVolume.setVolume(target: name, value: value)
+            appTargets.append(name)
+        }
+        if !appTargets.isEmpty {
+            // Batched: with FineTune installed this becomes a single
+            // finetune://set-volumes URL for the whole knob group
+            appVolume.setVolumes(targets: appTargets, value: value)
         }
 
         for micName in mapping.mics {
