@@ -42,6 +42,8 @@ contextBridge.exposeInMainWorld('api', {
   renameDevice: (name) => ipcRenderer.invoke('rename-device', name),
   createDevice: (name) => ipcRenderer.invoke('create-device', name),
   removeDevice: () => ipcRenderer.invoke('remove-device'),
+
+  onWindowHidden: (callback) => ipcRenderer.on('window-hidden', () => callback()),
 });
 
 

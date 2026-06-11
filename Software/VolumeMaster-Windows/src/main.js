@@ -7,6 +7,8 @@ if (process.platform === 'win32') {
   app.commandLine.appendSwitch('disable-features', 'AllowNativeOleApiForDragDrop');
 }
 
+app.commandLine.appendSwitch('js-flags', '--expose-gc');
+
 const platform = require('./main/platform');
 const { createWindow } = require('./main/window');
 const { createTray } = require('./main/tray');

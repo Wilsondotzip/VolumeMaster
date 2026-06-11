@@ -36,6 +36,10 @@ function createWindow(deviceId) {
   win.on('minimize', (event) => {
     event.preventDefault();
     win.hide();
+    win.webContents.send('window-hidden');
+    win.webContents.session.clearCache().catch(() => {});
+    win.webContents.executeJavaScript('gc()').catch(() => {});
+    if (global.gc) global.gc();
   });
 
   win.on('close', () => {

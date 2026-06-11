@@ -63,6 +63,7 @@ async function bootstrapFromConfig() {
 
 function init() {
   window.api.onVolumeUpdate(({ index, value }) => updateKnobVolume(index, value));
+  window.api.onWindowHidden(() => { state.iconCache.clear(); });
   setupTabs();
   setupSubTabs();
   setupComPortListeners();
