@@ -5,3 +5,4 @@ release/
 VolumeMaster-Headless.exe
 VolumeMaster-Headless.spec
 build
+src/backend/macos/.build/

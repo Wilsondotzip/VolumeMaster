@@ -11,6 +11,7 @@
     "test": "pyinstaller --onefile --noconsole --name VolumeMaster-Headless src/backend/main.pyw --distpath . && move VolumeMaster-Headless.exe node_modules/electron/dist/resources/VolumeMaster-Headless.exe && electron .",
     "build": "electron-builder",
     "dist": "electron-builder",
+    "prebuild:mac": "cd src/backend/macos && swift build -c release",
     "build:mac": "electron-builder --mac dir"
   },
   "build": {
@@ -23,6 +24,7 @@
       "renderer.html",
       "config.yaml",
       "VolumeMaster-Headless.exe",
+      "!src/backend/macos/.build",
       "!**/node_modules/@tailwindcss/oxide-wasm32-wasi",
       "!**/node_modules/@emnapi",
       "!**/node_modules/@esbuild"
@@ -42,7 +44,13 @@
     },
     "mac": {
       "target": "dir",
-      "icon": "src/assets/icons/icon.icns"
+      "icon": "src/assets/icons/icon.icns",
+      "extraResources": [
+        {
+          "from": "src/backend/macos/.build/release/VolumeMaster-Headless",
+          "to": "VolumeMaster-Headless"
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,
