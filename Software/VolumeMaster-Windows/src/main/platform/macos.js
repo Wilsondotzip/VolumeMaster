@@ -97,6 +97,48 @@ function getBackendBinaryPath() {
   return path.join(__dirname, '..', '..', 'backend', 'macos', '.build', 'release', BACKEND_NAME);
 }
 
+// Cap concurrent icon extractions: the renderer requests icons for every
+// visible process at once, and each extraction spawns a helper process.
+const MAX_ICON_JOBS = 4;
+let activeIconJobs = 0;
+const iconJobQueue = [];
+
+function nextIconJob() {
+  if (activeIconJobs >= MAX_ICON_JOBS) return;
+  const job = iconJobQueue.shift();
+  if (!job) return;
+  activeIconJobs++;
+  job().finally(() => {
+    activeIconJobs--;
+    nextIconJob();
+  });
+}
+
+/**
+ * Extracts a file's Finder icon as a PNG buffer via the backend binary
+ * (NSWorkspace). Electron's app.getFileIcon crashes the main process with
+ * SIGTRAP on recent macOS versions, so it must not be used here.
+ * @param {string} resolvedPath
+ * @returns {Promise<Buffer|null>}
+ */
+function extractIconPNG(resolvedPath) {
+  return new Promise((resolve) => {
+    iconJobQueue.push(async () => {
+      try {
+        const { stdout } = await execFileAsync(
+          getBackendBinaryPath(),
+          ['--app-icon', resolvedPath],
+          { encoding: 'buffer', timeout: 10000, maxBuffer: 5 * 1024 * 1024 }
+        );
+        resolve(stdout && stdout.length ? stdout : null);
+      } catch {
+        resolve(null);
+      }
+    });
+    nextIconJob();
+  });
+}
+
 /**
  * Force-kills all backend processes. Used on startup and as a fallback on quit.
  * Safe to call even if no processes are running.
@@ -115,4 +157,5 @@ module.exports = {
   findProcessExePath,
   getBackendBinaryPath,
   forceKillAllBackends,
+  extractIconPNG,
 };

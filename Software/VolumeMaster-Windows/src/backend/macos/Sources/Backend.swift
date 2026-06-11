@@ -41,6 +41,11 @@ final class Backend {
             return
         }
 
+        if let flagIndex = CommandLine.arguments.firstIndex(of: "--app-icon"),
+           CommandLine.arguments.count > flagIndex + 1 {
+            exit(IconTool.writePNG(for: CommandLine.arguments[flagIndex + 1]))
+        }
+
         do {
             config = try Config.load(path: configPath)
         } catch {

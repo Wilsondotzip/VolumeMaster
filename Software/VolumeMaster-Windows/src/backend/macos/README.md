@@ -41,3 +41,7 @@ controlled, macOS shows an Automation permission prompt that must be accepted.
 `VolumeMaster-Headless --list-inputs` prints CoreAudio input device names one
 per line; the Electron settings UI uses this for the mic picker so names match
 exactly what the backend matches against.
+
+`VolumeMaster-Headless --app-icon <path>` writes the file's Finder icon as a
+64×64 PNG to stdout. The Electron app uses this for process icons because
+`app.getFileIcon` crashes Electron's main process on recent macOS versions.
