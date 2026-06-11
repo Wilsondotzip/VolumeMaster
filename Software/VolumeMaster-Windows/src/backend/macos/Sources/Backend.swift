@@ -22,6 +22,7 @@ final class Backend {
     private var reconnectSerial = false
 
     private let appVolume = AppVolumeController()
+    private let stdinReader = StdinCommandReader()
     private var masterDevice: AudioDeviceID?
     private var micDevices: [String: AudioDeviceID] = [:] // lowercased wanted name → device
     private var audioAvailable = true
@@ -69,11 +70,15 @@ final class Backend {
             if !serial.isOpen {
                 if !connectSerial() {
                     refreshAudioIfDue()
-                    Thread.sleep(forTimeInterval: 2)
+                    // Wait on stdin instead of sleeping so LIST_SESSIONS
+                    // requests are still answered while serial is down
+                    handleCommands(stdinReader.readLines(timeoutMs: 2000))
                     continue
                 }
                 emit("STATUS:SERIAL_OK")
             }
+
+            handleCommands(stdinReader.readLines(timeoutMs: 0))
 
             let lines: [String]
             do {
@@ -106,6 +111,16 @@ final class Backend {
             }
 
             refreshAudioIfDue()
+        }
+    }
+
+    // MARK: - Stdin commands
+
+    /// Commands Electron writes to stdin, mirroring the Windows backend:
+    /// LIST_SESSIONS → SESSIONS:<comma-separated names of apps playing audio>
+    private func handleCommands(_ commands: [String]) {
+        for command in commands where command == "LIST_SESSIONS" {
+            emit("SESSIONS:" + AudioSessions.activeOutputNames().joined(separator: ","))
         }
     }
 

@@ -24,6 +24,7 @@ it into the app's Resources directory.
 | Mic volume (`MicNames`) | WASAPI capture endpoints | CoreAudio input devices (substring match) |
 | Per-app volume (`ProcessNames`) | WASAPI audio sessions | FineTune URL scheme, AppleScript fallback |
 | Voicemeeter | voicemeeter-remote | Not available — warned and ignored |
+| Audio session list (`LIST_SESSIONS`) | WASAPI sessions | Core Audio process objects (macOS 14.4+) |
 | config.yaml live reload | watchdog | mtime polling (0.5s) |
 
 ### Per-app volume
@@ -58,3 +59,9 @@ exactly what the backend matches against.
 `VolumeMaster-Headless --app-icon <path>` writes the file's Finder icon as a
 64×64 PNG to stdout. The Electron app uses this for process icons because
 `app.getFileIcon` crashes Electron's main process on recent macOS versions.
+
+Writing `LIST_SESSIONS` to stdin answers with `SESSIONS:<names>` — the apps
+currently playing audio, via the Core Audio process objects API (macOS 14.4+,
+the same discovery mechanism FineTune uses). Helper processes are reported as
+their parent .app's executable so names match the UI process list. This powers
+the "Audio" option in the process search filter.
