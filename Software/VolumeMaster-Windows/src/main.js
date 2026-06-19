@@ -69,7 +69,9 @@ if (!gotLock) {
 
   app.on('will-quit', (event) => {
     event.preventDefault();
-    Promise.all([killAllBackends(), stopPluginServer(), killManagedPlugins()]).finally(() => app.exit(0));
+    const safetyNet = setTimeout(() => app.exit(0), 5000);
+    Promise.all([killAllBackends(), stopPluginServer(), killManagedPlugins()])
+      .finally(() => { clearTimeout(safetyNet); app.exit(0); });
   });
 }
 

@@ -95,6 +95,10 @@ function startPluginServer() {
 function stopPluginServer() {
   return new Promise((resolve) => {
     if (!wss) { resolve(); return; }
+    // Forcibly terminate all open connections so wss.close() doesn't wait for graceful handshakes
+    for (const socket of wss.clients) {
+      try { socket.terminate(); } catch {}
+    }
     wss.close(() => {
       wss = null;
       resolve();

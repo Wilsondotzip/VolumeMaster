@@ -70,8 +70,9 @@ function killManagedPlugins() {
     const proc = entry.process;
     if (!proc) continue;
     kills.push(new Promise((resolve) => {
-      proc.once('close', resolve);
-      try { proc.kill(); } catch { resolve(); }
+      const timer = setTimeout(resolve, 3000);
+      proc.once('close', () => { clearTimeout(timer); resolve(); });
+      try { proc.kill(); } catch { clearTimeout(timer); resolve(); }
     }));
     entry.process = null;
   }
