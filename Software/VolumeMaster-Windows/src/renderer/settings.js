@@ -89,7 +89,7 @@ function renderManagedPlugin({ id, path, running }) {
 
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
-  removeBtn.textContent = 'Remove';
+  removeBtn.textContent = 'Delete';
   removeBtn.className = 'text-xs text-slate-400 hover:text-red-400 transition shrink-0';
   removeBtn.onclick = async () => {
     await window.api.removeManagedPlugin(id);

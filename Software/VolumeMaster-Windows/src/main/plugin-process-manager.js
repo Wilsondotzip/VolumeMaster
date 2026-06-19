@@ -10,6 +10,10 @@ function pluginsFilePath() {
   return path.join(app.getPath('userData'), 'plugins.json');
 }
 
+function pluginDir(id) {
+  return path.join(app.getPath('userData'), 'plugins', id);
+}
+
 function loadPluginList() {
   try {
     const raw = fs.readFileSync(pluginsFilePath(), 'utf8');
@@ -76,11 +80,18 @@ function killManagedPlugins() {
 
 function addManagedPlugin(exePath) {
   const id = crypto.randomBytes(8).toString('hex');
+
+  // Copy into the central plugins folder so moving/deleting the original doesn't break it
+  const destDir = pluginDir(id);
+  fs.mkdirSync(destDir, { recursive: true });
+  const destPath = path.join(destDir, path.basename(exePath));
+  fs.copyFileSync(exePath, destPath);
+
   const list = loadPluginList();
-  list.push({ id, path: exePath });
+  list.push({ id, path: destPath });
   savePluginList(list);
-  spawnPlugin(id, exePath);
-  return { id, path: exePath, running: processes.get(id)?.process != null };
+  spawnPlugin(id, destPath);
+  return { id, path: destPath, running: processes.get(id)?.process != null };
 }
 
 function removeManagedPlugin(id) {
@@ -91,6 +102,13 @@ function removeManagedPlugin(id) {
   }
   processes.delete(id);
   savePluginList(loadPluginList().filter((p) => p.id !== id));
+
+  // Delete the plugin's folder from disk
+  try {
+    fs.rmSync(pluginDir(id), { recursive: true, force: true });
+  } catch (err) {
+    console.error(`[plugin-process] Failed to delete plugin folder for ${id}:`, err.message);
+  }
 }
 
 function getManagedPlugins() {
