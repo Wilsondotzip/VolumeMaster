@@ -42,8 +42,17 @@ function createWindow(deviceId) {
     if (global.gc) global.gc();
   });
 
-  win.on('close', () => {
+  win.on('close', (event) => {
     const { app } = require('electron');
+    // On macOS the app lives in the menu bar: closing a window hides it to the
+    // tray rather than quitting, so the tray icon stays available. Quitting
+    // happens only via the tray's Quit item (which sets app.isQuiting first).
+    if (process.platform === 'darwin' && !app.isQuiting) {
+      event.preventDefault();
+      win.hide();
+      win.webContents.send('window-hidden');
+      return;
+    }
     app.isQuiting = true;
     app.quit();
   });
