@@ -5,6 +5,8 @@ const platform = require('./platform');
 const { setTrayImageNormal, setTrayImageCrashed } = require('./tray');
 const deviceManager = require('./device-manager');
 const { handleVolumeChange } = require('./notification-window');
+const { dispatchKnobEvent } = require('./plugin-server');
+const { loadConfig } = require('./config-store');
 
 // Map<deviceId, { process, retryTimeout }>
 const backends = new Map();
@@ -100,6 +102,7 @@ function startBackend(deviceId, deviceDir) {
           const win = deviceManager.getWindowForDevice(deviceId);
           if (win) win.webContents.send('volume-update', { index, value });
           handleVolumeChange(deviceId, deviceDir, index, value);
+          dispatchKnobEvent(deviceId, index, value, loadConfig(deviceDir));
         }
       } else {
         sendStatusToDevice(deviceId, 'info', `[Backend] ${trimmed}`);

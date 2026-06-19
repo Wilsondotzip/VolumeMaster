@@ -3,6 +3,7 @@ import { saveConfigAndSync } from './config-sync.js';
 import { getProcessDisplayInfo, sanitizeAppName } from './utils.js';
 import { getVMLabel, isVMItem, vmItemId } from './voicemeeter.js';
 import { isCategoryItem, categoryId, getCategoryMeta, CATEGORY_PREFIX } from './categories.js';
+import { isPluginItem, pluginItemParts, pluginActionKey, pluginDragName, PLUGIN_PREFIX } from './plugins.js';
 
 // Live volume levels keyed by knobId string
 const knobVolumes = {};
@@ -177,10 +178,11 @@ function createKnobSection(knobId) {
   const micNames = state.config.Mappings[knobId]?.MicNames || [];
   const vmTargets = state.config.Mappings[knobId]?.VoiceMeeter || [];
   const categoryTargets = state.config.Mappings[knobId]?.Categories || [];
+  const pluginActionTargets = state.config.Mappings[knobId]?.PluginActions || [];
   const apps = [...processNames, ...micNames];
 
   const version = state.config.vmversion || 'banana';
-  const hasAny = apps.length > 0 || vmTargets.length > 0 || categoryTargets.length > 0;
+  const hasAny = apps.length > 0 || vmTargets.length > 0 || categoryTargets.length > 0 || pluginActionTargets.length > 0;
 
   if (!hasAny) {
     cardHost.appendChild(createEmptyMessage());
@@ -199,6 +201,9 @@ function createKnobSection(knobId) {
     });
     categoryTargets.forEach((catId) => {
       cardHost.appendChild(createCategoryCard(catId, knobId));
+    });
+    pluginActionTargets.forEach((actionKey) => {
+      cardHost.appendChild(createPluginActionCard(actionKey, knobId));
     });
   }
 
@@ -516,13 +521,24 @@ async function handleDrop(event, knobId) {
     const isInputDevice = state.inputDevices.includes(droppedApp);
     const isVM = isVMItem(droppedApp);
     const isCategory = isCategoryItem(droppedApp);
+    const isPlugin = isPluginItem(droppedApp);
 
     if (droppedApp === 'master') {
       console.warn(`[handleDrop] Cannot drop 'master' - use Add Master Volume button`);
       return;
     }
 
-    if (isCategory) {
+    if (isPlugin) {
+      const { pluginId, actionId } = pluginItemParts(droppedApp);
+      const key = pluginActionKey(pluginId, actionId);
+      if (!Array.isArray(mapping.PluginActions)) mapping.PluginActions = [];
+      if (mapping.PluginActions.includes(key)) {
+        console.warn(`[handleDrop] "${key}" already mapped to knob ${knobId}`);
+        return;
+      }
+      mapping.PluginActions.push(key);
+      configUpdated = true;
+    } else if (isCategory) {
       const catId = categoryId(droppedApp);
       if (!Array.isArray(mapping.Categories)) mapping.Categories = [];
       if (mapping.Categories.includes(catId)) {
@@ -599,7 +615,10 @@ async function handleDrop(event, knobId) {
 
     const isVM = isVMItem(droppedApp);
     let card;
-    if (isCategoryItem(droppedApp)) {
+    if (isPluginItem(droppedApp)) {
+      const { pluginId, actionId } = pluginItemParts(droppedApp);
+      card = createPluginActionCard(pluginActionKey(pluginId, actionId), knobId);
+    } else if (isCategoryItem(droppedApp)) {
       card = createCategoryCard(categoryId(droppedApp), knobId);
     } else if (isVM) {
       const vmId = vmItemId(droppedApp);
@@ -629,17 +648,74 @@ async function getAppIconForApp(app) {
   return fallback || 'assets/icons/default.png';
 }
 
+function createPluginActionCard(actionKey, knobId) {
+  const dragName = `${PLUGIN_PREFIX}${actionKey}`;
+  const card = document.createElement('div');
+  card.className =
+    'flex items-center gap-3 mb-3 p-3 rounded border border-cyan-600 bg-cyan-900 bg-opacity-30 hover:bg-red-900 hover:bg-opacity-30 hover:border-red-500 cursor-pointer transition overflow-hidden';
+  card.setAttribute('data-appname', dragName);
+
+  const icon = document.createElement('div');
+  icon.className = 'w-10 h-10 rounded bg-cyan-700 flex items-center justify-center text-xl shrink-0';
+  icon.textContent = '🔌';
+
+  const textCol = document.createElement('div');
+  textCol.className = 'flex flex-col min-w-0';
+
+  const { pluginId, actionId } = pluginItemParts(dragName);
+  const plugin = state.pluginActions.find((p) => p.pluginId === pluginId);
+  const action = plugin?.actions.find((a) => a.id === actionId);
+
+  const labelEl = document.createElement('div');
+  labelEl.textContent = action?.label ?? actionKey;
+  labelEl.className = 'text-sm font-semibold text-cyan-300';
+
+  const sub = document.createElement('div');
+  sub.textContent = plugin ? plugin.name : `${pluginId} (offline)`;
+  sub.className = 'text-xs text-slate-500';
+
+  textCol.append(labelEl, sub);
+  card.append(icon, textCol);
+
+  card.onclick = async () => {
+    await removeAppFromKnob(knobId, dragName);
+    card.remove();
+  };
+
+  return card;
+}
+
 function mappingHasAnyTargets(mapping) {
   const pn = mapping.ProcessNames?.length ?? 0;
   const mn = mapping.MicNames?.length ?? 0;
   const vm = mapping.VoiceMeeter?.length ?? 0;
   const cats = mapping.Categories?.length ?? 0;
-  return pn > 0 || mn > 0 || vm > 0 || cats > 0;
+  const plugins = mapping.PluginActions?.length ?? 0;
+  return pn > 0 || mn > 0 || vm > 0 || cats > 0 || plugins > 0;
 }
 
 async function removeAppFromKnob(knobId, appName) {
   const mapping = state.config.Mappings[knobId];
   if (!mapping) return;
+
+  if (isPluginItem(appName)) {
+    const { pluginId, actionId } = pluginItemParts(appName);
+    const key = pluginActionKey(pluginId, actionId);
+    if (!Array.isArray(mapping.PluginActions)) return;
+    const idx = mapping.PluginActions.indexOf(key);
+    if (idx === -1) return;
+    mapping.PluginActions.splice(idx, 1);
+    await saveConfigAndSync();
+    window._autoSaveActivePreset?.();
+    const knobSection = document.getElementById(`knob-section-${knobId}`);
+    const cardHost = getKnobCardHost(knobSection);
+    const searchRoot = cardHost || knobSection;
+    if (!mappingHasAnyTargets(mapping)) {
+      const hasEmptyMsg = [...searchRoot.querySelectorAll('p')].some((p) => p.textContent === 'No apps mapped.');
+      if (!hasEmptyMsg && cardHost) cardHost.appendChild(createEmptyMessage());
+    }
+    return;
+  }
 
   if (isCategoryItem(appName)) {
     const catId = categoryId(appName);

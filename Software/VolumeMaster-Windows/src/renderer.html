@@ -164,6 +164,12 @@
         >
           Categories
         </button>
+        <button
+          id="subTabPlugins"
+          class="pb-1.5 text-xs font-semibold text-slate-500 hover:text-indigo-400 transition"
+        >
+          Plugins
+        </button>
       </div>
 
       <!-- Applications Panel -->
@@ -210,6 +216,18 @@
       >
         <div
           id="categoryList"
+          class="custom-scroll flex flex-col gap-2 overflow-y-auto h-full"
+        ></div>
+      </div>
+
+      <!-- Plugins Panel -->
+      <div
+        id="subContentPlugins"
+        class="hidden flex flex-col shrink-0"
+        style="height: 7rem"
+      >
+        <div
+          id="pluginActionList"
           class="custom-scroll flex flex-col gap-2 overflow-y-auto h-full"
         ></div>
       </div>
@@ -433,6 +451,40 @@
         </label>
         <p class="text-xs text-slate-500 mt-2">
           Show a popup when a knob's volume changes by more than 2 units.
+        </p>
+      </div>
+      <div class="bg-slate-800 rounded-lg shadow p-4 border border-slate-700">
+        <h2 class="text-lg font-semibold text-indigo-400 mb-4">Managed Plugins</h2>
+        <div id="managedPluginList" class="flex flex-col gap-2 mb-3"></div>
+        <button
+          id="addManagedPluginBtn"
+          class="w-full py-2 px-3 text-sm bg-slate-700 hover:bg-slate-600 text-gray-300 rounded transition font-medium"
+        >
+          + Add Plugin...
+        </button>
+        <p class="text-xs text-slate-500 mt-2">
+          VolumeMaster will automatically start and stop these plugins with the app.
+        </p>
+      </div>
+
+      <div class="bg-slate-800 rounded-lg shadow p-4 border border-slate-700">
+        <h2 class="text-lg font-semibold text-indigo-400 mb-4">Plugin API</h2>
+        <p
+          id="pluginServerError"
+          class="hidden text-xs text-red-400 bg-red-900 bg-opacity-30 border border-red-700 rounded px-3 py-2 mb-3"
+        ></p>
+        <div id="pluginServerStats">
+          <div class="flex items-center justify-between text-sm text-gray-300 mb-1">
+            <span>WebSocket port</span>
+            <span id="pluginServerPort" class="font-mono text-indigo-300">59284</span>
+          </div>
+          <div class="flex items-center justify-between text-sm text-gray-300">
+            <span>Connected plugins</span>
+            <span id="pluginConnectedCount" class="font-mono text-indigo-300">0</span>
+          </div>
+        </div>
+        <p class="text-xs text-slate-500 mt-2">
+          External plugins connect via WebSocket on localhost. Register actions and receive knob events in any language.
         </p>
       </div>
     </div>

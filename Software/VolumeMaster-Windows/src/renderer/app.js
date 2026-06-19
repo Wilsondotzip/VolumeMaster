@@ -3,7 +3,7 @@ import { cloneConfig } from './config-sync.js';
 import { setupTabs, setupSubTabs } from './tabs.js';
 import { refreshComPortListPreservingSelection, setupComPortListeners } from './com-port.js';
 import { loadAutoStartState, setupAutoStartListener } from './autostart.js';
-import { setupSettingsListeners, applyVoiceMeeterUiFromMain, applyInitialBackendStatus, applyNotificationSettings } from './settings.js';
+import { setupSettingsListeners, applyVoiceMeeterUiFromMain, applyInitialBackendStatus, applyNotificationSettings, applyPluginSettingsInfo, applyManagedPluginsInfo, setupManagedPluginsListeners } from './settings.js';
 import {
   loadProcessList,
   loadInputDevices,
@@ -11,6 +11,7 @@ import {
   renderVoiceMeeterChannels,
   renderCategoryList,
 } from './sources.js';
+import { renderPluginActionList } from './plugins.js';
 import { renderAllKnobsAndApps, updateKnobVolume } from './mappings.js';
 import { setupPresets } from './presets.js';
 import { setupDeviceHeader, setupNewDeviceButton, setupRemoveDeviceButton } from './device.js';
@@ -54,16 +55,32 @@ async function bootstrapFromConfig() {
   await Promise.all([loadProcessList(), loadInputDevices()]);
   renderVoiceMeeterChannels();
   renderCategoryList();
+  const initialPlugins = await window.api.getConnectedPlugins();
+  state.pluginActions = initialPlugins || [];
+  renderPluginActionList();
   await renderAllKnobsAndApps();
   await applyVoiceMeeterUiFromMain();
   await applyInitialBackendStatus();
   await applyNotificationSettings();
+  await applyPluginSettingsInfo();
+  await applyManagedPluginsInfo();
   await setupDeviceHeader();
 }
 
 function init() {
   window.api.onVolumeUpdate(({ index, value }) => updateKnobVolume(index, value));
   window.api.onWindowHidden(() => { state.iconCache.clear(); });
+
+  window.api.onPluginActionsUpdated((plugins) => {
+    state.pluginActions = plugins || [];
+    renderPluginActionList();
+    applyPluginSettingsInfo();
+  });
+
+  window.api.getPluginServerPort().then((port) => {
+    const portEl = document.getElementById('pluginServerPort');
+    if (portEl) portEl.textContent = String(port);
+  });
   setupTabs();
   setupSubTabs();
   setupComPortListeners();
@@ -71,6 +88,7 @@ function init() {
   setupAutoStartListener();
   loadAutoStartState();
   setupSettingsListeners();
+  setupManagedPluginsListeners();
   setupProcessSearchFocus();
   setupGlobalFileDropGuards();
   setupMappingDragGlobalDragOver();
