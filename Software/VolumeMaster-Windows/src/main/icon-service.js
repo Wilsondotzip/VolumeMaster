@@ -29,10 +29,10 @@ function loadIconFromCache(key) {
   }
 }
 
-function saveIconToCache(key, nativeImage) {
+function saveIconToCache(key, pngBuffer) {
   const filePath = cachePathForKey(key);
   try {
-    fs.writeFileSync(filePath, nativeImage.toPNG());
+    fs.writeFileSync(filePath, pngBuffer);
   } catch (err) {
     console.error('Failed to save icon to cache:', err);
   }
@@ -58,13 +58,21 @@ async function getAppIcon(exeNameOrPath) {
   if (!resolvedPath) return null;
 
   try {
-    // app.getFileIcon is Electron-native: no extra native addons needed
-    const { app } = require('electron');
-    const nativeImage = await app.getFileIcon(resolvedPath, { size: 'large' });
-    if (nativeImage.isEmpty()) return null;
+    let png;
+    if (platform.extractIconPNG) {
+      // Platform-specific extractor (macOS: app.getFileIcon crashes the
+      // main process there, so the Swift backend renders the icon instead)
+      png = await platform.extractIconPNG(resolvedPath);
+    } else {
+      // app.getFileIcon is Electron-native: no extra native addons needed
+      const { app } = require('electron');
+      const nativeImage = await app.getFileIcon(resolvedPath, { size: 'large' });
+      png = nativeImage.isEmpty() ? null : nativeImage.toPNG();
+    }
+    if (!png) return null;
 
-    saveIconToCache(cacheKey, nativeImage);
-    return `data:image/png;base64,${nativeImage.toPNG().toString('base64')}`;
+    saveIconToCache(cacheKey, png);
+    return `data:image/png;base64,${png.toString('base64')}`;
   } catch (err) {
     console.error('Icon extraction failed:', err);
     return null;
