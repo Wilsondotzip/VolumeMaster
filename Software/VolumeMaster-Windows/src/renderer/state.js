@@ -8,4 +8,6 @@ export const state = {
   mappingDragActive: false,
   /** Fallback when drop.getData('text/plain') is empty (Electron/Chromium quirk). Cleared after drop/dragend. */
   mappingDragPayload: null,
+  /** Connected plugin registry: [{ pluginId, name, actions: [{id, label}] }] */
+  pluginActions: [],
 };

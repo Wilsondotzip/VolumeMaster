@@ -73,6 +73,72 @@ export function setupSettingsListeners() {
   });
 }
 
+function renderManagedPlugin({ id, path, running }) {
+  const row = document.createElement('div');
+  row.className = 'flex items-center gap-2 p-2 bg-slate-700 rounded border border-slate-600';
+  row.dataset.pluginId = id;
+
+  const dot = document.createElement('div');
+  dot.className = `w-2 h-2 rounded-full shrink-0 ${running ? 'bg-green-400' : 'bg-slate-500'}`;
+  dot.title = running ? 'Running' : 'Stopped';
+
+  const label = document.createElement('span');
+  label.className = 'text-xs text-gray-300 truncate flex-1 font-mono';
+  label.textContent = path.split(/[\\/]/).pop();
+  label.title = path;
+
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.textContent = 'Delete';
+  removeBtn.className = 'text-xs text-slate-400 hover:text-red-400 transition shrink-0';
+  removeBtn.onclick = async () => {
+    await window.api.removeManagedPlugin(id);
+    row.remove();
+  };
+
+  row.append(dot, label, removeBtn);
+  return row;
+}
+
+export async function applyManagedPluginsInfo() {
+  const list = document.getElementById('managedPluginList');
+  if (!list) return;
+  while (list.firstChild) list.removeChild(list.firstChild);
+  const plugins = await window.api.listManagedPlugins();
+  for (const plugin of plugins) {
+    list.appendChild(renderManagedPlugin(plugin));
+  }
+}
+
+export function setupManagedPluginsListeners() {
+  document.getElementById('addManagedPluginBtn')?.addEventListener('click', async () => {
+    const plugin = await window.api.addManagedPlugin();
+    if (!plugin) return;
+    const list = document.getElementById('managedPluginList');
+    if (list) list.appendChild(renderManagedPlugin(plugin));
+  });
+}
+
+export async function applyPluginSettingsInfo() {
+  const status = await window.api.getPluginServerStatus();
+  const errorEl = document.getElementById('pluginServerError');
+  const statsEl = document.getElementById('pluginServerStats');
+  const countEl = document.getElementById('pluginConnectedCount');
+
+  if (status?.error) {
+    if (errorEl) {
+      errorEl.textContent = status.error;
+      errorEl.classList.remove('hidden');
+    }
+    if (statsEl) statsEl.classList.add('hidden');
+  } else {
+    if (errorEl) errorEl.classList.add('hidden');
+    if (statsEl) statsEl.classList.remove('hidden');
+    const plugins = await window.api.getConnectedPlugins();
+    if (countEl) countEl.textContent = String(plugins?.length ?? 0);
+  }
+}
+
 export async function applyInitialBackendStatus() {
   const running = await window.api.getBackendStatus();
   const btn = document.getElementById('saveAndRunBtn');

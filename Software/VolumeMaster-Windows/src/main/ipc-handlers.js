@@ -5,6 +5,8 @@ const { loadConfig, saveConfig, cloneConfigSnapshot } = require('./config-store'
 const { getAppIcon } = require('./icon-service');
 const { startBackend, killBackend, getBackendProcess, requestAudioSessions } = require('./backend-process');
 const deviceManager = require('./device-manager');
+const { getConnectedPlugins, getPluginLabel, getPluginServerStatus, PLUGIN_PORT } = require('./plugin-server');
+const { getManagedPlugins, addManagedPlugin, removeManagedPlugin } = require('./plugin-process-manager');
 
 /** Resolves the deviceId and deviceDir for the window that sent an IPC event. */
 function getDeviceContext(event) {
@@ -257,6 +259,28 @@ function registerIpcHandlers() {
     updateTrayMenu();
     win.destroy();
     return true;
+  });
+
+  // --- Plugin API ---
+
+  ipcMain.handle('get-connected-plugins', () => getConnectedPlugins());
+  ipcMain.handle('get-plugin-server-port', () => PLUGIN_PORT);
+  ipcMain.handle('get-plugin-action-label', (_, actionKey) => getPluginLabel(actionKey));
+  ipcMain.handle('get-plugin-server-status', () => getPluginServerStatus());
+
+  ipcMain.handle('list-managed-plugins', () => getManagedPlugins());
+  ipcMain.handle('remove-managed-plugin', (_, id) => removeManagedPlugin(id));
+  ipcMain.handle('add-managed-plugin', async () => {
+    const result = await dialog.showOpenDialog({
+      title: 'Select Plugin Executable',
+      filters: [
+        { name: 'Executables', extensions: ['exe'] },
+        { name: 'All Files', extensions: ['*'] },
+      ],
+      properties: ['openFile'],
+    });
+    if (result.canceled || !result.filePaths[0]) return null;
+    return addManagedPlugin(result.filePaths[0]);
   });
 
   ipcMain.handle('create-device', (_, name) => {

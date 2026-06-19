@@ -44,6 +44,16 @@ contextBridge.exposeInMainWorld('api', {
   removeDevice: () => ipcRenderer.invoke('remove-device'),
 
   onWindowHidden: (callback) => ipcRenderer.on('window-hidden', () => callback()),
+
+  getConnectedPlugins: () => ipcRenderer.invoke('get-connected-plugins'),
+  getPluginServerPort: () => ipcRenderer.invoke('get-plugin-server-port'),
+  getPluginActionLabel: (key) => ipcRenderer.invoke('get-plugin-action-label', key),
+  getPluginServerStatus: () => ipcRenderer.invoke('get-plugin-server-status'),
+  onPluginActionsUpdated: (cb) => ipcRenderer.on('plugin-actions-updated', (_, plugins) => cb(plugins)),
+
+  listManagedPlugins: () => ipcRenderer.invoke('list-managed-plugins'),
+  addManagedPlugin: () => ipcRenderer.invoke('add-managed-plugin'),
+  removeManagedPlugin: (id) => ipcRenderer.invoke('remove-managed-plugin', id),
 });
 
 

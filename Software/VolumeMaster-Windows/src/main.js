@@ -14,6 +14,8 @@ const { createWindow } = require('./main/window');
 const { createTray } = require('./main/tray');
 const { registerIpcHandlers } = require('./main/ipc-handlers');
 const { startBackend, killAllBackends } = require('./main/backend-process');
+const { startPluginServer, stopPluginServer } = require('./main/plugin-server');
+const { startManagedPlugins, killManagedPlugins } = require('./main/plugin-process-manager');
 const deviceManager = require('./main/device-manager');
 
 const gotLock = app.requestSingleInstanceLock();
@@ -35,6 +37,8 @@ if (!gotLock) {
 
     deviceManager.migrateIfNeeded();
     registerIpcHandlers();
+    startPluginServer();
+    startManagedPlugins();
 
     const devices = deviceManager.getAllDevices();
     for (const device of devices) {
@@ -65,7 +69,9 @@ if (!gotLock) {
 
   app.on('will-quit', (event) => {
     event.preventDefault();
-    killAllBackends().finally(() => app.exit(0));
+    const safetyNet = setTimeout(() => app.exit(0), 5000);
+    Promise.all([killAllBackends(), stopPluginServer(), killManagedPlugins()])
+      .finally(() => { clearTimeout(safetyNet); app.exit(0); });
   });
 }
 
