@@ -1,6 +1,7 @@
 const path = require('path');
 const { Tray, Menu, app, nativeImage } = require('electron');
 const deviceManager = require('./device-manager');
+const { showWindow } = require('./window');
 
 const iconsDir = path.join(__dirname, '..', 'assets', 'icons');
 
@@ -28,8 +29,7 @@ function buildContextMenu() {
   const deviceItems = devices.map((device) => ({
     label: device.name,
     click: () => {
-      const win = deviceManager.getWindowForDevice(device.id);
-      if (win) { win.show(); win.focus(); }
+      showWindow(deviceManager.getWindowForDevice(device.id));
     },
   }));
 
@@ -56,8 +56,7 @@ function createTray() {
   if (!isMac) {
     tray.on('click', () => {
       for (const device of deviceManager.getAllDevices()) {
-        const win = deviceManager.getWindowForDevice(device.id);
-        if (win) { win.show(); win.focus(); }
+        showWindow(deviceManager.getWindowForDevice(device.id));
       }
     });
   }

@@ -10,7 +10,7 @@ if (process.platform === 'win32') {
 app.commandLine.appendSwitch('js-flags', '--expose-gc');
 
 const platform = require('./main/platform');
-const { createWindow } = require('./main/window');
+const { createWindow, showWindow, syncDockVisibility } = require('./main/window');
 const { createTray } = require('./main/tray');
 const { registerIpcHandlers } = require('./main/ipc-handlers');
 const { startBackend, killAllBackends } = require('./main/backend-process');
@@ -26,8 +26,7 @@ if (!gotLock) {
     // Someone tried to open a second instance — focus the existing windows instead
     for (const win of BrowserWindow.getAllWindows()) {
       if (win.isMinimized()) win.restore();
-      win.show();
-      win.focus();
+      showWindow(win);
     }
   });
 
@@ -51,10 +50,13 @@ if (!gotLock) {
     if (process.argv.includes('--hidden')) {
       for (const win of BrowserWindow.getAllWindows()) win.hide();
     }
+    // Start with the dock icon matching window visibility (hidden when launched
+    // with --hidden, shown otherwise).
+    syncDockVisibility();
 
     app.on('activate', () => {
       for (const win of BrowserWindow.getAllWindows()) {
-        if (!win.isVisible()) win.show();
+        if (!win.isVisible()) showWindow(win);
       }
     });
   });

@@ -1,6 +1,32 @@
 const path = require('path');
-const { BrowserWindow } = require('electron');
+const { app, BrowserWindow } = require('electron');
 const deviceManager = require('./device-manager');
+
+// Toggle the macOS dock icon, but only when its state actually needs to change.
+// Calling app.dock.show() when the dock is already visible leaves it in a state
+// where a subsequent app.dock.hide() is silently ignored, so guard both calls.
+function setDockVisible(visible) {
+  if (process.platform !== 'darwin' || !app.dock) return;
+  if (visible && !app.dock.isVisible()) app.dock.show();
+  else if (!visible && app.dock.isVisible()) app.dock.hide();
+}
+
+// On macOS the app behaves like a menu bar app: the dock icon is only shown
+// while a window is visible. When every window is hidden (minimized or closed
+// to the tray) the dock icon is hidden too, leaving just the tray icon.
+function syncDockVisibility() {
+  const anyVisible = BrowserWindow.getAllWindows().some((win) => win.isVisible());
+  setDockVisible(anyVisible);
+}
+
+// Show a window, restoring the dock icon first so the window activates and
+// takes focus correctly when the app was in accessory mode (dock hidden).
+function showWindow(win) {
+  if (!win) return;
+  setDockVisible(true);
+  win.show();
+  win.focus();
+}
 
 function createWindow(deviceId) {
   const device = deviceManager.getDeviceById(deviceId);
@@ -36,6 +62,7 @@ function createWindow(deviceId) {
   win.on('minimize', (event) => {
     event.preventDefault();
     win.hide();
+    syncDockVisibility();
     win.webContents.send('window-hidden');
     win.webContents.session.clearCache().catch(() => {});
     win.webContents.executeJavaScript('gc()').catch(() => {});
@@ -43,13 +70,13 @@ function createWindow(deviceId) {
   });
 
   win.on('close', (event) => {
-    const { app } = require('electron');
     // On macOS the app lives in the menu bar: closing a window hides it to the
     // tray rather than quitting, so the tray icon stays available. Quitting
     // happens only via the tray's Quit item (which sets app.isQuiting first).
     if (process.platform === 'darwin' && !app.isQuiting) {
       event.preventDefault();
       win.hide();
+      syncDockVisibility();
       win.webContents.send('window-hidden');
       return;
     }
@@ -60,4 +87,4 @@ function createWindow(deviceId) {
   return win;
 }
 
-module.exports = { createWindow };
+module.exports = { createWindow, syncDockVisibility, showWindow };
