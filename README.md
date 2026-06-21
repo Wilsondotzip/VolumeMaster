@@ -20,7 +20,7 @@ VolumeMaster is a hardware application mixer for changing the volume of differen
 
 ## How things work
 
-A Python script runs in the background to turn the Arduino's serial inputs into volume changes. The Arduino reads each potentiometer as a separate analogue input, this information (once mapped between [0,100]) is then sent to your computer over a COM port. The python program runs to receive the information and convert it to meaningful volume commands! Below is an image of the DIY version.
+A Python script runs in the background to turn the Arduino's serial inputs into volume changes. The Arduino reads each potentiometer as a separate analogue input, this information (once mapped between [0,100]) is then sent to your computer over a COM port. The python program runs to receive the information and convert it to meaningful volume commands! Below is an image of the DIY version. You can also buy an official kit  [here](https://getvolumemaster.com/products/volumemaster-kit). Please note the kit is STM32 based and firmware maintained here is for arduino DIY only. 
 
 ![Image2](https://user-images.githubusercontent.com/58171274/208288002-e05144c8-9d7c-4ace-b45a-9c51406f2135.jpg)
 
@@ -39,11 +39,12 @@ Hardware
 Windows Software
 
 - Easy to use UI with drag and drop mapping
-- Search running apps and input devices
+- Search running apps and input devices, and audio sessions
 - VoiceMeeter integration
 - Manage device settings
 - connect multiple devices and manage each seperatly
 - In-app Notifications for when things go wrong
+- Volume Change Notifications
 - Windows Autostart
 - When minimized, software which runs quietly in the background as a tray icon
 
@@ -54,3 +55,5 @@ Linux Software. Thanks to emmolab
 This project is still in active development, so here are some of the features we plan to add in the future.
 
 - Buttons for possible functions like muting and config switching.
+- Plugin system/ api to expand app integration
+- MacOS support, currently in beta. 
