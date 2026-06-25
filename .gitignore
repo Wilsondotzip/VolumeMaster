@@ -1,2 +1,6 @@
 .DS_Store
 **/.DS_Store
+
+# Plugins live in their own repos
+Software/plugins/
+Software/plugin-example.exe

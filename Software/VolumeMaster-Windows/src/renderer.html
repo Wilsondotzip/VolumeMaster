@@ -61,10 +61,16 @@
         min-height: 40px;
         opacity: 1;
         overflow: hidden;
-        transition: opacity 180ms ease, width 180ms ease, margin 180ms ease, height 180ms ease;
+        transition:
+          opacity 180ms ease,
+          width 180ms ease,
+          margin 180ms ease,
+          height 180ms ease;
         flex-shrink: 0;
       }
-      .app-card { gap: 1rem; }
+      .app-card {
+        gap: 1rem;
+      }
       @media (max-width: 1000px) {
         .responsive-icon {
           opacity: 0;
@@ -73,7 +79,20 @@
           margin-right: 0 !important;
           pointer-events: none;
         }
-        .app-card { gap: 0.25rem; }
+        .app-card {
+          gap: 0.25rem;
+        }
+      }
+
+      #pluginConfigModal {
+        border: none;
+        padding: 0;
+        background: transparent;
+        outline: none;
+        box-shadow: none;
+      }
+      #pluginConfigModal::backdrop {
+        background: rgba(0, 0, 0, 0.65);
       }
     </style>
   </head>
@@ -454,7 +473,9 @@
         </p>
       </div>
       <div class="bg-slate-800 rounded-lg shadow p-4 border border-slate-700">
-        <h2 class="text-lg font-semibold text-indigo-400 mb-4">Managed Plugins</h2>
+        <h2 class="text-lg font-semibold text-indigo-400 mb-4">
+          Managed Plugins
+        </h2>
         <div id="managedPluginList" class="flex flex-col gap-2 mb-3"></div>
         <button
           id="addManagedPluginBtn"
@@ -463,7 +484,8 @@
           + Add Plugin...
         </button>
         <p class="text-xs text-slate-500 mt-2">
-          VolumeMaster will automatically start and stop these plugins with the app.
+          VolumeMaster will automatically start and stop these plugins with the
+          app.
         </p>
       </div>
 
@@ -474,20 +496,52 @@
           class="hidden text-xs text-red-400 bg-red-900 bg-opacity-30 border border-red-700 rounded px-3 py-2 mb-3"
         ></p>
         <div id="pluginServerStats">
-          <div class="flex items-center justify-between text-sm text-gray-300 mb-1">
+          <div
+            class="flex items-center justify-between text-sm text-gray-300 mb-1"
+          >
             <span>WebSocket port</span>
-            <span id="pluginServerPort" class="font-mono text-indigo-300">59284</span>
+            <span id="pluginServerPort" class="font-mono text-indigo-300"
+              >59284</span
+            >
           </div>
           <div class="flex items-center justify-between text-sm text-gray-300">
             <span>Connected plugins</span>
-            <span id="pluginConnectedCount" class="font-mono text-indigo-300">0</span>
+            <span id="pluginConnectedCount" class="font-mono text-indigo-300"
+              >0</span
+            >
           </div>
         </div>
         <p class="text-xs text-slate-500 mt-2">
-          External plugins connect via WebSocket on localhost. Register actions and receive knob events in any language.
+          External plugins connect via WebSocket on localhost. Register actions
+          and receive knob events in any language.
         </p>
       </div>
     </div>
+
+    <!-- Plugin config modal -->
+    <dialog id="pluginConfigModal">
+      <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-2xl w-96 max-w-[calc(100vw-2rem)] flex flex-col">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-slate-700">
+          <h3 id="pluginConfigModalTitle" class="text-sm font-semibold text-indigo-400 tracking-wide"></h3>
+          <button
+            id="pluginConfigCloseBtn"
+            class="text-slate-500 hover:text-white transition text-base leading-none ml-4"
+            aria-label="Close"
+          >✕</button>
+        </div>
+        <div id="pluginConfigFields" class="flex flex-col gap-4 px-5 py-5 custom-scroll overflow-y-auto" style="max-height: 60vh"></div>
+        <div class="flex gap-2 justify-end px-5 py-3 border-t border-slate-700">
+          <button
+            id="pluginConfigCancelBtn"
+            class="px-4 py-1.5 text-sm text-slate-400 hover:text-white rounded-md bg-slate-700 hover:bg-slate-600 transition"
+          >Cancel</button>
+          <button
+            id="pluginConfigSaveBtn"
+            class="px-4 py-1.5 text-sm font-semibold text-white rounded-md bg-indigo-600 hover:bg-indigo-500 transition"
+          >Save</button>
+        </div>
+      </div>
+    </dialog>
 
     <!-- Persistent error banners (stack vertically, newest on top) -->
     <div class="fixed bottom-1 left-1 right-1 z-40 flex flex-col gap-1">

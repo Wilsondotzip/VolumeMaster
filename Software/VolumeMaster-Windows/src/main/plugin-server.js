@@ -2,6 +2,7 @@
 
 const { WebSocketServer } = require('ws');
 const { BrowserWindow } = require('electron');
+const { getPluginConfig, savePluginRegistration } = require('./plugin-config-store');
 
 const PLUGIN_PORT = 59284;
 const appVersion = require('../../package.json').version;
@@ -67,13 +68,23 @@ function startPluginServer() {
       }
 
       if (msg.type === 'register') {
-        const { pluginId, name, actions } = msg;
+        const { pluginId, name, actions, config: configSchema } = msg;
         if (!pluginId || typeof pluginId !== 'string') return;
+        const id = String(pluginId);
+        const displayName = String(name || pluginId);
         clients.set(socket, {
-          pluginId: String(pluginId),
-          name: String(name || pluginId),
+          pluginId: id,
+          name: displayName,
           actions: Array.isArray(actions) ? actions.filter(a => a?.id && a?.label) : [],
         });
+
+        const schema = Array.isArray(configSchema) ? configSchema.filter(f => f?.key && f?.type) : [];
+        if (schema.length > 0) {
+          savePluginRegistration(id, displayName, schema);
+          const { values } = getPluginConfig(id);
+          safeSend(socket, { type: 'config', values: values || {} });
+        }
+
         broadcastPluginUpdate();
       }
     });
@@ -139,6 +150,14 @@ function getPluginServerStatus() {
   return { ...serverStatus, port: PLUGIN_PORT };
 }
 
+function sendConfigToPlugin(pluginId, values) {
+  for (const [socket, record] of clients) {
+    if (record.pluginId === pluginId) {
+      safeSend(socket, { type: 'config', values });
+    }
+  }
+}
+
 function getPluginLabel(actionKey) {
   if (!actionKey || typeof actionKey !== 'string') return actionKey;
   const colonIdx = actionKey.indexOf(':');
@@ -162,5 +181,6 @@ module.exports = {
   getConnectedPlugins,
   getPluginLabel,
   getPluginServerStatus,
+  sendConfigToPlugin,
   PLUGIN_PORT,
 };

@@ -4,6 +4,7 @@ const { app } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
+const treeKill = require('tree-kill');
 const crypto = require('crypto');
 
 function pluginsFilePath() {
@@ -36,7 +37,7 @@ function spawnPlugin(id, exePath) {
 
   let proc;
   try {
-    proc = spawn(exePath, [], { detached: false, stdio: 'ignore', shell: false });
+    proc = spawn(exePath, [], { detached: false, stdio: 'ignore', shell: true });
   } catch (err) {
     console.error(`[plugin-process] Failed to spawn "${exePath}":`, err.message);
     processes.set(id, { process: null, path: exePath });
@@ -72,7 +73,11 @@ function killManagedPlugins() {
     kills.push(new Promise((resolve) => {
       const timer = setTimeout(resolve, 3000);
       proc.once('close', () => { clearTimeout(timer); resolve(); });
-      try { proc.kill(); } catch { clearTimeout(timer); resolve(); }
+      if (proc.pid) {
+        treeKill(proc.pid, () => {});
+      } else {
+        try { proc.kill(); } catch { clearTimeout(timer); resolve(); }
+      }
     }));
     entry.process = null;
   }
@@ -97,8 +102,8 @@ function addManagedPlugin(exePath) {
 
 function removeManagedPlugin(id) {
   const entry = processes.get(id);
-  if (entry?.process) {
-    try { entry.process.kill(); } catch {}
+  if (entry?.process?.pid) {
+    treeKill(entry.process.pid, () => {});
     entry.process = null;
   }
   processes.delete(id);

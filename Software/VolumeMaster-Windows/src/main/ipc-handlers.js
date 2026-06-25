@@ -5,7 +5,8 @@ const { loadConfig, saveConfig, cloneConfigSnapshot } = require('./config-store'
 const { getAppIcon } = require('./icon-service');
 const { startBackend, killBackend, getBackendProcess, requestAudioSessions } = require('./backend-process');
 const deviceManager = require('./device-manager');
-const { getConnectedPlugins, getPluginLabel, getPluginServerStatus, PLUGIN_PORT } = require('./plugin-server');
+const { getConnectedPlugins, getPluginLabel, getPluginServerStatus, sendConfigToPlugin, PLUGIN_PORT } = require('./plugin-server');
+const { getPluginConfig, savePluginValues, getConfigurablePlugins } = require('./plugin-config-store');
 const { getManagedPlugins, addManagedPlugin, removeManagedPlugin } = require('./plugin-process-manager');
 
 /** Resolves the deviceId and deviceDir for the window that sent an IPC event. */
@@ -267,6 +268,12 @@ function registerIpcHandlers() {
   ipcMain.handle('get-plugin-server-port', () => PLUGIN_PORT);
   ipcMain.handle('get-plugin-action-label', (_, actionKey) => getPluginLabel(actionKey));
   ipcMain.handle('get-plugin-server-status', () => getPluginServerStatus());
+  ipcMain.handle('get-configurable-plugins', () => getConfigurablePlugins());
+  ipcMain.handle('get-plugin-config', (_, pluginId) => getPluginConfig(pluginId));
+  ipcMain.handle('save-plugin-config', (_, pluginId, values) => {
+    savePluginValues(pluginId, values);
+    sendConfigToPlugin(pluginId, values);
+  });
 
   ipcMain.handle('list-managed-plugins', () => getManagedPlugins());
   ipcMain.handle('remove-managed-plugin', (_, id) => removeManagedPlugin(id));

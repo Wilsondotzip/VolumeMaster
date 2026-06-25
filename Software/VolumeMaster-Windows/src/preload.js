@@ -54,6 +54,10 @@ contextBridge.exposeInMainWorld('api', {
   listManagedPlugins: () => ipcRenderer.invoke('list-managed-plugins'),
   addManagedPlugin: () => ipcRenderer.invoke('add-managed-plugin'),
   removeManagedPlugin: (id) => ipcRenderer.invoke('remove-managed-plugin', id),
+
+  getConfigurablePlugins: () => ipcRenderer.invoke('get-configurable-plugins'),
+  getPluginConfig: (pluginId) => ipcRenderer.invoke('get-plugin-config', pluginId),
+  savePluginConfig: (pluginId, values) => ipcRenderer.invoke('save-plugin-config', pluginId, values),
 });
 
 
