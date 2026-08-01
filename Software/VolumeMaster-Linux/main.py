@@ -40,8 +40,10 @@ AUTO_SERIAL_PORT = "__AUTO__"
 ICON_CACHE_KEY = "ui/icon_cache"
 AUTOSTART_DESKTOP_FILENAME = "volumemaster.desktop"
 AUTOSTART_ENTRY_NAME = "VolumeMaster"
-POT_HYSTERESIS = 2
-POT_SMALL_STEP_CONFIRMATIONS = 2
+POT_HYSTERESIS = 1
+SERIAL_READ_TIMEOUT = 0.025
+SERIAL_RECONNECT_DELAY = 0.25
+PULSE_CACHE_TTL = 1.0
 
 ACCENT = {
     "master": "#89b4fa",
@@ -343,14 +345,25 @@ class SerialConfig:
     def __init__(self, settings: QSettings):
         self.settings = settings
         self._lock = threading.Lock()
+        self._selected_port = self.settings.value("serial/selected_port", AUTO_SERIAL_PORT)
+        self._revision = 0
 
     def selected_port(self) -> str:
         with self._lock:
-            return self.settings.value("serial/selected_port", AUTO_SERIAL_PORT)
+            return self._selected_port
 
     def set_selected_port(self, port: str):
+        selected = port or AUTO_SERIAL_PORT
         with self._lock:
-            self.settings.setValue("serial/selected_port", port or AUTO_SERIAL_PORT)
+            if selected == self._selected_port:
+                return
+            self._selected_port = selected
+            self._revision += 1
+        self.settings.setValue("serial/selected_port", selected)
+
+    def revision(self) -> int:
+        with self._lock:
+            return self._revision
 
     def list_ports(self) -> List[Dict[str, str]]:
         ports = []
@@ -393,33 +406,64 @@ class PulseCore:
     def __init__(self):
         self.pulse = pulsectl.Pulse("VolumeMaster-Core")
         self._lock = threading.Lock()
+        self._default_cache = {}
+        self._stream_cache = (0.0, [])
 
-    def apply_all(self, knob_rules, pot_values, master_knob, mic_knob):
+    def _default_device(self, kind: str):
+        now = time.monotonic()
+        expires, device = self._default_cache.get(kind, (0.0, None))
+        if device is not None and now < expires:
+            return device
+
+        info = self.pulse.server_info()
+        if kind == "sink":
+            device = self.pulse.get_sink_by_name(info.default_sink_name)
+        else:
+            device = self.pulse.get_source_by_name(info.default_source_name)
+        self._default_cache[kind] = (now + PULSE_CACHE_TTL, device)
+        return device
+
+    def _sink_inputs(self, force: bool = False):
+        now = time.monotonic()
+        expires, streams = self._stream_cache
+        if force or now >= expires:
+            streams = [(si, get_stream_props(si)) for si in self.pulse.sink_input_list()]
+            self._stream_cache = (now + PULSE_CACHE_TTL, streams)
+        return streams
+
+    def apply_changes(self, knob_rules, pot_values, master_knob, mic_knob, changed_knobs):
+        changed = set(changed_knobs)
+        if not changed:
+            return
         with self._lock:
             try:
-                if master_knob is not None:
+                if master_knob is not None and master_knob in changed:
                     try:
-                        sink = self.pulse.get_sink_by_name(self.pulse.server_info().default_sink_name)
+                        sink = self._default_device("sink")
                         self.pulse.volume_set_all_chans(sink, pot_values[master_knob] / 100.0)
                     except Exception:
-                        pass
+                        self._default_cache.pop("sink", None)
 
-                if mic_knob is not None:
+                if mic_knob is not None and mic_knob in changed:
                     try:
-                        src = self.pulse.get_source_by_name(self.pulse.server_info().default_source_name)
+                        src = self._default_device("source")
                         self.pulse.volume_set_all_chans(src, pot_values[mic_knob] / 100.0)
                     except Exception:
-                        pass
+                        self._default_cache.pop("source", None)
 
-                for si in self.pulse.sink_input_list():
-                    props = get_stream_props(si)
-                    for k, rules in enumerate(knob_rules):
-                        if k in (master_knob, mic_knob):
-                            continue
-                        if any(rule_matches_stream(rule, props) for rule in rules):
-                            self.pulse.volume_set_all_chans(si, pot_values[k] / 100.0)
-                            break
+                app_knobs = [
+                    k
+                    for k in changed
+                    if k not in (master_knob, mic_knob) and knob_rules[k]
+                ]
+                if app_knobs:
+                    for si, props in self._sink_inputs():
+                        for k in app_knobs:
+                            if any(rule_matches_stream(rule, props) for rule in knob_rules[k]):
+                                self.pulse.volume_set_all_chans(si, pot_values[k] / 100.0)
+                                break
             except Exception:
+                self._stream_cache = (0.0, [])
                 pass
 
     def get_streams(self) -> List[Dict[str, str]]:
@@ -452,13 +496,19 @@ class VolumeWorker:
         self._event = threading.Event()
         threading.Thread(target=self._run, daemon=True).start()
 
-    def schedule(self, knob_rules, pot_values, master_knob, mic_knob):
+    def schedule(self, knob_rules, pot_values, master_knob, mic_knob, changed_knobs):
+        changed = set(changed_knobs)
+        if not changed:
+            return
         with self._lock:
+            if self._pending is not None:
+                changed.update(self._pending[4])
             self._pending = (
                 [[dict(rule) for rule in rules] for rules in knob_rules],
                 list(pot_values),
                 master_knob,
                 mic_knob,
+                changed,
             )
         self._event.set()
 
@@ -469,7 +519,7 @@ class VolumeWorker:
             with self._lock:
                 args, self._pending = self._pending, None
             if args:
-                self.pc.apply_all(*args)
+                self.pc.apply_changes(*args)
 
 
 class FastMonitor(QObject):
@@ -497,6 +547,8 @@ class FastMonitor(QObject):
                 si = pulse.sink_input_info(index)
                 props = get_stream_props(si)
                 for k, rules in enumerate(self.state["knob_rules"]):
+                    if k in (self.state["master_knob"], self.state["mic_knob"]):
+                        continue
                     if any(rule_matches_stream(rule, props) for rule in rules):
                         target = self.state["pot_values"][k] / 100.0
                         if abs(si.volume.value_flat - target) > 0.01:
@@ -926,6 +978,7 @@ class MainWindow(QWidget):
         self.title_labels = []
         self.mode_badges = []
         self.assign_btns = []
+        self.knob_cards = []
 
         self.init_ui()
         self.load_settings()
@@ -936,16 +989,25 @@ class MainWindow(QWidget):
         root.setSpacing(10)
 
         hdr_row = QHBoxLayout()
+        brand = QVBoxLayout()
+        brand.setSpacing(1)
         title = QLabel("VOLUMEMASTER")
-        title.setFont(QFont("Sans Serif", 13, QFont.Bold))
-        title.setStyleSheet("color: #a6adc8; letter-spacing: 5px;")
+        title.setFont(QFont("Sans Serif", 14, QFont.Bold))
+        title.setStyleSheet("color: #cdd6f4; letter-spacing: 4px;")
+        subtitle = QLabel("PHYSICAL CONTROL  /  INSTANT RESPONSE")
+        subtitle.setStyleSheet("color: #6c7086; font-size: 9px; letter-spacing: 1px;")
+        brand.addWidget(title)
+        brand.addWidget(subtitle)
         self.status_label = QLabel("● DISCONNECTED")
-        self.status_label.setStyleSheet("color: #f38ba8; font-size: 10px;")
+        self.status_label.setAlignment(Qt.AlignCenter)
+        self.status_label.setStyleSheet(
+            "background: #352638; color: #f38ba8; border-radius: 10px; padding: 5px 10px; font-size: 10px; font-weight: bold;"
+        )
         self.port_label = QLabel("PORT: auto")
         self.port_label.setStyleSheet("color: #9399b2; font-size: 10px;")
         serial_btn = QPushButton("SERIAL")
         serial_btn.clicked.connect(self.open_serial_settings)
-        hdr_row.addWidget(title)
+        hdr_row.addLayout(brand)
         hdr_row.addStretch()
         hdr_row.addWidget(self.port_label)
         hdr_row.addWidget(self.status_label)
@@ -980,10 +1042,14 @@ class MainWindow(QWidget):
         grid.setSpacing(10)
         for i in range(NUM_POTS):
             card = QFrame()
-            card.setStyleSheet("background: #313244; border-radius: 12px;")
+            card.setObjectName(f"knobCard{i}")
+            card.setStyleSheet(
+                f"QFrame#knobCard{i} {{ background: #242438; border: 1px solid #36374d; border-radius: 12px; }}"
+            )
+            self.knob_cards.append(card)
             card_layout = QVBoxLayout(card)
-            card_layout.setContentsMargins(12, 10, 12, 10)
-            card_layout.setSpacing(6)
+            card_layout.setContentsMargins(14, 12, 14, 12)
+            card_layout.setSpacing(8)
 
             top = QHBoxLayout()
             t = ClickableLabel(self.state["knob_names"][i])
@@ -1016,7 +1082,7 @@ class MainWindow(QWidget):
             pb.setRange(0, 100)
             pb.setValue(0)
             pb.setTextVisible(False)
-            pb.setFixedHeight(5)
+            pb.setFixedHeight(7)
             pb.setStyleSheet(_progress_style(ACCENT["none"]))
             self.progress_bars.append(pb)
             card_layout.addWidget(pb)
@@ -1076,6 +1142,9 @@ class MainWindow(QWidget):
             f"background: #45475a; color: {color}; border-radius: 10px; font-size: 9px; font-weight: bold; padding: 0 8px;"
         )
         self.progress_bars[i].setStyleSheet(_progress_style(color))
+        self.knob_cards[i].setStyleSheet(
+            f"QFrame#knobCard{i} {{ background: #242438; border: 1px solid {color}; border-radius: 12px; }}"
+        )
         self.assign_btns[i].setEnabled(mode not in ("master", "mic"))
 
     def _update_all_badges(self):
@@ -1209,8 +1278,13 @@ class MainWindow(QWidget):
                 self.settings.remove(key)
 
     def update_pots(self, values: list):
-        self.state["pot_values"] = values
-        for i, v in enumerate(values):
+        previous = self.state["pot_values"]
+        changed = [i for i, value in enumerate(values) if value != previous[i]]
+        if not changed:
+            return
+        self.state["pot_values"] = list(values)
+        for i in changed:
+            v = values[i]
             self.pct_labels[i].setText(f"{v}%")
             self.progress_bars[i].setValue(v)
         self.vol_worker.schedule(
@@ -1218,15 +1292,20 @@ class MainWindow(QWidget):
             values,
             self.state["master_knob"],
             self.state["mic_knob"],
+            changed,
         )
 
     def set_serial_status(self, connected: bool, port_name: str = ""):
         if connected:
             self.status_label.setText("● CONNECTED")
-            self.status_label.setStyleSheet("color: #a6e3a1; font-size: 10px;")
+            self.status_label.setStyleSheet(
+                "background: #23352e; color: #a6e3a1; border-radius: 10px; padding: 5px 10px; font-size: 10px; font-weight: bold;"
+            )
         else:
             self.status_label.setText("● DISCONNECTED")
-            self.status_label.setStyleSheet("color: #f38ba8; font-size: 10px;")
+            self.status_label.setStyleSheet(
+                "background: #352638; color: #f38ba8; border-radius: 10px; padding: 5px 10px; font-size: 10px; font-weight: bold;"
+            )
         self.refresh_serial_port_label(port_name)
 
     def refresh_serial_port_label(self, active_port: str = ""):
@@ -1269,8 +1348,6 @@ class SerialWorker(QObject):
 
     def run(self):
         vals = [0] * NUM_POTS
-        small_step_direction = [0] * NUM_POTS
-        small_step_count = [0] * NUM_POTS
         connected = False
         current_port = ""
         while True:
@@ -1280,56 +1357,55 @@ class SerialWorker(QObject):
                     connected = False
                     current_port = ""
                     self.connection_changed.emit(False, "")
-                time.sleep(1)
+                time.sleep(SERIAL_RECONNECT_DELAY)
                 continue
             try:
-                with serial.Serial(port_name, BAUD_RATE, timeout=0.1) as ser:
+                connection_revision = self.serial_config.revision()
+                seen = [False] * NUM_POTS
+                buffer = bytearray()
+                with serial.Serial(port_name, BAUD_RATE, timeout=SERIAL_READ_TIMEOUT) as ser:
                     if not connected or current_port != port_name:
                         connected = True
                         current_port = port_name
                         self.connection_changed.emit(True, port_name)
                     while True:
-                        if self.serial_config.resolve_port() != port_name:
+                        if self.serial_config.revision() != connection_revision:
                             raise serial.SerialException("Serial port selection changed")
-                        line = ser.readline().decode(errors="ignore").strip()
-                        if "@" in line:
+                        chunk = ser.read(max(1, min(ser.in_waiting, 256)))
+                        if not chunk:
+                            continue
+                        buffer.extend(chunk)
+
+                        lines = []
+                        while b"\n" in buffer:
+                            raw_line, _, remainder = buffer.partition(b"\n")
+                            lines.append(raw_line)
+                            buffer = bytearray(remainder)
+
+                        values_changed = False
+                        for raw_line in lines:
+                            line = raw_line.decode(errors="ignore").strip()
+                            if "@" not in line:
+                                continue
                             try:
                                 v, k = map(int, line.split("@"))
                                 if 0 < k <= NUM_POTS:
                                     idx = k - 1
                                     raw = max(0, min(100, v))
-                                    delta = raw - vals[idx]
-                                    abs_delta = abs(delta)
-                                    direction = 1 if delta > 0 else -1 if delta < 0 else 0
-
-                                    should_emit = False
-                                    if abs_delta >= POT_HYSTERESIS or raw in (0, 100):
-                                        should_emit = True
-                                    elif direction == 0:
-                                        small_step_direction[idx] = 0
-                                        small_step_count[idx] = 0
-                                    else:
-                                        if small_step_direction[idx] == direction:
-                                            small_step_count[idx] += 1
-                                        else:
-                                            small_step_direction[idx] = direction
-                                            small_step_count[idx] = 1
-                                        if small_step_count[idx] >= POT_SMALL_STEP_CONFIRMATIONS:
-                                            should_emit = True
-
-                                    if should_emit:
+                                    if not seen[idx] or abs(raw - vals[idx]) >= POT_HYSTERESIS:
                                         vals[idx] = raw
-                                        small_step_direction[idx] = 0
-                                        small_step_count[idx] = 0
-                                        self.updated.emit(vals.copy())
+                                        seen[idx] = True
+                                        values_changed = True
                             except Exception:
                                 continue
+                        if values_changed:
+                            self.updated.emit(vals.copy())
             except Exception:
                 if connected:
                     connected = False
                     current_port = ""
                     self.connection_changed.emit(False, port_name)
-                time.sleep(1)
+                time.sleep(SERIAL_RECONNECT_DELAY)
 
 
 def main():
