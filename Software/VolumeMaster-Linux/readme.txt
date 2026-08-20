@@ -47,6 +47,11 @@ WHAT'S NEW IN THIS LINUX BUILD
 - Optional autostart-minimized mode launches with --minimized so manual
   launches can still open normally
 
+5) Low-latency hardware control
+--------------------------------------------------------------------
+- Knob input is batched and coalesced so the newest hardware value is
+  applied immediately without repeating unnecessary PulseAudio lookups
+
 
 COMMON LINUX REQUIREMENTS
 ====================================================================
