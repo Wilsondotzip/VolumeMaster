@@ -4,6 +4,7 @@ import { getProcessDisplayInfo, sanitizeAppName } from './utils.js';
 import { getVMLabel, isVMItem, vmItemId } from './voicemeeter.js';
 import { isCategoryItem, categoryId, getCategoryMeta, CATEGORY_PREFIX } from './categories.js';
 import { isPluginItem, pluginItemParts, pluginActionKey, pluginDragName, PLUGIN_PREFIX } from './plugins.js';
+import { isProDevice, createKnobConfigButton } from './knob-config.js';
 
 // Live volume levels keyed by knobId string
 const knobVolumes = {};
@@ -390,6 +391,7 @@ function createKnobHeader(knobId) {
 
   textCol.append(header, pct);
   wrapper.append(svg, textCol);
+  if (isProDevice()) wrapper.appendChild(createKnobConfigButton(knobId));
   return wrapper;
 }
 
