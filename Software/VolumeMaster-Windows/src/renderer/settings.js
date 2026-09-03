@@ -1,4 +1,6 @@
 import { showAlert } from './alerts.js';
+import { state } from './state.js';
+import { renderAllKnobsAndApps } from './mappings.js';
 
 export function setupSettingsListeners() {
   document.getElementById('saveAndRunBtn')?.addEventListener('click', async () => {
@@ -31,6 +33,12 @@ export function setupSettingsListeners() {
 
   document.getElementById('vmVersionSelect')?.addEventListener('change', async (e) => {
     await window.api.setVMVersion(e.target.value);
+  });
+
+  document.getElementById('deviceModelSelect')?.addEventListener('change', async (e) => {
+    await window.api.setDeviceModel(e.target.value);
+    state.config.deviceModel = e.target.value;
+    await renderAllKnobsAndApps();
   });
 
   document.getElementById('volumeNotifsCheckbox')?.addEventListener('change', async (e) => {
@@ -294,4 +302,11 @@ export async function applyVoiceMeeterUiFromMain() {
   if (vmVersionSelect) {
     vmVersionSelect.value = version || 'banana';
   }
+}
+
+export async function applyDeviceModelUiFromMain() {
+  const model = await window.api.getDeviceModel();
+  state.config.deviceModel = model || 'volumemaster';
+  const select = document.getElementById('deviceModelSelect');
+  if (select) select.value = state.config.deviceModel;
 }

@@ -3,7 +3,7 @@ import { cloneConfig } from './config-sync.js';
 import { setupTabs, setupSubTabs } from './tabs.js';
 import { refreshComPortListPreservingSelection, setupComPortListeners } from './com-port.js';
 import { loadAutoStartState, setupAutoStartListener } from './autostart.js';
-import { setupSettingsListeners, applyVoiceMeeterUiFromMain, applyInitialBackendStatus, applyNotificationSettings, applyPluginSettingsInfo, applyManagedPluginsInfo, setupManagedPluginsListeners } from './settings.js';
+import { setupSettingsListeners, applyVoiceMeeterUiFromMain, applyDeviceModelUiFromMain, applyInitialBackendStatus, applyNotificationSettings, applyPluginSettingsInfo, applyManagedPluginsInfo, setupManagedPluginsListeners } from './settings.js';
 import {
   loadProcessList,
   loadInputDevices,
@@ -58,6 +58,7 @@ async function bootstrapFromConfig() {
   const initialPlugins = await window.api.getConnectedPlugins();
   state.pluginActions = initialPlugins || [];
   renderPluginActionList();
+  await applyDeviceModelUiFromMain();
   await renderAllKnobsAndApps();
   await applyVoiceMeeterUiFromMain();
   await applyInitialBackendStatus();

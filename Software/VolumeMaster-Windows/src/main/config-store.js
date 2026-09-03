@@ -60,6 +60,7 @@ function loadConfig(deviceDir) {
   let dirty = false;
   if (config.vm === undefined) { config.vm = false; dirty = true; }
   if (config.vmversion === undefined) { config.vmversion = 'banana'; dirty = true; }
+  if (config.deviceModel === undefined) { config.deviceModel = 'volumemaster'; dirty = true; }
   if (config.volumeNotifications === undefined) { config.volumeNotifications = true; dirty = true; }
   if (config.lastPreset === undefined) { config.lastPreset = null; dirty = true; }
   if (dirty) saveConfig(deviceDir, config);

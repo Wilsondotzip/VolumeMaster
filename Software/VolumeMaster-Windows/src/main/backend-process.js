@@ -57,7 +57,8 @@ function startBackend(deviceId, deviceDir) {
   }
 
   console.log(`[${deviceId}] Starting backend...`);
-  const proc = spawn(platform.getBackendBinaryPath(), [], {
+  const deviceModel = loadConfig(deviceDir).deviceModel;
+  const proc = spawn(platform.getBackendBinaryPath(deviceModel), [], {
     detached: false,
     stdio: 'pipe',
     shell: false,

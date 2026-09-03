@@ -8,6 +8,21 @@ import { isPluginItem, pluginItemParts, pluginActionKey, pluginDragName, PLUGIN_
 // Live volume levels keyed by knobId string
 const knobVolumes = {};
 
+const KNOBS_CONTAINER_CLASS_STANDARD =
+  'custom-scroll flex min-h-0 w-full flex-row flex-nowrap gap-3 overflow-x-auto overflow-y-hidden pb-2 mt-3 mb-3 grow items-stretch';
+// Pro devices can carry more knobs than fit in one row, so they wrap into a grid instead of scrolling horizontally.
+const KNOBS_CONTAINER_CLASS_PRO =
+  'custom-scroll grid w-full grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 overflow-y-auto pb-2 mt-3 mb-3 grow';
+
+const KNOB_SECTION_CLASS_STANDARD =
+  'bg-slate-800 rounded-lg shadow p-3 flex min-h-0 min-w-0 flex-1 flex-col border border-slate-700';
+const KNOB_SECTION_CLASS_PRO =
+  'bg-slate-800 rounded-lg shadow p-3 flex min-h-0 flex-col border border-slate-700';
+
+function isProDevice() {
+  return state.config.deviceModel === 'volumemaster_pro';
+}
+
 function getKnobArcPath(value) {
   if (value <= 0) return '';
   const cx = 16, cy = 16, r = 11;
@@ -149,8 +164,7 @@ export async function renderAllKnobsAndApps() {
 
   ensureKnobsDropDelegation();
 
-  container.className =
-    'custom-scroll flex min-h-0 w-full flex-row flex-nowrap gap-3 overflow-x-auto overflow-y-hidden pb-2 mt-3 mb-3 grow items-stretch';
+  container.className = isProDevice() ? KNOBS_CONTAINER_CLASS_PRO : KNOBS_CONTAINER_CLASS_STANDARD;
 
   for (const knobId of knobIds) {
     const section = createKnobSection(knobId);
@@ -161,9 +175,9 @@ export async function renderAllKnobsAndApps() {
 function createKnobSection(knobId) {
   const section = document.createElement('section');
   section.id = `knob-section-${knobId}`;
-  // One row of equal columns (all knobs visible); vertical scroll only inside the card host.
-  section.className =
-    'bg-slate-800 rounded-lg shadow p-3 flex min-h-0 min-w-0 flex-1 flex-col border border-slate-700';
+  // Standard: one row of equal columns (all knobs visible), horizontal scroll.
+  // Pro: wrapping grid, since Pro devices can have more knobs than fit in one row.
+  section.className = isProDevice() ? KNOB_SECTION_CLASS_PRO : KNOB_SECTION_CLASS_STANDARD;
 
   section.appendChild(createKnobHeader(knobId));
   section.appendChild(createButtonRow(knobId));

@@ -7,8 +7,8 @@
   "license": "ISC",
   "scripts": {
     "start": "electron .",
-    "prebuild": "pyinstaller --onefile --noconsole --name VolumeMaster-Headless src/backend/main.pyw --distpath .",
-    "test": "pyinstaller --onefile --noconsole --name VolumeMaster-Headless src/backend/main.pyw --distpath . && move VolumeMaster-Headless.exe node_modules/electron/dist/resources/VolumeMaster-Headless.exe && electron .",
+    "prebuild": "pyinstaller --onefile --noconsole --name VolumeMaster-Headless src/backend/main.pyw --distpath . && pyinstaller --onefile --noconsole --name VolumeMaster-Pro-Headless src/backend/main_pro.pyw --distpath .",
+    "test": "pyinstaller --onefile --noconsole --name VolumeMaster-Headless src/backend/main.pyw --distpath . && pyinstaller --onefile --noconsole --name VolumeMaster-Pro-Headless src/backend/main_pro.pyw --distpath . && move VolumeMaster-Headless.exe node_modules/electron/dist/resources/VolumeMaster-Headless.exe && move VolumeMaster-Pro-Headless.exe node_modules/electron/dist/resources/VolumeMaster-Pro-Headless.exe && electron .",
     "build": "electron-builder",
     "dist": "electron-builder",
     "prebuild:mac": "cd src/backend/macos && swift build -c release",
@@ -24,6 +24,7 @@
       "renderer.html",
       "config.yaml",
       "VolumeMaster-Headless.exe",
+      "VolumeMaster-Pro-Headless.exe",
       "!src/backend/macos/.build",
       "!**/node_modules/@tailwindcss/oxide-wasm32-wasi",
       "!**/node_modules/@emnapi",
@@ -39,6 +40,10 @@
         {
           "from": "VolumeMaster-Headless.exe",
           "to": "VolumeMaster-Headless.exe"
+        },
+        {
+          "from": "VolumeMaster-Pro-Headless.exe",
+          "to": "VolumeMaster-Pro-Headless.exe"
         }
       ]
     },

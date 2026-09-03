@@ -119,12 +119,20 @@ async function findProcessExePath(exeName) {
   return null;
 }
 
+const BACKEND_EXE_STANDARD = 'VolumeMaster-Headless.exe';
+const BACKEND_EXE_PRO = 'VolumeMaster-Pro-Headless.exe';
+
 /**
  * Returns the absolute path to the platform-specific backend binary.
+ * Pro devices ship a separate backend exe (different serial protocol —
+ * incremental encoders vs. absolute), kept as its own PyInstaller build
+ * rather than branching inside one backend for easier maintenance.
+ * @param {string} [deviceModel] - config.deviceModel, e.g. 'volumemaster_pro'
  * @returns {string}
  */
-function getBackendBinaryPath() {
-  return path.join(process.resourcesPath, 'VolumeMaster-Headless.exe');
+function getBackendBinaryPath(deviceModel) {
+  const exeName = deviceModel === 'volumemaster_pro' ? BACKEND_EXE_PRO : BACKEND_EXE_STANDARD;
+  return path.join(process.resourcesPath, exeName);
 }
 
 /**
@@ -132,10 +140,12 @@ function getBackendBinaryPath() {
  * Safe to call even if no processes are running.
  */
 function forceKillAllBackends() {
-  try {
-    require('child_process').execSync('taskkill /F /IM VolumeMaster-Headless.exe', { stdio: 'ignore' });
-  } catch {
-    // Throws if no matching processes — that's fine
+  for (const exeName of [BACKEND_EXE_STANDARD, BACKEND_EXE_PRO]) {
+    try {
+      require('child_process').execSync(`taskkill /F /IM ${exeName}`, { stdio: 'ignore' });
+    } catch {
+      // Throws if no matching processes — that's fine
+    }
   }
 }
 
