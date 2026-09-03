@@ -8,20 +8,11 @@ import { isPluginItem, pluginItemParts, pluginActionKey, pluginDragName, PLUGIN_
 // Live volume levels keyed by knobId string
 const knobVolumes = {};
 
-const KNOBS_CONTAINER_CLASS_STANDARD =
+// Knobs stay side-by-side in one row for both Standard and Pro.
+const KNOBS_CONTAINER_CLASS =
   'custom-scroll flex min-h-0 w-full flex-row flex-nowrap gap-3 overflow-x-auto overflow-y-hidden pb-2 mt-3 mb-3 grow items-stretch';
-// Pro devices can carry more knobs than fit in one row, so they wrap into a grid instead of scrolling horizontally.
-const KNOBS_CONTAINER_CLASS_PRO =
-  'custom-scroll grid w-full grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 overflow-y-auto pb-2 mt-3 mb-3 grow';
-
-const KNOB_SECTION_CLASS_STANDARD =
+const KNOB_SECTION_CLASS =
   'bg-slate-800 rounded-lg shadow p-3 flex min-h-0 min-w-0 flex-1 flex-col border border-slate-700';
-const KNOB_SECTION_CLASS_PRO =
-  'bg-slate-800 rounded-lg shadow p-3 flex min-h-0 flex-col border border-slate-700';
-
-function isProDevice() {
-  return state.config.deviceModel === 'volumemaster_pro';
-}
 
 function getKnobArcPath(value) {
   if (value <= 0) return '';
@@ -164,7 +155,7 @@ export async function renderAllKnobsAndApps() {
 
   ensureKnobsDropDelegation();
 
-  container.className = isProDevice() ? KNOBS_CONTAINER_CLASS_PRO : KNOBS_CONTAINER_CLASS_STANDARD;
+  container.className = KNOBS_CONTAINER_CLASS;
 
   for (const knobId of knobIds) {
     const section = createKnobSection(knobId);
@@ -175,9 +166,8 @@ export async function renderAllKnobsAndApps() {
 function createKnobSection(knobId) {
   const section = document.createElement('section');
   section.id = `knob-section-${knobId}`;
-  // Standard: one row of equal columns (all knobs visible), horizontal scroll.
-  // Pro: wrapping grid, since Pro devices can have more knobs than fit in one row.
-  section.className = isProDevice() ? KNOB_SECTION_CLASS_PRO : KNOB_SECTION_CLASS_STANDARD;
+  // One row of equal columns (all knobs visible); vertical scroll only inside the card host.
+  section.className = KNOB_SECTION_CLASS;
 
   section.appendChild(createKnobHeader(knobId));
   section.appendChild(createButtonRow(knobId));
