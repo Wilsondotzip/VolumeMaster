@@ -509,6 +509,18 @@ def main():
                     print("Malformed input:", line)
                     continue
 
+            # BUTTON:<knob index> — pass straight through to Electron, which looks up
+            # ButtonActions in config.yaml and dispatches to the mapped plugin.
+            # Future device commands (e.g. BUTTON_LONG:, BUTTON_DOUBLE:) can be added
+            # as additional prefixes here without touching this one.
+            elif line.startswith('BUTTON:'):
+                try:
+                    button_index = int(line[len('BUTTON:'):])
+                    print(f'BUTTON:{button_index}', flush=True)
+                except ValueError:
+                    print("Malformed button input:", line)
+                    continue
+
             elif line and set_button_toggle:
                 if line.endswith('!='):
                     set_button_toggle(line.strip('!='), False)
