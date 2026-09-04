@@ -3,8 +3,22 @@ import { saveConfigAndSync } from './config-sync.js';
 import { getProcessDisplayInfo, sanitizeAppName } from './utils.js';
 import { getVMLabel, isVMItem, vmItemId } from './voicemeeter.js';
 import { isCategoryItem, categoryId, getCategoryMeta, CATEGORY_PREFIX } from './categories.js';
-import { isPluginItem, pluginItemParts, pluginActionKey, pluginDragName, PLUGIN_PREFIX } from './plugins.js';
-import { isProDevice, createKnobConfigButton } from './knob-config.js';
+import {
+  isPluginItem,
+  pluginItemParts,
+  pluginActionKey,
+  pluginDragName,
+  PLUGIN_PREFIX,
+  pluginActionAllowsKind,
+  isPluginDragAllowedFor,
+} from './plugins.js';
+import {
+  isProDevice,
+  createKnobConfigButton,
+  createButtonActionSection,
+  isButtonActionHost,
+  handleButtonActionDrop,
+} from './knob-config.js';
 
 // Live volume levels keyed by knobId string
 const knobVolumes = {};
@@ -67,6 +81,19 @@ function onKnobsDragOverCapture(e) {
   }
   if (!isKnobMappingDrag(e.dataTransfer)) return;
 
+  // The button-action zone only accepts plugin actions not restricted to 'knob';
+  // everywhere else rejects plugin actions restricted to 'button'.
+  const isPluginDrag = isPluginItem(state.mappingDragPayload?.name);
+  if (isButtonActionHost(e.target)) {
+    if (!isPluginDrag || !isPluginDragAllowedFor('button')) {
+      clearDragHighlight();
+      return;
+    }
+  } else if (isPluginDrag && !isPluginDragAllowedFor('knob')) {
+    clearDragHighlight();
+    return;
+  }
+
   e.preventDefault();
   e.dataTransfer.dropEffect = 'copy';
 
@@ -87,6 +114,14 @@ function onKnobsDropCapture(e) {
   if (!container?.contains(e.target)) return;
   if (!isKnobMappingDrag(e.dataTransfer)) return;
 
+  const isButtonAction = isButtonActionHost(e.target);
+  const isPluginDrag = isPluginItem(state.mappingDragPayload?.name);
+  if (isButtonAction) {
+    if (!isPluginDrag || !isPluginDragAllowedFor('button')) return;
+  } else if (isPluginDrag && !isPluginDragAllowedFor('knob')) {
+    return;
+  }
+
   const section = e.target.closest?.('section[id^="knob-section-"]');
   e.preventDefault();
   e.stopPropagation();
@@ -95,7 +130,11 @@ function onKnobsDropCapture(e) {
   if (!section || !container.contains(section)) return;
 
   const knobId = section.id.replace('knob-section-', '');
-  handleDrop(e, knobId);
+  if (isButtonAction) {
+    handleButtonActionDrop(e, knobId);
+  } else {
+    handleDrop(e, knobId);
+  }
 }
 
 let knobsDelegationInstalled = false;
@@ -213,6 +252,7 @@ function createKnobSection(knobId) {
   }
 
   section.appendChild(cardHost);
+  if (isProDevice()) section.appendChild(createButtonActionSection(knobId));
   return section;
 }
 
@@ -536,6 +576,10 @@ async function handleDrop(event, knobId) {
 
     if (isPlugin) {
       const { pluginId, actionId } = pluginItemParts(droppedApp);
+      if (!pluginActionAllowsKind(pluginId, actionId, 'knob')) {
+        console.warn(`[handleDrop] "${pluginId}:${actionId}" is button-only, cannot be mapped to a knob turn`);
+        return;
+      }
       const key = pluginActionKey(pluginId, actionId);
       if (!Array.isArray(mapping.PluginActions)) mapping.PluginActions = [];
       if (mapping.PluginActions.includes(key)) {

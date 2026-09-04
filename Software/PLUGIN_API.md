@@ -38,7 +38,7 @@ Register your plugin and its actions. Send this right after connecting.
   "name": "My Plugin",
   "actions": [
     { "id": "action-one", "label": "My Plugin: Action One" },
-    { "id": "action-two", "label": "My Plugin: Action Two" }
+    { "id": "action-two", "label": "My Plugin: Action Two", "kind": "button" }
   ]
 }
 ```
@@ -48,6 +48,8 @@ Register your plugin and its actions. Send this right after connecting.
 | `pluginId` | Unique string identifier for your plugin. Use something specific to avoid clashes (e.g. `obs-controller`, not `plugin`). |
 | `name`     | Display name shown in VolumeMaster's UI.                                                                                 |
 | `actions`  | List of actions users can assign to knobs. Each needs a unique `id` and a short `label`.                                 |
+
+Each action may optionally set `kind` to `"knob"` or `"button"` to restrict where users can assign it — a `"knob"` action can only be dragged onto a knob's turn (volume) targets, a `"button"` action only onto a knob's button-press target (VolumeMaster Pro devices only, whose knobs are push-button rotary encoders). Omit `kind` (or leave it unset) for an action that should be assignable to both. See [`knob-button`](#knob-button) below for the event a button-assigned action receives.
 
 After registering, your actions appear as draggable cards in the **Plugins** tab inside VolumeMaster. Users drag them onto knobs just like apps.
 
@@ -77,6 +79,27 @@ Sent whenever a knob moves **and** your plugin has an action assigned to that kn
 | `deviceId` | Which VolumeMaster device sent the event (useful if the user has multiple devices). |
 
 > You only receive events for knobs that have one of your actions assigned. If no knob has your action assigned, you receive nothing.
+
+#### `knob-button`
+
+Sent when a knob's button is pressed (VolumeMaster Pro devices only, whose knobs are push-button rotary encoders) **and** your plugin has an action assigned to that knob's button.
+
+```json
+{
+  "type": "knob-button",
+  "index": 3,
+  "actionId": "press-thing",
+  "deviceId": "abc12345"
+}
+```
+
+| Field      | Description                                                                         |
+| ---------- | ------------------------------------------------------------------------------------ |
+| `index`    | Which knob's button was pressed.                                                    |
+| `actionId` | The `id` of whichever `kind: "button"` (or unrestricted) action the user assigned.   |
+| `deviceId` | Which VolumeMaster device sent the event (useful if the user has multiple devices). |
+
+There's no `value` — a button press is a discrete event, not a level. Currently this only fires on press; press duration and double-press are on the device/firmware roadmap and would arrive as additional message types later, not as fields on this one.
 
 ---
 

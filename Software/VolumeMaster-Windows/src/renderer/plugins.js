@@ -24,6 +24,30 @@ export function pluginDragName(pluginId, actionId) {
   return `${PLUGIN_PREFIX}${pluginId}:${actionId}`;
 }
 
+export function getPluginAction(pluginId, actionId) {
+  const plugin = state.pluginActions.find((p) => p.pluginId === pluginId);
+  return plugin?.actions.find((a) => a.id === actionId) || null;
+}
+
+/**
+ * True unless the action declared a 'knob'/'button' kind that excludes this context.
+ * An action whose plugin is offline (not found) is allowed, deferring to whatever
+ * was already saved rather than blocking on a lookup that can't succeed.
+ */
+export function pluginActionAllowsKind(pluginId, actionId, context) {
+  const action = getPluginAction(pluginId, actionId);
+  if (!action) return true;
+  return !action.kind || action.kind === context;
+}
+
+/** Whether the plugin action currently mid-drag (if any) may be dropped in this context. */
+export function isPluginDragAllowedFor(context) {
+  const name = state.mappingDragPayload?.name;
+  if (!isPluginItem(name)) return false;
+  const { pluginId, actionId } = pluginItemParts(name);
+  return pluginActionAllowsKind(pluginId, actionId, context);
+}
+
 export function renderPluginActionList() {
   const list = document.getElementById('pluginActionList');
   if (!list) return;
@@ -64,6 +88,14 @@ export function renderPluginActionList() {
 
       textWrap.append(labelEl, sub);
       card.append(iconEl, textWrap);
+
+      if (action.kind === 'knob' || action.kind === 'button') {
+        const badge = document.createElement('span');
+        badge.className =
+          'ml-auto shrink-0 text-[10px] font-semibold uppercase tracking-wide text-amber-300 bg-amber-900 bg-opacity-40 border border-amber-700 rounded px-1.5 py-0.5';
+        badge.textContent = action.kind === 'knob' ? 'Knob only' : 'Button only';
+        card.appendChild(badge);
+      }
 
       card.addEventListener('dragstart', (e) => {
         state.mappingDragActive = true;
