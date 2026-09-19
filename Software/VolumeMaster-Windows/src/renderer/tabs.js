@@ -51,8 +51,9 @@ export function setupSubTabs() {
       Object.entries(panels).forEach(([panelId, content]) => {
         const isActive = panelId === id;
         content.classList.toggle('hidden', !isActive);
-        buttons[panelId].classList.toggle('border-b-2', isActive);
+        buttons[panelId].classList.toggle('bg-slate-800', isActive);
         buttons[panelId].classList.toggle('border-indigo-400', isActive);
+        buttons[panelId].classList.toggle('border-transparent', !isActive);
         buttons[panelId].classList.toggle('text-indigo-400', isActive);
         buttons[panelId].classList.toggle('text-slate-500', !isActive);
       });

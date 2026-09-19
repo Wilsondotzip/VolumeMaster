@@ -162,145 +162,131 @@
     <!-- Mappings Tab -->
     <!-- Mappings Tab -->
     <div id="tabContentMappings" class="flex flex-col min-h-0 grow">
-      <!-- Sub Tabs -->
-      <div class="flex gap-4 border-b border-slate-700 mb-3 shrink-0">
-        <button
-          id="subTabApps"
-          class="pb-1.5 text-xs font-semibold text-indigo-400 border-b-2 border-indigo-400 transition"
-        >
-          Applications
-        </button>
-        <button
-          id="subTabDevices"
-          class="pb-1.5 text-xs font-semibold text-slate-500 hover:text-indigo-400 transition"
-        >
-          Input Devices
-        </button>
-        <button
-          id="subTabVoiceMeeter"
-          class="hidden pb-1.5 text-xs font-semibold text-slate-500 hover:text-indigo-400 transition"
-        >
-          VoiceMeeter
-        </button>
-        <button
-          id="subTabCategories"
-          class="pb-1.5 text-xs font-semibold text-slate-500 hover:text-indigo-400 transition"
-        >
-          Categories
-        </button>
-        <button
-          id="subTabPlugins"
-          class="pb-1.5 text-xs font-semibold text-slate-500 hover:text-indigo-400 transition"
-        >
-          Plugins
-        </button>
-        <button
-          id="subTabActions"
-          class="hidden pb-1.5 text-xs font-semibold text-slate-500 hover:text-indigo-400 transition"
-        >
-          Actions
-        </button>
-      </div>
-
-      <!-- Applications Panel -->
-      <div id="subContentApps" class="flex flex-col min-h-0 shrink-0">
-        <div class="flex items-center gap-3 w-full mb-2">
-          <input
-            id="processSearch"
-            type="text"
-            placeholder="Search running apps..."
-            class="flex-1 mt-2 min-w-0 p-1.5 text-sm border border-slate-700 rounded bg-slate-800 text-gray-300 placeholder-slate-500 focus:outline-indigo-400 focus:ring-1 focus:ring-indigo-400"
-          />
-          <select
-            id="processFilter"
-            class="p-1.5 text-sm border border-slate-700 rounded bg-slate-800 text-gray-300 focus:outline-indigo-400 focus:ring-1 focus:ring-indigo-400"
+      <!-- Sub Tabs + Panels: vertical menu on the left, content fills the rest -->
+      <div class="flex gap-3 mb-3 shrink-0" style="height: 12rem">
+        <!-- Sub Tabs -->
+        <div class="flex flex-col gap-1 w-36 shrink-0 border-r border-slate-700 pr-3 overflow-y-auto custom-scroll">
+          <button
+            id="subTabApps"
+            class="px-2 py-1.5 text-xs font-semibold text-left whitespace-nowrap rounded border-l-2 transition bg-slate-800 text-indigo-400 border-indigo-400"
           >
-            <option value="audio">Audio</option>
-            <option value="gui">GUI</option>
-            <option value="all">All</option>
-          </select>
+            Applications
+          </button>
+          <button
+            id="subTabDevices"
+            class="px-2 py-1.5 text-xs font-semibold text-left whitespace-nowrap rounded border-l-2 border-transparent transition text-slate-500 hover:text-indigo-400 hover:bg-slate-800"
+          >
+            Input Devices
+          </button>
+          <button
+            id="subTabVoiceMeeter"
+            class="hidden px-2 py-1.5 text-xs font-semibold text-left whitespace-nowrap rounded border-l-2 border-transparent transition text-slate-500 hover:text-indigo-400 hover:bg-slate-800"
+          >
+            VoiceMeeter
+          </button>
+          <button
+            id="subTabCategories"
+            class="px-2 py-1.5 text-xs font-semibold text-left whitespace-nowrap rounded border-l-2 border-transparent transition text-slate-500 hover:text-indigo-400 hover:bg-slate-800"
+          >
+            Categories
+          </button>
+          <button
+            id="subTabPlugins"
+            class="px-2 py-1.5 text-xs font-semibold text-left whitespace-nowrap rounded border-l-2 border-transparent transition text-slate-500 hover:text-indigo-400 hover:bg-slate-800"
+          >
+            Plugins
+          </button>
+          <button
+            id="subTabActions"
+            class="hidden px-2 py-1.5 text-xs font-semibold text-left whitespace-nowrap rounded border-l-2 border-transparent transition text-slate-500 hover:text-indigo-400 hover:bg-slate-800"
+          >
+            Actions
+          </button>
         </div>
-        <div
-          id="processList"
-          class="custom-scroll mt-2 flex flex-wrap gap-1 overflow-y-auto max-h-24"
-        ></div>
-      </div>
 
-      <!-- Input Devices Panel -->
-      <div
-        id="subContentDevices"
-        class="hidden flex flex-col shrink-0"
-        style="height: 7rem"
-      >
-        <div
-          id="inputDeviceList"
-          class="custom-scroll flex flex-col gap-2 overflow-y-auto h-full"
-        ></div>
-      </div>
-
-      <!-- Categories Panel -->
-      <div
-        id="subContentCategories"
-        class="hidden flex flex-col shrink-0"
-        style="height: 7rem"
-      >
-        <div
-          id="categoryList"
-          class="custom-scroll flex flex-col gap-2 overflow-y-auto h-full"
-        ></div>
-      </div>
-
-      <!-- Plugins Panel -->
-      <div
-        id="subContentPlugins"
-        class="hidden flex flex-col shrink-0"
-        style="height: 7rem"
-      >
-        <div
-          id="pluginActionList"
-          class="custom-scroll flex flex-col gap-2 overflow-y-auto h-full"
-        ></div>
-      </div>
-
-      <!-- Actions Panel (VolumeMaster Pro only) -->
-      <div
-        id="subContentActions"
-        class="hidden flex flex-col shrink-0"
-        style="height: 7rem"
-      >
-        <div
-          id="builtinActionList"
-          class="custom-scroll flex flex-col gap-2 overflow-y-auto h-full"
-        ></div>
-      </div>
-
-      <!-- VoiceMeeter Panel -->
-      <div
-        id="subContentVoiceMeeter"
-        class="hidden flex flex-col shrink-0"
-        style="height: 7rem"
-      >
-        <div id="vmNotEnabledMsg" class="hidden text-xs text-slate-500 italic">
-          VoiceMeeter is not enabled. Enable it in Settings.
-        </div>
-        <div id="vmChannelColumns" class="flex gap-3 h-full overflow-hidden">
-          <div class="flex flex-col min-w-0 flex-1 overflow-hidden">
-            <div class="text-xs text-slate-500 font-semibold uppercase mb-1">
-              Inputs
+        <!-- Panels -->
+        <div class="flex-1 min-w-0 min-h-0">
+          <!-- Applications Panel -->
+          <div id="subContentApps" class="flex flex-col h-full min-h-0">
+            <div class="flex items-center gap-3 w-full mb-2 shrink-0">
+              <input
+                id="processSearch"
+                type="text"
+                placeholder="Search running apps..."
+                class="flex-1 min-w-0 p-1.5 text-sm border border-slate-700 rounded bg-slate-800 text-gray-300 placeholder-slate-500 focus:outline-indigo-400 focus:ring-1 focus:ring-indigo-400"
+              />
+              <select
+                id="processFilter"
+                class="p-1.5 text-sm border border-slate-700 rounded bg-slate-800 text-gray-300 focus:outline-indigo-400 focus:ring-1 focus:ring-indigo-400"
+              >
+                <option value="audio">Audio</option>
+                <option value="gui">GUI</option>
+                <option value="all">All</option>
+              </select>
             </div>
             <div
-              id="vmInputList"
-              class="custom-scroll flex flex-col gap-1 overflow-y-auto"
+              id="processList"
+              class="custom-scroll flex-1 content-start flex flex-wrap gap-1 overflow-y-auto"
             ></div>
           </div>
-          <div class="flex flex-col min-w-0 flex-1 overflow-hidden">
-            <div class="text-xs text-slate-500 font-semibold uppercase mb-1">
-              Outputs
-            </div>
+
+          <!-- Input Devices Panel -->
+          <div id="subContentDevices" class="hidden flex flex-col h-full min-h-0">
             <div
-              id="vmOutputList"
-              class="custom-scroll flex flex-col gap-1 overflow-y-auto"
+              id="inputDeviceList"
+              class="custom-scroll flex flex-col gap-2 overflow-y-auto h-full"
             ></div>
+          </div>
+
+          <!-- Categories Panel -->
+          <div id="subContentCategories" class="hidden flex flex-col h-full min-h-0">
+            <div
+              id="categoryList"
+              class="custom-scroll flex flex-col gap-2 overflow-y-auto h-full"
+            ></div>
+          </div>
+
+          <!-- Plugins Panel -->
+          <div id="subContentPlugins" class="hidden flex flex-col h-full min-h-0">
+            <div
+              id="pluginActionList"
+              class="custom-scroll flex flex-col gap-2 overflow-y-auto h-full"
+            ></div>
+          </div>
+
+          <!-- Actions Panel (VolumeMaster Pro only) -->
+          <div id="subContentActions" class="hidden flex flex-col h-full min-h-0">
+            <div
+              id="builtinActionList"
+              class="custom-scroll flex flex-col gap-2 overflow-y-auto h-full"
+            ></div>
+          </div>
+
+          <!-- VoiceMeeter Panel -->
+          <div id="subContentVoiceMeeter" class="hidden flex flex-col h-full min-h-0">
+            <div id="vmNotEnabledMsg" class="hidden text-xs text-slate-500 italic">
+              VoiceMeeter is not enabled. Enable it in Settings.
+            </div>
+            <div id="vmChannelColumns" class="flex gap-3 h-full overflow-hidden">
+              <div class="flex flex-col min-w-0 flex-1 overflow-hidden">
+                <div class="text-xs text-slate-500 font-semibold uppercase mb-1">
+                  Inputs
+                </div>
+                <div
+                  id="vmInputList"
+                  class="custom-scroll flex flex-col gap-1 overflow-y-auto"
+                ></div>
+              </div>
+              <div class="flex flex-col min-w-0 flex-1 overflow-hidden">
+                <div class="text-xs text-slate-500 font-semibold uppercase mb-1">
+                  Outputs
+                </div>
+                <div
+                  id="vmOutputList"
+                  class="custom-scroll flex flex-col gap-1 overflow-y-auto"
+                ></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
