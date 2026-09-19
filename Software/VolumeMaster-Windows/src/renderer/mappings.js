@@ -12,6 +12,7 @@ import {
   pluginActionAllowsKind,
   isPluginDragAllowedFor,
 } from './plugins.js';
+import { isBuiltinItem } from './builtin-actions.js';
 import {
   isProDevice,
   createKnobConfigButton,
@@ -81,15 +82,18 @@ function onKnobsDragOverCapture(e) {
   }
   if (!isKnobMappingDrag(e.dataTransfer)) return;
 
-  // The button-action zone only accepts plugin actions not restricted to 'knob';
-  // everywhere else rejects plugin actions restricted to 'button'.
-  const isPluginDrag = isPluginItem(state.mappingDragPayload?.name);
+  // The button-action zone accepts built-in action cards and plugin actions not
+  // restricted to 'knob'; everywhere else rejects both built-in cards (they only
+  // make sense as button presses) and plugin actions restricted to 'button'.
+  const draggedName = state.mappingDragPayload?.name;
+  const isPluginDrag = isPluginItem(draggedName);
+  const isBuiltinDrag = isBuiltinItem(draggedName);
   if (isButtonActionHost(e.target)) {
-    if (!isPluginDrag || !isPluginDragAllowedFor('button')) {
+    if (!isBuiltinDrag && !(isPluginDrag && isPluginDragAllowedFor('button'))) {
       clearDragHighlight();
       return;
     }
-  } else if (isPluginDrag && !isPluginDragAllowedFor('knob')) {
+  } else if (isBuiltinDrag || (isPluginDrag && !isPluginDragAllowedFor('knob'))) {
     clearDragHighlight();
     return;
   }
@@ -115,10 +119,12 @@ function onKnobsDropCapture(e) {
   if (!isKnobMappingDrag(e.dataTransfer)) return;
 
   const isButtonAction = isButtonActionHost(e.target);
-  const isPluginDrag = isPluginItem(state.mappingDragPayload?.name);
+  const draggedName = state.mappingDragPayload?.name;
+  const isPluginDrag = isPluginItem(draggedName);
+  const isBuiltinDrag = isBuiltinItem(draggedName);
   if (isButtonAction) {
-    if (!isPluginDrag || !isPluginDragAllowedFor('button')) return;
-  } else if (isPluginDrag && !isPluginDragAllowedFor('knob')) {
+    if (!isBuiltinDrag && !(isPluginDrag && isPluginDragAllowedFor('button'))) return;
+  } else if (isBuiltinDrag || (isPluginDrag && !isPluginDragAllowedFor('knob'))) {
     return;
   }
 

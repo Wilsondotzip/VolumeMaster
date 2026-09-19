@@ -1,6 +1,7 @@
 import { showAlert } from './alerts.js';
 import { state } from './state.js';
 import { renderAllKnobsAndApps } from './mappings.js';
+import { isProDevice } from './knob-config.js';
 
 export function setupSettingsListeners() {
   document.getElementById('saveAndRunBtn')?.addEventListener('click', async () => {
@@ -38,6 +39,7 @@ export function setupSettingsListeners() {
   document.getElementById('deviceModelSelect')?.addEventListener('change', async (e) => {
     await window.api.setDeviceModel(e.target.value);
     state.config.deviceModel = e.target.value;
+    document.getElementById('subTabActions')?.classList.toggle('hidden', !isProDevice());
     await renderAllKnobsAndApps();
   });
 
@@ -309,4 +311,5 @@ export async function applyDeviceModelUiFromMain() {
   state.config.deviceModel = model || 'volumemaster';
   const select = document.getElementById('deviceModelSelect');
   if (select) select.value = state.config.deviceModel;
+  document.getElementById('subTabActions')?.classList.toggle('hidden', !isProDevice());
 }

@@ -12,6 +12,7 @@ import {
   renderCategoryList,
 } from './sources.js';
 import { renderPluginActionList } from './plugins.js';
+import { renderBuiltinActionList } from './builtin-actions.js';
 import { renderAllKnobsAndApps, updateKnobVolume } from './mappings.js';
 import { setupPresets } from './presets.js';
 import { setupDeviceHeader, setupNewDeviceButton, setupRemoveDeviceButton } from './device.js';
@@ -84,6 +85,7 @@ function init() {
   });
   setupTabs();
   setupSubTabs();
+  renderBuiltinActionList();
   setupComPortListeners();
   refreshComPortListPreservingSelection();
   setupAutoStartListener();

@@ -194,6 +194,12 @@
         >
           Plugins
         </button>
+        <button
+          id="subTabActions"
+          class="hidden pb-1.5 text-xs font-semibold text-slate-500 hover:text-indigo-400 transition"
+        >
+          Actions
+        </button>
       </div>
 
       <!-- Applications Panel -->
@@ -252,6 +258,18 @@
       >
         <div
           id="pluginActionList"
+          class="custom-scroll flex flex-col gap-2 overflow-y-auto h-full"
+        ></div>
+      </div>
+
+      <!-- Actions Panel (VolumeMaster Pro only) -->
+      <div
+        id="subContentActions"
+        class="hidden flex flex-col shrink-0"
+        style="height: 7rem"
+      >
+        <div
+          id="builtinActionList"
           class="custom-scroll flex flex-col gap-2 overflow-y-auto h-full"
         ></div>
       </div>

@@ -34,6 +34,7 @@ export function setupSubTabs() {
     subTabVoiceMeeter: document.getElementById('subContentVoiceMeeter'),
     subTabCategories: document.getElementById('subContentCategories'),
     subTabPlugins: document.getElementById('subContentPlugins'),
+    subTabActions: document.getElementById('subContentActions'),
   };
 
   const buttons = {
@@ -42,6 +43,7 @@ export function setupSubTabs() {
     subTabVoiceMeeter: document.getElementById('subTabVoiceMeeter'),
     subTabCategories: document.getElementById('subTabCategories'),
     subTabPlugins: document.getElementById('subTabPlugins'),
+    subTabActions: document.getElementById('subTabActions'),
   };
 
   Object.entries(buttons).forEach(([id, btn]) => {
