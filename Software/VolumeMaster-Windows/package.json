@@ -7,8 +7,8 @@
   "license": "ISC",
   "scripts": {
     "start": "electron .",
-    "prebuild": "pyinstaller --onefile --noconsole --name VolumeMaster-Headless src/backend/main.pyw --distpath . && pyinstaller --onefile --noconsole --name VolumeMaster-Pro-Headless src/backend/main_pro.pyw --distpath .",
-    "test": "pyinstaller --onefile --noconsole --name VolumeMaster-Headless src/backend/main.pyw --distpath . && pyinstaller --onefile --noconsole --name VolumeMaster-Pro-Headless src/backend/main_pro.pyw --distpath . && move VolumeMaster-Headless.exe node_modules/electron/dist/resources/VolumeMaster-Headless.exe && move VolumeMaster-Pro-Headless.exe node_modules/electron/dist/resources/VolumeMaster-Pro-Headless.exe && electron .",
+    "prebuild": ".venv\\Scripts\\python -m PyInstaller --onefile --noconsole --name VolumeMaster-Headless src/backend/main.pyw --distpath . && .venv\\Scripts\\python -m PyInstaller --onefile --noconsole --name VolumeMaster-Pro-Headless src/backend/main_pro.pyw --distpath .",
+    "test": ".venv\\Scripts\\python -m PyInstaller --onefile --noconsole --name VolumeMaster-Headless src/backend/main.pyw --distpath . && .venv\\Scripts\\python -m PyInstaller --onefile --noconsole --name VolumeMaster-Pro-Headless src/backend/main_pro.pyw --distpath . && move VolumeMaster-Headless.exe node_modules/electron/dist/resources/VolumeMaster-Headless.exe && move VolumeMaster-Pro-Headless.exe node_modules/electron/dist/resources/VolumeMaster-Pro-Headless.exe && electron .",
     "build": "electron-builder",
     "dist": "electron-builder",
     "prebuild:mac": "cd src/backend/macos && swift build -c release",
