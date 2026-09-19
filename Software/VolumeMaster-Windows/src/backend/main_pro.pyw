@@ -619,16 +619,29 @@ def main():
                     print("Malformed input:", line)
                     continue
 
-            # BUTTON:<knob index> — built-in actions (mute/keyboard shortcut/open
-            # program) execute right here; the line is also forwarded to Electron
-            # unchanged so it can dispatch any plugin-mediated actions.
-            # Future device commands (e.g. BUTTON_LONG:, BUTTON_DOUBLE:) can be added
-            # as additional prefixes here without touching this one.
+            # BTN_DOWN:<knob index> — built-in actions (mute/keyboard shortcut/open
+            # program) execute right here on press; the line is forwarded to Electron
+            # as BUTTON: so it can dispatch any plugin-mediated actions and show the
+            # button as held in the UI.
+            # BTN_UP:<knob index>:<hold duration ms> — device reports how long the
+            # button was held; only updates the UI (released) — no action re-fires
+            # on release, but the duration is forwarded in case a future feature
+            # (e.g. long-press vs. short-press actions) wants it.
             elif line.startswith('BTN_DOWN:'):
                 try:
                     button_index = int(line[len('BTN_DOWN:'):])
                     print(f'BUTTON:{button_index}', flush=True)
                     execute_button_actions(button_index)
+                except ValueError:
+                    print("Malformed button input:", line)
+                    continue
+
+            elif line.startswith('BTN_UP:'):
+                try:
+                    index_str, duration_str = line[len('BTN_UP:'):].split(':')
+                    button_index = int(index_str)
+                    hold_ms = int(duration_str)
+                    print(f'BUTTON_UP:{button_index}:{hold_ms}', flush=True)
                 except ValueError:
                     print("Malformed button input:", line)
                     continue
