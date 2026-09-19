@@ -4,5 +4,8 @@ out/
 release/
 VolumeMaster-Headless.exe
 VolumeMaster-Headless.spec
+VolumeMaster-Pro-Headless.exe
+VolumeMaster-Pro-Headless.spec
 build
 src/backend/macos/.build/
+.venv/
