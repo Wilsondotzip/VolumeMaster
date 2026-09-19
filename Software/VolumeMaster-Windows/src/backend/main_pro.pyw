@@ -624,9 +624,9 @@ def main():
             # unchanged so it can dispatch any plugin-mediated actions.
             # Future device commands (e.g. BUTTON_LONG:, BUTTON_DOUBLE:) can be added
             # as additional prefixes here without touching this one.
-            elif line.startswith('BUTTON:'):
+            elif line.startswith('BTN_DOWN:'):
                 try:
-                    button_index = int(line[len('BUTTON:'):])
+                    button_index = int(line[len('BTN_DOWN:'):])
                     print(f'BUTTON:{button_index}', flush=True)
                     execute_button_actions(button_index)
                 except ValueError:
