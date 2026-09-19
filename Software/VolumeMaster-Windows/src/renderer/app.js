@@ -13,7 +13,7 @@ import {
 } from './sources.js';
 import { renderPluginActionList } from './plugins.js';
 import { renderBuiltinActionList } from './builtin-actions.js';
-import { renderAllKnobsAndApps, updateKnobVolume } from './mappings.js';
+import { renderAllKnobsAndApps, updateKnobVolume, setButtonHeld } from './mappings.js';
 import { setupPresets } from './presets.js';
 import { setupDeviceHeader, setupNewDeviceButton, setupRemoveDeviceButton } from './device.js';
 
@@ -71,6 +71,7 @@ async function bootstrapFromConfig() {
 
 function init() {
   window.api.onVolumeUpdate(({ index, value }) => updateKnobVolume(index, value));
+  window.api.onButtonPress(({ index, pressed }) => setButtonHeld(index, pressed));
   window.api.onWindowHidden(() => { state.iconCache.clear(); });
 
   window.api.onPluginActionsUpdated((plugins) => {

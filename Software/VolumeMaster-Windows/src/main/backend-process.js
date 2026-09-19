@@ -105,9 +105,19 @@ function startBackend(deviceId, deviceDir) {
           handleVolumeChange(deviceId, deviceDir, index, value);
           dispatchKnobEvent(deviceId, index, value, loadConfig(deviceDir));
         }
+      } else if (trimmed.startsWith('BUTTON_UP:')) {
+        const parts = trimmed.split(':');
+        if (parts.length === 3) {
+          const index = parseInt(parts[1], 10);
+          const holdMs = parseInt(parts[2], 10);
+          const win = deviceManager.getWindowForDevice(deviceId);
+          if (win) win.webContents.send('button-press', { index, pressed: false, holdMs });
+        }
       } else if (trimmed.startsWith('BUTTON:')) {
         const index = parseInt(trimmed.slice('BUTTON:'.length), 10);
         if (!Number.isNaN(index)) {
+          const win = deviceManager.getWindowForDevice(deviceId);
+          if (win) win.webContents.send('button-press', { index, pressed: true });
           dispatchKnobButtonEvent(deviceId, index, loadConfig(deviceDir));
         }
       } else {

@@ -55,6 +55,13 @@ export function updateKnobVolume(index, value) {
   if (pctEl) pctEl.textContent = `${value}%`;
 }
 
+export function setButtonHeld(index, pressed) {
+  const section = document.getElementById(`knob-section-${index}`);
+  const cap = section?.querySelector('[data-button-cap]');
+  if (!cap) return;
+  cap.classList.toggle('button-held', pressed);
+}
+
 /** Knob section given a highlight during drag; cleared on drop / dragend / leaving knobs area. */
 let dragHighlightSection = null;
 
@@ -422,6 +429,19 @@ function createKnobHeader(knobId) {
   valArc.setAttribute('data-knob-arc', '');
 
   svg.append(bgArc, valArc);
+
+  // Button cap: sits inside the volume ring, like the physical push-button on
+  // top of a Pro rotary encoder. Shrinks and brightens while held (see
+  // .button-held in renderer.html), returns to rest on release.
+  if (isProDevice()) {
+    const cap = document.createElementNS(svgNS, 'circle');
+    cap.setAttribute('cx', '16');
+    cap.setAttribute('cy', '16');
+    cap.setAttribute('r', '7');
+    cap.setAttribute('data-button-cap', '');
+    cap.setAttribute('title', 'Lights up while the button is held');
+    svg.appendChild(cap);
+  }
 
   const textCol = document.createElement('div');
   textCol.className = 'flex flex-col min-w-0';

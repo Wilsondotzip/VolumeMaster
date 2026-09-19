@@ -247,6 +247,103 @@ export function isButtonActionHost(target) {
   return !!target?.closest?.('[data-button-action-host]');
 }
 
+// Maps DOM KeyboardEvent.key values to the names the Python `keyboard` package
+// (keyboard.send()) expects. Anything not listed here is just lowercased.
+const SHORTCUT_KEY_NAME_MAP = {
+  ' ': 'space',
+  'Escape': 'esc',
+  'ArrowUp': 'up',
+  'ArrowDown': 'down',
+  'ArrowLeft': 'left',
+  'ArrowRight': 'right',
+  'Enter': 'enter',
+  'Backspace': 'backspace',
+  'Delete': 'delete',
+  'Tab': 'tab',
+  'PageUp': 'page up',
+  'PageDown': 'page down',
+  'Home': 'home',
+  'End': 'end',
+  'Insert': 'insert',
+  'CapsLock': 'caps lock',
+};
+
+const SHORTCUT_MODIFIER_KEYS = new Set(['Control', 'Shift', 'Alt', 'Meta']);
+
+function capitalize(s) {
+  return s.length ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
+function normalizeShortcutKeyName(key) {
+  return SHORTCUT_KEY_NAME_MAP[key] || key.toLowerCase();
+}
+
+/** Live preview while only modifiers are held, e.g. "Ctrl+Shift+…". */
+function describeHeldModifiers(e) {
+  const parts = [];
+  if (e.ctrlKey) parts.push('Ctrl');
+  if (e.shiftKey) parts.push('Shift');
+  if (e.altKey) parts.push('Alt');
+  if (e.metaKey) parts.push('Windows');
+  return parts.length ? `${parts.join('+')}+…` : '';
+}
+
+/** Builds the final "Ctrl+Shift+M"-style string once a non-modifier key is pressed. */
+function buildShortcutString(e) {
+  const parts = [];
+  if (e.ctrlKey) parts.push('Ctrl');
+  if (e.shiftKey) parts.push('Shift');
+  if (e.altKey) parts.push('Alt');
+  if (e.metaKey) parts.push('Windows');
+  parts.push(capitalize(normalizeShortcutKeyName(e.key)));
+  return parts.join('+');
+}
+
+/** Wires an input up as a press-to-record hotkey field instead of free text entry. */
+function makeShortcutRecorderInput(input, initialValue) {
+  let capturedKeys = initialValue || '';
+  input.readOnly = true;
+  input.value = capturedKeys;
+
+  function onKeyDown(e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (e.key === 'Escape' && !e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
+      input.blur();
+      return;
+    }
+    if (SHORTCUT_MODIFIER_KEYS.has(e.key)) {
+      input.value = describeHeldModifiers(e) || 'Press a key…';
+      return;
+    }
+
+    capturedKeys = buildShortcutString(e);
+    input.value = capturedKeys;
+    input.blur();
+  }
+
+  input.addEventListener('focus', () => {
+    input.classList.add('border-indigo-400', 'ring-1', 'ring-indigo-400');
+    input.value = 'Press a key combo…';
+    input.addEventListener('keydown', onKeyDown);
+  });
+  input.addEventListener('blur', () => {
+    input.classList.remove('border-indigo-400', 'ring-1', 'ring-indigo-400');
+    input.removeEventListener('keydown', onKeyDown);
+    input.value = capturedKeys;
+  });
+
+  return {
+    getValue: () => capturedKeys,
+    clear: () => {
+      capturedKeys = '';
+      input.value = '';
+      input.blur();
+    },
+  };
+}
+
 /** Reuses the knob config dialog to fill in a built-in action's params (key combo, program path). */
 function openButtonActionConfigModal(knobId, entry, sub) {
   const modal = document.getElementById('knobConfigModal');
@@ -274,16 +371,34 @@ function openButtonActionConfigModal(knobId, entry, sub) {
     label.textContent = 'Key Combination';
     label.htmlFor = 'knobConfigActionInput';
 
+    const row = document.createElement('div');
+    row.className = 'flex gap-2';
+
     const input = document.createElement('input');
     input.id = 'knobConfigActionInput';
     input.type = 'text';
-    input.placeholder = 'e.g. Ctrl+Shift+M';
-    input.value = entry.params.keys || '';
+    input.placeholder = 'Click, then press a key combo…';
     input.className =
-      'w-full px-2 py-1.5 text-sm bg-slate-700 border border-slate-600 rounded text-gray-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500';
+      'flex-1 px-2 py-1.5 text-sm bg-slate-700 border border-slate-600 rounded text-gray-200 placeholder-slate-500 focus:outline-none cursor-pointer caret-transparent';
 
-    wrapper.append(label, input);
-    getValue = () => ({ keys: input.value.trim() });
+    const recorder = makeShortcutRecorderInput(input, entry.params.keys || '');
+
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button';
+    clearBtn.textContent = 'Clear';
+    clearBtn.className =
+      'px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 text-gray-300 rounded transition font-medium shrink-0';
+    clearBtn.onclick = () => recorder.clear();
+
+    row.append(input, clearBtn);
+    wrapper.append(label, row);
+
+    const hint = document.createElement('p');
+    hint.className = 'text-xs text-slate-500';
+    hint.textContent = 'Press Esc to cancel while recording.';
+    wrapper.appendChild(hint);
+
+    getValue = () => ({ keys: recorder.getValue() });
   } else if (entry.type === 'open_program') {
     const label = document.createElement('label');
     label.className = 'text-xs text-gray-400';

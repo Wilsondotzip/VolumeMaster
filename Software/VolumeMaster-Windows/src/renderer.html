@@ -37,6 +37,20 @@
         min-height: 250px;
       }
 
+      /* Button cap sitting inside a Pro knob's volume ring — shows held/released state */
+      [data-button-cap] {
+        fill: #334155;
+        stroke: #1e293b;
+        stroke-width: 1;
+        r: 7px;
+        transition: fill 100ms ease, stroke 100ms ease, r 100ms ease;
+      }
+      [data-button-cap].button-held {
+        fill: #818cf8;
+        stroke: #6366f1;
+        r: 6px;
+      }
+
       /* Notifications are fixed so they don't affect layout */
       #alertContainer {
         position: fixed;
