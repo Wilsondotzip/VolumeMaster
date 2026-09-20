@@ -14,6 +14,10 @@ const backends = new Map();
 // Pending LIST_SESSIONS responses: Map<deviceId, resolve>
 const sessionRequests = new Map();
 
+// PIDs killed on purpose (Stop button, a restart) — the process's own 'close'
+// handler checks this so it doesn't auto-relaunch what we just told it to stop.
+const intentionalKills = new Set();
+
 function sendStatusToDevice(deviceId, type, message) {
   const win = deviceManager.getWindowForDevice(deviceId);
   if (!win || win.isDestroyed()) return;
@@ -126,17 +130,21 @@ function startBackend(deviceId, deviceDir) {
     }
   });
 
+  function isStillTracked() {
+    const current = backends.get(deviceId);
+    return !current || current.process === proc;
+  }
+
   proc.stderr.on('data', (data) => {
     console.error(`[${deviceId}] stderr: ${data}`);
+    if (!isStillTracked()) return;
     sendStatusToDevice(deviceId, 'error', `[Backend stderr] ${data}`);
-    const b = backends.get(deviceId);
-    if (b) b.process = null;
-    updateTrayImage();
-    scheduleRetry(deviceId, deviceDir);
+
   });
 
   proc.on('error', (err) => {
     console.error(`[${deviceId}] error:`, err);
+    if (!isStillTracked()) return;
     let message = `Backend error: ${err.message}`;
     if (err.code === 'EACCES' || err.code === 'EPERM') {
       message = 'Access denied launching backend — antivirus or permissions may be blocking VolumeMaster-Headless.exe.';
@@ -152,14 +160,20 @@ function startBackend(deviceId, deviceDir) {
 
   proc.on('close', (code) => {
     console.log(`[${deviceId}] Backend exited with code ${code}`);
-    const message = code === 1
-      ? 'Backend stopped. Check banners above for details.'
-      : `Backend exited unexpectedly (code ${code}). Antivirus may have intervened.`;
+    const wasIntentional = intentionalKills.delete(proc.pid);
+    if (!isStillTracked()) return;
+    const message = wasIntentional
+      ? 'Backend stopped.'
+      : code === 1
+        ? 'Backend stopped. Check banners above for details.'
+        : `Backend exited unexpectedly (code ${code}). Antivirus may have intervened.`;
     sendStatusToDevice(deviceId, 'warning', message);
     const b = backends.get(deviceId);
     if (b) b.process = null;
     updateTrayImage();
-    scheduleRetry(deviceId, deviceDir);
+    // Don't auto-relaunch something we killed on purpose (Stop button, or a
+    // restart like switching device model) — only unexpected exits retry.
+    if (!wasIntentional) scheduleRetry(deviceId, deviceDir);
   });
 }
 
@@ -173,6 +187,7 @@ function killBackend(deviceId) {
     backends.delete(deviceId);
     updateTrayImage();
     if (!proc?.pid) { resolve(); return; }
+    intentionalKills.add(proc.pid);
     treeKill(proc.pid, () => resolve());
   });
 }
