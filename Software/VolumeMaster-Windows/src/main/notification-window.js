@@ -59,6 +59,11 @@ function getOrCreateWindow(cb) {
 
 const CATEGORY_ICONS = { Games: '🎮', Browser: '🌐', Chat: '💬', Media: '🎵' };
 
+function getKnobName(config, index) {
+  const mapping = config.Mappings?.[index] ?? config.Mappings?.[String(index)];
+  return mapping?.Name || null;
+}
+
 function getLabel(config, index) {
   const mapping = config.Mappings?.[index] ?? config.Mappings?.[String(index)];
   if (!mapping) return null;
@@ -115,12 +120,13 @@ function handleVolumeChange(deviceId, deviceDir, index, value) {
   session.lastShown = value;
 
   const label = getLabel(config, index);
+  const knobName = getKnobName(config, index);
 
   getOrCreateWindow((win) => {
     // Cancel any pending hide so a re-show isn't immediately undone
     if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
 
-    win.webContents.send('show-notification', { index, value, label });
+    win.webContents.send('show-notification', { index, value, label, knobName });
     win.showInactive();
 
     // Extend dismiss window while knob is actively moving

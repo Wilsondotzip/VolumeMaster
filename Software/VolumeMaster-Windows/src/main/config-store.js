@@ -37,6 +37,11 @@ function detachMappingArrays(cfg) {
     m.MicNames = coerceNameList(m.MicNames);
     m.Categories = coerceNameList(m.Categories);
     m.PluginActions = coerceNameList(m.PluginActions);
+    if (typeof m.Name === 'string' && m.Name.trim()) {
+      m.Name = m.Name.trim();
+    } else {
+      delete m.Name;
+    }
   }
   return cfg;
 }

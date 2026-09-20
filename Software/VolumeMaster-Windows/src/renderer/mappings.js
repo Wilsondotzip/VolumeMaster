@@ -341,9 +341,14 @@ async function addMasterVolume(knobId) {
   }
 }
 
+function getKnobDisplayName(knobId) {
+  const name = state.config.Mappings[knobId]?.Name;
+  return name && name.trim() ? name.trim() : `Knob ${knobId}`;
+}
+
 function createKnobHeader(knobId) {
   const wrapper = document.createElement('div');
-  wrapper.className = 'flex items-center gap-2 mb-3';
+  wrapper.className = 'flex items-center gap-2 mb-3 min-w-0';
 
   const svgNS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(svgNS, 'svg');
@@ -373,18 +378,92 @@ function createKnobHeader(knobId) {
   svg.append(bgArc, valArc);
 
   const textCol = document.createElement('div');
-  textCol.className = 'flex flex-col min-w-0';
+  textCol.className = 'flex flex-col min-w-0 flex-1';
+
+  const nameRow = document.createElement('div');
+  nameRow.className = 'flex items-center gap-1 min-w-0';
 
   const header = document.createElement('h2');
-  header.textContent = `Knob ${knobId}`;
-  header.className = 'text-indigo-400 text-base font-bold leading-tight';
+  header.textContent = getKnobDisplayName(knobId);
+  header.title = header.textContent;
+  header.className = 'text-indigo-400 text-base font-bold leading-tight truncate';
+
+  const editBtn = document.createElement('button');
+  editBtn.type = 'button';
+  editBtn.title = 'Rename knob';
+  editBtn.textContent = '✎';
+  editBtn.className = 'text-slate-500 hover:text-indigo-400 transition text-xs leading-none shrink-0';
+
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.maxLength = 30;
+  nameInput.className =
+    'hidden min-w-0 flex-1 p-0.5 px-1.5 text-xs border border-slate-600 rounded bg-slate-900 text-gray-300 focus:outline-indigo-400 focus:ring-1 focus:ring-indigo-400';
+
+  const confirmBtn = document.createElement('button');
+  confirmBtn.type = 'button';
+  confirmBtn.textContent = '✓';
+  confirmBtn.className =
+    'hidden px-1 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded transition shrink-0';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.textContent = '✕';
+  cancelBtn.className =
+    'hidden px-1 text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 rounded transition shrink-0';
+
+  function enterEditMode() {
+    nameInput.value = state.config.Mappings[knobId]?.Name || '';
+    header.classList.add('hidden');
+    editBtn.classList.add('hidden');
+    nameInput.classList.remove('hidden');
+    confirmBtn.classList.remove('hidden');
+    cancelBtn.classList.remove('hidden');
+    nameInput.focus();
+    nameInput.select();
+  }
+
+  function exitEditMode() {
+    header.classList.remove('hidden');
+    editBtn.classList.remove('hidden');
+    nameInput.classList.add('hidden');
+    confirmBtn.classList.add('hidden');
+    cancelBtn.classList.add('hidden');
+  }
+
+  async function confirmRename() {
+    const newName = nameInput.value.trim().slice(0, 30);
+    if (!state.config.Mappings[knobId]) {
+      state.config.Mappings[knobId] = { ProcessNames: [], MicNames: [] };
+    }
+    if (newName) {
+      state.config.Mappings[knobId].Name = newName;
+    } else {
+      delete state.config.Mappings[knobId].Name;
+    }
+    header.textContent = getKnobDisplayName(knobId);
+    header.title = header.textContent;
+    exitEditMode();
+    await saveConfigAndSync();
+    window._autoSaveActivePreset?.();
+  }
+
+  editBtn.addEventListener('click', enterEditMode);
+  confirmBtn.addEventListener('click', confirmRename);
+  cancelBtn.addEventListener('click', exitEditMode);
+  nameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') confirmRename();
+    if (e.key === 'Escape') exitEditMode();
+  });
+
+  nameRow.append(header, editBtn, nameInput, confirmBtn, cancelBtn);
 
   const pct = document.createElement('span');
   pct.textContent = `${initValue}%`;
   pct.className = 'text-slate-500 text-xs';
   pct.setAttribute('data-knob-pct', '');
 
-  textCol.append(header, pct);
+  textCol.append(nameRow, pct);
   wrapper.append(svg, textCol);
   return wrapper;
 }

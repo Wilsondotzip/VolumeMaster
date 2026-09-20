@@ -94,9 +94,9 @@
 
       const card = document.getElementById('card');
 
-      window.notif.onShow(({ index, value, label }) => {
+      window.notif.onShow(({ index, value, label, knobName }) => {
         document.getElementById('val-arc').setAttribute('d', getArcPath(value));
-        document.getElementById('knob-label').textContent = `Knob ${index}`;
+        document.getElementById('knob-label').textContent = knobName || `Knob ${index}`;
         document.getElementById('app-label').textContent = label || '';
         document.getElementById('pct').textContent = `${value}%`;
         card.classList.add('visible');
