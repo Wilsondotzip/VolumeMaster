@@ -4,3 +4,4 @@
 # Plugins live in their own repos
 Software/plugins/
 Software/plugin-example.exe
+.venv/
