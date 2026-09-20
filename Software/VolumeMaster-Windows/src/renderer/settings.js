@@ -2,6 +2,7 @@ import { showAlert } from './alerts.js';
 import { state } from './state.js';
 import { renderAllKnobsAndApps } from './mappings.js';
 import { isProDevice } from './knob-config.js';
+import { setSubTabAvailable } from './tabs.js';
 
 export function setupSettingsListeners() {
   document.getElementById('saveAndRunBtn')?.addEventListener('click', async () => {
@@ -29,7 +30,7 @@ export function setupSettingsListeners() {
       button.classList.add('bg-red-500', 'hover:bg-red-600');
       await window.api.disableVM();
     }
-    document.getElementById('subTabVoiceMeeter')?.classList.toggle('hidden', !newState);
+    setSubTabAvailable('subTabVoiceMeeter', newState);
   });
 
   document.getElementById('vmVersionSelect')?.addEventListener('change', async (e) => {
@@ -39,8 +40,15 @@ export function setupSettingsListeners() {
   document.getElementById('deviceModelSelect')?.addEventListener('change', async (e) => {
     await window.api.setDeviceModel(e.target.value);
     state.config.deviceModel = e.target.value;
-    document.getElementById('subTabActions')?.classList.toggle('hidden', !isProDevice());
+    setSubTabAvailable('subTabActions', isProDevice());
     await renderAllKnobsAndApps();
+
+    // The running backend was spawned from the old exe (Standard/Pro) — restart
+    // it so the change actually takes effect instead of silently running stale.
+    // saveAndRun() already kills the existing process before starting the new one.
+    if (await window.api.getBackendStatus()) {
+      await window.api.saveAndRun();
+    }
   });
 
   document.getElementById('volumeNotifsCheckbox')?.addEventListener('change', async (e) => {
@@ -297,7 +305,7 @@ export async function applyVoiceMeeterUiFromMain() {
   if (vmBtn) {
     vmBtn.textContent = vmEnabled ? 'Enabled' : 'Disabled';
   }
-  document.getElementById('subTabVoiceMeeter')?.classList.toggle('hidden', !vmEnabled);
+  setSubTabAvailable('subTabVoiceMeeter', vmEnabled);
 
   const version = await window.api.getVMVersion();
   const vmVersionSelect = document.getElementById('vmVersionSelect');
@@ -311,5 +319,5 @@ export async function applyDeviceModelUiFromMain() {
   state.config.deviceModel = model || 'volumemaster';
   const select = document.getElementById('deviceModelSelect');
   if (select) select.value = state.config.deviceModel;
-  document.getElementById('subTabActions')?.classList.toggle('hidden', !isProDevice());
+  setSubTabAvailable('subTabActions', isProDevice());
 }

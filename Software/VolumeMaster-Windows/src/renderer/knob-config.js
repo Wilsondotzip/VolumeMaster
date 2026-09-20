@@ -475,6 +475,10 @@ export async function handleButtonActionDrop(event, knobId) {
   } else if (isBuiltinItem(name)) {
     const type = builtinTypeFromDragName(name);
     if (!getBuiltinTypeMeta(type)) return;
+    // Mute is parameterless and toggles — a second copy on the same knob would
+    // flip it on then immediately back off on every press. Keyboard shortcuts
+    // and Open Program each carry their own params, so duplicates are fine there.
+    if (type === 'mute' && list.some((e) => e.kind === 'builtin' && e.type === 'mute')) return;
     entry = { kind: 'builtin', type, id: crypto.randomUUID(), params: {} };
   } else {
     return;

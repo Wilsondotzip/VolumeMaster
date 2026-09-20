@@ -27,6 +27,35 @@ export function setupTabs() {
   buttons.tabMappings.click();
 }
 
+const SUB_TAB_CONTENT_IDS = {
+  subTabApps: 'subContentApps',
+  subTabDevices: 'subContentDevices',
+  subTabVoiceMeeter: 'subContentVoiceMeeter',
+  subTabCategories: 'subContentCategories',
+  subTabPlugins: 'subContentPlugins',
+  subTabActions: 'subContentActions',
+};
+
+/**
+ * Shows/hides a sub-tab button (e.g. when VoiceMeeter gets disabled, or a
+ * device switches out of Pro). If that tab's panel is the one currently
+ * showing, falls back to Applications instead of leaving an invisible tab
+ * "selected" with its content still on screen.
+ */
+export function setSubTabAvailable(buttonId, available) {
+  const btn = document.getElementById(buttonId);
+  if (!btn) return;
+  const wasVisible = !btn.classList.contains('hidden');
+  btn.classList.toggle('hidden', !available);
+
+  if (available || !wasVisible) return;
+  const contentId = SUB_TAB_CONTENT_IDS[buttonId];
+  const content = contentId && document.getElementById(contentId);
+  if (content && !content.classList.contains('hidden')) {
+    document.getElementById('subTabApps')?.click();
+  }
+}
+
 export function setupSubTabs() {
   const panels = {
     subTabApps: document.getElementById('subContentApps'),

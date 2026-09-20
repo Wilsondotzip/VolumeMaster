@@ -439,7 +439,10 @@ function createKnobHeader(knobId) {
     cap.setAttribute('cy', '16');
     cap.setAttribute('r', '7');
     cap.setAttribute('data-button-cap', '');
-    cap.setAttribute('title', 'Lights up while the button is held');
+    // SVG shapes only show a tooltip via a nested <title>, not a title attribute.
+    const capTitle = document.createElementNS(svgNS, 'title');
+    capTitle.textContent = 'Lights up while the button is held';
+    cap.appendChild(capTitle);
     svg.appendChild(cap);
   }
 
