@@ -26,24 +26,44 @@ function normalizeProcessTitle(windowTitle, processName) {
   return windowTitle;
 }
 
+function parsePowerShellJson(stdout) {
+  const raw = stdout.trim();
+  if (!raw) return [];
+  const parsed = JSON.parse(raw);
+  return Array.isArray(parsed) ? parsed : [parsed];
+}
+
 /**
  * Returns a list of running processes and their friendly titles by invoking PowerShell to query the system.
  * Each entry includes:
  *   - name: the executable name (e.g. "chrome.exe")
  *   - title: a user-friendly title derived from the window title or process name
+ *
+
  * @returns {Promise<Array<{name: string, title: string, path: string|null, isGUI: boolean}>>}
  */
 async function getProcessList() {
-  const { stdout } = await exec(
-    `powershell -NoProfile -Command "Get-Process | Select-Object ProcessName, MainWindowTitle, Path | ConvertTo-Json -Depth 2"`,
-    { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 } // maxBuffer increased to handle large process lists with long titles/paths without truncation
-  );
+  const [titleResult, pathResult] = await Promise.all([
+    exec(
+      `powershell -NoProfile -Command "Get-Process | Select-Object ProcessName, MainWindowTitle | ConvertTo-Json -Depth 2"`,
+      { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 } // maxBuffer increased to handle large process lists with long titles without truncation
+    ),
+    exec(
+      `powershell -NoProfile -Command "Get-CimInstance Win32_Process | Select-Object ProcessName, ExecutablePath | ConvertTo-Json -Depth 2"`,
+      { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }
+    ),
+  ]);
 
-  const raw = stdout.trim();
-  if (!raw) return [];
+  const pathByExe = new Map();
+  parsePowerShellJson(pathResult.stdout).forEach((row) => {
+    const processName = typeof row?.ProcessName === 'string' ? row.ProcessName.trim() : '';
+    if (!processName) return;
+    const exeName = processName.endsWith('.exe') ? processName : `${processName}.exe`;
+    const resolvedPath = typeof row?.ExecutablePath === 'string' && row.ExecutablePath.trim() ? row.ExecutablePath.trim() : null;
+    if (resolvedPath && !pathByExe.has(exeName)) pathByExe.set(exeName, resolvedPath);
+  });
 
-  const parsed = JSON.parse(raw);
-  const rows = Array.isArray(parsed) ? parsed : [parsed];
+  const rows = parsePowerShellJson(titleResult.stdout);
   const seen = new Map();
 
   rows.forEach((row) => {
@@ -52,11 +72,10 @@ async function getProcessList() {
 
     const exeName = processName.endsWith('.exe') ? processName : `${processName}.exe`;
     const windowTitle = typeof row?.MainWindowTitle === 'string' ? row.MainWindowTitle.trim() : '';
-    const resolvedPath = typeof row?.Path === 'string' && row.Path.trim() ? row.Path.trim() : null;
     const nextEntry = {
       name: exeName,
       title: normalizeProcessTitle(windowTitle, processName),
-      path: resolvedPath,
+      path: pathByExe.get(exeName) || null,
       isGUI: windowTitle !== '',
     };
 
