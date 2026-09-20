@@ -78,5 +78,31 @@
     "postcss-cli": "^11.0.1",
     "postcss-loader": "^8.2.1",
     "tailwindcss": "^4.2.2"
+  },
+  "overrides": {
+    "@tailwindcss/postcss": {
+      "nanoid": "5.1.16"
+    },
+    "autoprefixer": {
+      "nanoid": "5.1.16"
+    },
+    "nanoid": {
+      "nanoid": "5.1.16"
+    },
+    "postcss": {
+      "nanoid": "5.1.16"
+    },
+    "postcss-cli": {
+      "nanoid": "5.1.16"
+    },
+    "postcss-load-config": {
+      "nanoid": "5.1.16"
+    },
+    "postcss-loader": {
+      "nanoid": "5.1.16"
+    },
+    "postcss-reporter": {
+      "nanoid": "5.1.16"
+    }
   }
 }
