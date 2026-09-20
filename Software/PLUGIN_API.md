@@ -16,7 +16,7 @@ ws://localhost:59284
 On connect, VolumeMaster immediately sends a welcome message:
 
 ```json
-{ "type": "connected", "version": "1.3.3" }
+{ "type": "connected", "version": "1.4.0-beta.1" }
 ```
 
 ---
