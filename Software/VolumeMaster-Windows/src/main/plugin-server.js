@@ -76,11 +76,13 @@ function startPluginServer() {
           pluginId: id,
           name: displayName,
           // kind: 'knob' | 'button' restricts where the action can be mapped; omitted/anything else means both.
+          // group: optional free-text label to cluster this plugin's own actions in the UI.
           actions: Array.isArray(actions)
             ? actions.filter(a => a?.id && a?.label).map(a => ({
                 id: a.id,
                 label: a.label,
                 kind: a.kind === 'knob' || a.kind === 'button' ? a.kind : undefined,
+                group: typeof a.group === 'string' && a.group.trim() ? a.group.trim() : undefined,
               }))
             : [],
         });
