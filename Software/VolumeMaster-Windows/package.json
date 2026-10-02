@@ -1,6 +1,6 @@
 {
   "name": "volume-master",
-  "version": "1.4.0-beta.1",
+  "version": "1.4.0-beta.2",
   "description": "VolumeMaster configuration software",
   "main": "src/main.js",
   "author": "William Spalding",
