@@ -98,20 +98,27 @@ def _matches_category(exe_name_lower, path_lower, cat_name):
 
 
 class ConfigHandler(FileSystemEventHandler):
-    def __init__(self, on_change):
+    def __init__(self, on_change, debounce_seconds=0.5):
         self.on_change = on_change
-        self._last_triggered = 0
+        self.debounce_seconds = debounce_seconds
+        self._timer = None
 
     def on_modified(self, event):
-        if not event.src_path:
+        if not event.src_path or not event.src_path.endswith('config.yaml'):
             return
-        if event.src_path.endswith('config.yaml'):
-            now = time.time()
-            if now - self._last_triggered < 0.5:
-                return
-            self._last_triggered = now
-            print('[Watcher] Config changed, reloading...')
-            self.on_change()
+        # Debounce (reset on every write), not throttle: a throttle with no
+        # trailing-edge retry can drop the write that matters and leave the
+        # backend permanently out of sync with the file until some unrelated
+        # future write happens to land outside the window.
+        if self._timer:
+            self._timer.cancel()
+        self._timer = threading.Timer(self.debounce_seconds, self._fire)
+        self._timer.daemon = True
+        self._timer.start()
+
+    def _fire(self):
+        print('[Watcher] Config changed, reloading...')
+        self.on_change()
 
 def find_arduino_port():
     for port in serial.tools.list_ports.comports():
