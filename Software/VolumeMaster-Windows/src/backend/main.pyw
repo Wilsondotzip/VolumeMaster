@@ -5,7 +5,14 @@ import serial
 import atexit
 import threading
 import queue
-from pycaw.pycaw import AudioUtilities, ISimpleAudioVolume, IAudioEndpointVolume, AudioSession
+from pycaw.pycaw import (
+    AudioUtilities,
+    ISimpleAudioVolume,
+    IAudioEndpointVolume,
+    AudioSession,
+    IAudioSessionControl2,
+    DEVICE_STATE,
+)
 from pycaw.constants import EDataFlow, ERole
 from comtypes import CLSCTX_ALL
 import serial.tools.list_ports
@@ -269,11 +276,32 @@ def setup_mic_interfaces():
             print(f"Could not open mic device '{device.FriendlyName}': {e}")
 
 
+def get_all_output_sessions():
+    """Like AudioUtilities.GetAllSessions(), but across every active render device, not just the default one."""
+    sessions = []
+    devices = AudioUtilities.GetAllDevices(
+        data_flow=EDataFlow.eRender.value, device_state=DEVICE_STATE.ACTIVE.value
+    )
+    for device in devices:
+        try:
+            session_enumerator = device.AudioSessionManager.GetSessionEnumerator()
+            for i in range(session_enumerator.GetCount()):
+                ctl = session_enumerator.GetSession(i)
+                if ctl is None:
+                    continue
+                ctl2 = ctl.QueryInterface(IAudioSessionControl2)
+                if ctl2 is not None:
+                    sessions.append(AudioSession(ctl2))
+        except Exception:
+            continue
+    return sessions
+
+
 def setup_audio_interfaces(ser=None):
     global session_cache, session_paths, master_volume_interface, _audio_available, volumes
 
     try:
-        sessions = AudioUtilities.GetAllSessions()
+        sessions = get_all_output_sessions()
     except Exception as e:
         if _audio_available:
             print(f'ERROR:AUDIO_UNAVAILABLE:Windows Audio is unavailable: {e}', flush=True)
