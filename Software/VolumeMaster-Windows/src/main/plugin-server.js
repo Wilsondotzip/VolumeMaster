@@ -75,7 +75,16 @@ function startPluginServer() {
         clients.set(socket, {
           pluginId: id,
           name: displayName,
-          actions: Array.isArray(actions) ? actions.filter(a => a?.id && a?.label) : [],
+          // kind: 'knob' | 'button' restricts where the action can be mapped; omitted/anything else means both.
+          // group: optional free-text label to cluster this plugin's own actions in the UI.
+          actions: Array.isArray(actions)
+            ? actions.filter(a => a?.id && a?.label).map(a => ({
+                id: a.id,
+                label: a.label,
+                kind: a.kind === 'knob' || a.kind === 'button' ? a.kind : undefined,
+                group: typeof a.group === 'string' && a.group.trim() ? a.group.trim() : undefined,
+              }))
+            : [],
         });
 
         const schema = Array.isArray(configSchema) ? configSchema.filter(f => f?.key && f?.type) : [];
@@ -117,12 +126,10 @@ function stopPluginServer() {
   });
 }
 
-function dispatchKnobEvent(deviceId, index, value, config) {
-  if (!clients.size) return;
-  const pluginActions = config?.Mappings?.[String(index)]?.PluginActions;
-  if (!Array.isArray(pluginActions) || pluginActions.length === 0) return;
+function sendToPluginActions(actionKeys, buildMessage) {
+  if (!clients.size || !Array.isArray(actionKeys) || actionKeys.length === 0) return;
 
-  for (const actionKey of pluginActions) {
+  for (const actionKey of actionKeys) {
     const colonIdx = actionKey.indexOf(':');
     if (colonIdx === -1) continue;
     const pluginId = actionKey.slice(0, colonIdx);
@@ -130,10 +137,27 @@ function dispatchKnobEvent(deviceId, index, value, config) {
 
     for (const [socket, record] of clients) {
       if (record.pluginId === pluginId) {
-        safeSend(socket, { type: 'knob', deviceId, index, value, actionId });
+        safeSend(socket, buildMessage(actionId));
       }
     }
   }
+}
+
+function dispatchKnobEvent(deviceId, index, value, config) {
+  const pluginActions = config?.Mappings?.[String(index)]?.PluginActions;
+  sendToPluginActions(pluginActions, (actionId) => ({ type: 'knob', deviceId, index, value, actionId }));
+}
+
+function dispatchKnobButtonEvent(deviceId, index, config) {
+  const buttonActions = config?.Mappings?.[String(index)]?.ButtonActions;
+  if (!Array.isArray(buttonActions)) return;
+  // Built-in actions (keyboard shortcut, mute, open program) aren't plugin-mediated —
+  // only 'plugin' entries go out over the WebSocket API. Bare strings are the older
+  // pre-migration format (plugin key with no wrapper object); treated the same way.
+  const pluginKeys = buttonActions
+    .filter((a) => typeof a === 'string' || a?.kind === 'plugin')
+    .map((a) => (typeof a === 'string' ? a : a.key));
+  sendToPluginActions(pluginKeys, (actionId) => ({ type: 'knob-button', deviceId, index, actionId }));
 }
 
 function getConnectedPlugins() {
@@ -178,6 +202,7 @@ module.exports = {
   startPluginServer,
   stopPluginServer,
   dispatchKnobEvent,
+  dispatchKnobButtonEvent,
   getConnectedPlugins,
   getPluginLabel,
   getPluginServerStatus,

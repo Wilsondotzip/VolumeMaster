@@ -14,11 +14,15 @@ contextBridge.exposeInMainWorld('api', {
   stopBackend: () => ipcRenderer.invoke('stop-backend'),
   onBackendStatus: (callback) => ipcRenderer.on('backend-status', (_, data) => callback(data)),
   onVolumeUpdate: (callback) => ipcRenderer.on('volume-update', (_, data) => callback(data)),
+  onButtonPress: (callback) => ipcRenderer.on('button-press', (_, data) => callback(data)),
   enableVM: () => ipcRenderer.invoke('enable-vm'),
   disableVM: () => ipcRenderer.invoke('disable-vm'),
   getVMEnabled: () => ipcRenderer.invoke('get-vm-enabled'),
   setVMVersion: (version) => ipcRenderer.invoke('set-vm-version', version),
   getVMVersion: () => ipcRenderer.invoke('get-vm-version'),
+
+  setDeviceModel: (model) => ipcRenderer.invoke('set-device-model', model),
+  getDeviceModel: () => ipcRenderer.invoke('get-device-model'),
 
   getAutoStart: () => ipcRenderer.invoke('get-auto-start'),
   setAutoStart: (enabled) => ipcRenderer.invoke('set-auto-start', enabled),

@@ -3,10 +3,32 @@ import { saveConfigAndSync } from './config-sync.js';
 import { getProcessDisplayInfo, sanitizeAppName } from './utils.js';
 import { getVMLabel, isVMItem, vmItemId } from './voicemeeter.js';
 import { isCategoryItem, categoryId, getCategoryMeta, CATEGORY_PREFIX } from './categories.js';
-import { isPluginItem, pluginItemParts, pluginActionKey, pluginDragName, PLUGIN_PREFIX } from './plugins.js';
+import {
+  isPluginItem,
+  pluginItemParts,
+  pluginActionKey,
+  pluginDragName,
+  PLUGIN_PREFIX,
+  pluginActionAllowsKind,
+  isPluginDragAllowedFor,
+} from './plugins.js';
+import { isBuiltinItem } from './builtin-actions.js';
+import {
+  isProDevice,
+  createKnobConfigButton,
+  createButtonActionSection,
+  isButtonActionHost,
+  handleButtonActionDrop,
+} from './knob-config.js';
 
 // Live volume levels keyed by knobId string
 const knobVolumes = {};
+
+// Knobs stay side-by-side in one row for both Standard and Pro.
+const KNOBS_CONTAINER_CLASS =
+  'custom-scroll flex min-h-0 w-full flex-row flex-nowrap gap-3 overflow-x-auto overflow-y-hidden pb-2 mt-3 mb-3 grow items-stretch';
+const KNOB_SECTION_CLASS =
+  'bg-slate-800 rounded-lg shadow p-3 flex min-h-0 min-w-0 flex-1 flex-col border border-slate-700';
 
 function getKnobArcPath(value) {
   if (value <= 0) return '';
@@ -31,6 +53,13 @@ export function updateKnobVolume(index, value) {
   const pctEl = section.querySelector('[data-knob-pct]');
   if (arcEl) arcEl.setAttribute('d', getKnobArcPath(value));
   if (pctEl) pctEl.textContent = `${value}%`;
+}
+
+export function setButtonHeld(index, pressed) {
+  const section = document.getElementById(`knob-section-${index}`);
+  const cap = section?.querySelector('[data-button-cap]');
+  if (!cap) return;
+  cap.classList.toggle('button-held', pressed);
 }
 
 /** Knob section given a highlight during drag; cleared on drop / dragend / leaving knobs area. */
@@ -60,6 +89,22 @@ function onKnobsDragOverCapture(e) {
   }
   if (!isKnobMappingDrag(e.dataTransfer)) return;
 
+  // The button-action zone accepts built-in action cards and plugin actions not
+  // restricted to 'knob'; everywhere else rejects both built-in cards (they only
+  // make sense as button presses) and plugin actions restricted to 'button'.
+  const draggedName = state.mappingDragPayload?.name;
+  const isPluginDrag = isPluginItem(draggedName);
+  const isBuiltinDrag = isBuiltinItem(draggedName);
+  if (isButtonActionHost(e.target)) {
+    if (!isBuiltinDrag && !(isPluginDrag && isPluginDragAllowedFor('button'))) {
+      clearDragHighlight();
+      return;
+    }
+  } else if (isBuiltinDrag || (isPluginDrag && !isPluginDragAllowedFor('knob'))) {
+    clearDragHighlight();
+    return;
+  }
+
   e.preventDefault();
   e.dataTransfer.dropEffect = 'copy';
 
@@ -80,6 +125,16 @@ function onKnobsDropCapture(e) {
   if (!container?.contains(e.target)) return;
   if (!isKnobMappingDrag(e.dataTransfer)) return;
 
+  const isButtonAction = isButtonActionHost(e.target);
+  const draggedName = state.mappingDragPayload?.name;
+  const isPluginDrag = isPluginItem(draggedName);
+  const isBuiltinDrag = isBuiltinItem(draggedName);
+  if (isButtonAction) {
+    if (!isBuiltinDrag && !(isPluginDrag && isPluginDragAllowedFor('button'))) return;
+  } else if (isBuiltinDrag || (isPluginDrag && !isPluginDragAllowedFor('knob'))) {
+    return;
+  }
+
   const section = e.target.closest?.('section[id^="knob-section-"]');
   e.preventDefault();
   e.stopPropagation();
@@ -88,7 +143,11 @@ function onKnobsDropCapture(e) {
   if (!section || !container.contains(section)) return;
 
   const knobId = section.id.replace('knob-section-', '');
-  handleDrop(e, knobId);
+  if (isButtonAction) {
+    handleButtonActionDrop(e, knobId);
+  } else {
+    handleDrop(e, knobId);
+  }
 }
 
 let knobsDelegationInstalled = false;
@@ -149,8 +208,7 @@ export async function renderAllKnobsAndApps() {
 
   ensureKnobsDropDelegation();
 
-  container.className =
-    'custom-scroll flex min-h-0 w-full flex-row flex-nowrap gap-3 overflow-x-auto overflow-y-hidden pb-2 mt-3 mb-3 grow items-stretch';
+  container.className = KNOBS_CONTAINER_CLASS;
 
   for (const knobId of knobIds) {
     const section = createKnobSection(knobId);
@@ -162,8 +220,7 @@ function createKnobSection(knobId) {
   const section = document.createElement('section');
   section.id = `knob-section-${knobId}`;
   // One row of equal columns (all knobs visible); vertical scroll only inside the card host.
-  section.className =
-    'bg-slate-800 rounded-lg shadow p-3 flex min-h-0 min-w-0 flex-1 flex-col border border-slate-700';
+  section.className = KNOB_SECTION_CLASS;
 
   section.appendChild(createKnobHeader(knobId));
   section.appendChild(createButtonRow(knobId));
@@ -208,6 +265,7 @@ function createKnobSection(knobId) {
   }
 
   section.appendChild(cardHost);
+  if (isProDevice()) section.appendChild(createButtonActionSection(knobId));
   return section;
 }
 
@@ -377,6 +435,22 @@ function createKnobHeader(knobId) {
 
   svg.append(bgArc, valArc);
 
+  // Button cap: sits inside the volume ring, like the physical push-button on
+  // top of a Pro rotary encoder. Shrinks and brightens while held (see
+  // .button-held in renderer.html), returns to rest on release.
+  if (isProDevice()) {
+    const cap = document.createElementNS(svgNS, 'circle');
+    cap.setAttribute('cx', '16');
+    cap.setAttribute('cy', '16');
+    cap.setAttribute('r', '7');
+    cap.setAttribute('data-button-cap', '');
+    // SVG shapes only show a tooltip via a nested <title>, not a title attribute.
+    const capTitle = document.createElementNS(svgNS, 'title');
+    capTitle.textContent = 'Lights up while the button is held';
+    cap.appendChild(capTitle);
+    svg.appendChild(cap);
+  }
+
   const textCol = document.createElement('div');
   textCol.className = 'flex flex-col min-w-0 flex-1';
 
@@ -465,6 +539,7 @@ function createKnobHeader(knobId) {
 
   textCol.append(nameRow, pct);
   wrapper.append(svg, textCol);
+  if (isProDevice()) wrapper.appendChild(createKnobConfigButton(knobId));
   return wrapper;
 }
 
@@ -609,6 +684,10 @@ async function handleDrop(event, knobId) {
 
     if (isPlugin) {
       const { pluginId, actionId } = pluginItemParts(droppedApp);
+      if (!pluginActionAllowsKind(pluginId, actionId, 'knob')) {
+        console.warn(`[handleDrop] "${pluginId}:${actionId}" is button-only, cannot be mapped to a knob turn`);
+        return;
+      }
       const key = pluginActionKey(pluginId, actionId);
       if (!Array.isArray(mapping.PluginActions)) mapping.PluginActions = [];
       if (mapping.PluginActions.includes(key)) {

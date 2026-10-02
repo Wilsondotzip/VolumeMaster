@@ -1,3 +1,8 @@
+# Backend for VolumeMaster Pro (rotary encoders — incremental and absolute
+# modes). Forked from main.pyw rather than branching one backend, since the
+# serial protocols diverge. Currently identical to main.pyw; the '@'-delimited
+# parsing in main()'s read loop (~line 498) is where increment/absolute
+# command handling needs to be added.
 import sys
 import os
 import yaml
@@ -5,6 +10,8 @@ import serial
 import atexit
 import threading
 import queue
+import subprocess
+import keyboard
 from pycaw.pycaw import (
     AudioUtilities,
     ISimpleAudioVolume,
@@ -219,10 +226,31 @@ def build_mappings(config):
         mappings[index] = entry
     return mappings
 
+def build_button_actions(config):
+    """Built-in (non-plugin) button actions per knob index — the plugin-mediated
+    entries are handled entirely on the Electron side via the BUTTON: stdout line."""
+    actions = {}
+    for key, val in config.get('Mappings', {}).items():
+        try:
+            index = int(key)
+        except ValueError:
+            continue
+
+        raw = val.get('ButtonActions')
+        if not isinstance(raw, list):
+            continue
+
+        builtins = [entry for entry in raw if isinstance(entry, dict) and entry.get('kind') == 'builtin']
+        if builtins:
+            actions[index] = builtins
+    return actions
+
 # Load config and initialize
 config = load_config()
 
 mappings = build_mappings(config)
+button_actions = build_button_actions(config)
+button_mute_state = {}  # knob index -> bool, toggled by the 'mute' button action
 buttons = {
     key: val.split(';') for key, val in config.get('Buttons', {}).items() if val
 }
@@ -366,13 +394,14 @@ def setup_audio_interfaces(ser=None):
 
 
 def reload_config():
-    global config, mappings, buttons, volumes, _reconnect_serial
+    global config, mappings, button_actions, buttons, volumes, _reconnect_serial
     print('[Watcher] Reloading config...')
     try:
         old_port = config.get('comport')
 
         config = load_config()
         mappings = build_mappings(config)
+        button_actions = build_button_actions(config)
         buttons = {
             key: val.split(';') for key, val in config.get('Buttons', {}).items() if val
         }
@@ -438,6 +467,92 @@ def process_audio_change(index, value):
                     set_output_gain(target.removeprefix('output'), value)
             except Exception as e:
                 print(f"Failed to set VoiceMeeter gain for '{target}': {e}")
+
+
+def toggle_knob_mute(index):
+    """'Mute' button action: toggles mute for whatever this knob's turn already
+    controls, reusing the same target list process_audio_change() uses for volume."""
+    mapping = mappings.get(index, {})
+    new_state = not button_mute_state.get(index, False)
+    button_mute_state[index] = new_state
+
+    for name in mapping.get('apps', []):
+        if name == 'master':
+            if master_volume_interface:
+                try:
+                    master_volume_interface.SetMute(new_state, None)
+                except Exception as e:
+                    print(f"Failed to mute master volume: {e}")
+            continue
+
+        for (pid, exe_name_lower), vol_interface in list(session_cache.items()):
+            if name in exe_name_lower:
+                try:
+                    vol_interface.SetMute(new_state, None)
+                except Exception:
+                    session_cache.pop((pid, exe_name_lower), None)
+
+    for mic_name in mapping.get('mics', []):
+        interface = mic_interfaces.get(mic_name)
+        if interface:
+            try:
+                interface.SetMute(new_state, None)
+            except Exception as e:
+                print(f"Failed to mute mic '{mic_name}': {e}")
+
+    for cat_name in mapping.get('categories', []):
+        for (pid, exe_name_lower), vol_interface in list(session_cache.items()):
+            path_lower = session_paths.get((pid, exe_name_lower), '')
+            if _matches_category(exe_name_lower, path_lower, cat_name):
+                try:
+                    vol_interface.SetMute(new_state, None)
+                except Exception:
+                    session_cache.pop((pid, exe_name_lower), None)
+
+    if set_input_gain and set_output_gain and 'vm' in mapping:
+        for target in mapping['vm']:
+            try:
+                if target.startswith('input'):
+                    vmr.inputs[int(target.removeprefix('input'))].mute = new_state
+                elif target.startswith('output'):
+                    vmr.outputs[int(target.removeprefix('output'))].mute = new_state
+            except Exception as e:
+                print(f"Failed to set VoiceMeeter mute for '{target}': {e}")
+
+
+def send_keyboard_shortcut(keys):
+    if not keys:
+        return
+    try:
+        keyboard.send(keys)
+    except Exception as e:
+        print(f"Failed to send keyboard shortcut '{keys}': {e}")
+
+
+def launch_program(path):
+    if not path:
+        return
+    try:
+        subprocess.Popen([path])
+    except Exception as e:
+        print(f"Failed to launch program '{path}': {e}")
+
+
+def execute_button_actions(index):
+    # Each action already guards its own execution; this outer guard exists so a
+    # bug in one action type can't take down the serial read loop for every knob.
+    for entry in button_actions.get(index, []):
+        try:
+            action_type = entry.get('type')
+            params = entry.get('params') or {}
+            if action_type == 'mute':
+                toggle_knob_mute(index)
+            elif action_type == 'keyboard_shortcut':
+                send_keyboard_shortcut(params.get('keys', ''))
+            elif action_type == 'open_program':
+                launch_program(params.get('path', ''))
+        except Exception as e:
+            print(f"Failed to execute button action {entry}: {e}")
 
 
 def main():
@@ -530,6 +645,33 @@ def main():
                     volume_cache.append((index, value))
                 except ValueError:
                     print("Malformed input:", line)
+                    continue
+
+            # BTN_DOWN:<knob index> — built-in actions (mute/keyboard shortcut/open
+            # program) execute right here on press; the line is forwarded to Electron
+            # as BUTTON: so it can dispatch any plugin-mediated actions and show the
+            # button as held in the UI.
+            # BTN_UP:<knob index>:<hold duration ms> — device reports how long the
+            # button was held; only updates the UI (released) — no action re-fires
+            # on release, but the duration is forwarded in case a future feature
+            # (e.g. long-press vs. short-press actions) wants it.
+            elif line.startswith('BTN_DOWN:'):
+                try:
+                    button_index = int(line[len('BTN_DOWN:'):])
+                    print(f'BUTTON:{button_index}', flush=True)
+                    execute_button_actions(button_index)
+                except ValueError:
+                    print("Malformed button input:", line)
+                    continue
+
+            elif line.startswith('BTN_UP:'):
+                try:
+                    index_str, duration_str = line[len('BTN_UP:'):].split(':')
+                    button_index = int(index_str)
+                    hold_ms = int(duration_str)
+                    print(f'BUTTON_UP:{button_index}:{hold_ms}', flush=True)
+                except ValueError:
+                    print("Malformed button input:", line)
                     continue
 
             elif line and set_button_toggle:

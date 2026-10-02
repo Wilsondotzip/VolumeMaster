@@ -16,7 +16,7 @@ ws://localhost:59284
 On connect, VolumeMaster immediately sends a welcome message:
 
 ```json
-{ "type": "connected", "version": "1.3.3" }
+{ "type": "connected", "version": "1.4.0-beta.1" }
 ```
 
 ---
@@ -38,7 +38,9 @@ Register your plugin and its actions. Send this right after connecting.
   "name": "My Plugin",
   "actions": [
     { "id": "action-one", "label": "My Plugin: Action One" },
-    { "id": "action-two", "label": "My Plugin: Action Two" }
+    { "id": "action-two", "label": "My Plugin: Action Two", "kind": "button" },
+    { "id": "scene-a", "label": "Scene A", "group": "Scenes" },
+    { "id": "scene-b", "label": "Scene B", "group": "Scenes" }
   ]
 }
 ```
@@ -49,7 +51,11 @@ Register your plugin and its actions. Send this right after connecting.
 | `name`     | Display name shown in VolumeMaster's UI.                                                                                 |
 | `actions`  | List of actions users can assign to knobs. Each needs a unique `id` and a short `label`.                                 |
 
-After registering, your actions appear as draggable cards in the **Plugins** tab inside VolumeMaster. Users drag them onto knobs just like apps.
+Each action may optionally set `kind` to `"knob"` or `"button"` to restrict where users can assign it — a `"knob"` action can only be dragged onto a knob's turn (volume) targets, a `"button"` action only onto a knob's button-press target (VolumeMaster Pro devices only, whose knobs are push-button rotary encoders). Omit `kind` (or leave it unset) for an action that should be assignable to both. See [`knob-button`](#knob-button) below for the event a button-assigned action receives.
+
+Each action may also optionally set `group` to a free-text label. Actions sharing the same `group` are clustered together under that heading in VolumeMaster's UI, so a plugin with many actions (e.g. a smart-home or streaming controller) can organize them instead of dumping everything in one flat list. Actions with no `group` are shown ungrouped, above any named groups. This is purely cosmetic — it has no effect on how actions are matched or dispatched.
+
+After registering, your actions appear as draggable cards in the **Plugins** tab inside VolumeMaster, organized under a collapsible section for your plugin (and sub-grouped if you used `group`). Users drag them onto knobs just like apps.
 
 ---
 
@@ -77,6 +83,27 @@ Sent whenever a knob moves **and** your plugin has an action assigned to that kn
 | `deviceId` | Which VolumeMaster device sent the event (useful if the user has multiple devices). |
 
 > You only receive events for knobs that have one of your actions assigned. If no knob has your action assigned, you receive nothing.
+
+#### `knob-button`
+
+Sent when a knob's button is pressed (VolumeMaster Pro devices only, whose knobs are push-button rotary encoders) **and** your plugin has an action assigned to that knob's button.
+
+```json
+{
+  "type": "knob-button",
+  "index": 3,
+  "actionId": "press-thing",
+  "deviceId": "abc12345"
+}
+```
+
+| Field      | Description                                                                         |
+| ---------- | ------------------------------------------------------------------------------------ |
+| `index`    | Which knob's button was pressed.                                                    |
+| `actionId` | The `id` of whichever `kind: "button"` (or unrestricted) action the user assigned.   |
+| `deviceId` | Which VolumeMaster device sent the event (useful if the user has multiple devices). |
+
+There's no `value` — a button press is a discrete event, not a level. Currently this only fires on press; press duration and double-press are on the device/firmware roadmap and would arrive as additional message types later, not as fields on this one.
 
 ---
 

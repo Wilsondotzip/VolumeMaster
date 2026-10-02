@@ -8,7 +8,7 @@
  *   getProcessList()         → Promise<Array<{name: string, title: string, path: string|null, isGUI: boolean}>>
  *   getAudioInputDevices()   → Promise<string[]>
  *   findProcessExePath(exe)  → Promise<string|null>
- *   getBackendBinaryPath()   → string
+ *   getBackendBinaryPath(deviceModel?) → string
  *   forceKillAllBackends()   → void
  */
 

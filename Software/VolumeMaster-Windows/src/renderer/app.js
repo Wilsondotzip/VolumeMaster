@@ -3,7 +3,7 @@ import { cloneConfig } from './config-sync.js';
 import { setupTabs, setupSubTabs } from './tabs.js';
 import { refreshComPortListPreservingSelection, setupComPortListeners } from './com-port.js';
 import { loadAutoStartState, setupAutoStartListener } from './autostart.js';
-import { setupSettingsListeners, applyVoiceMeeterUiFromMain, applyInitialBackendStatus, applyNotificationSettings, applyPluginSettingsInfo, applyManagedPluginsInfo, setupManagedPluginsListeners } from './settings.js';
+import { setupSettingsListeners, applyVoiceMeeterUiFromMain, applyDeviceModelUiFromMain, applyInitialBackendStatus, applyNotificationSettings, applyPluginSettingsInfo, applyManagedPluginsInfo, setupManagedPluginsListeners } from './settings.js';
 import {
   loadProcessList,
   loadInputDevices,
@@ -12,7 +12,8 @@ import {
   renderCategoryList,
 } from './sources.js';
 import { renderPluginActionList } from './plugins.js';
-import { renderAllKnobsAndApps, updateKnobVolume } from './mappings.js';
+import { renderBuiltinActionList } from './builtin-actions.js';
+import { renderAllKnobsAndApps, updateKnobVolume, setButtonHeld } from './mappings.js';
 import { setupPresets } from './presets.js';
 import { setupDeviceHeader, setupNewDeviceButton, setupRemoveDeviceButton } from './device.js';
 
@@ -58,6 +59,7 @@ async function bootstrapFromConfig() {
   const initialPlugins = await window.api.getConnectedPlugins();
   state.pluginActions = initialPlugins || [];
   renderPluginActionList();
+  await applyDeviceModelUiFromMain();
   await renderAllKnobsAndApps();
   await applyVoiceMeeterUiFromMain();
   await applyInitialBackendStatus();
@@ -69,6 +71,7 @@ async function bootstrapFromConfig() {
 
 function init() {
   window.api.onVolumeUpdate(({ index, value }) => updateKnobVolume(index, value));
+  window.api.onButtonPress(({ index, pressed }) => setButtonHeld(index, pressed));
   window.api.onWindowHidden(() => { state.iconCache.clear(); });
 
   window.api.onPluginActionsUpdated((plugins) => {
@@ -83,6 +86,7 @@ function init() {
   });
   setupTabs();
   setupSubTabs();
+  renderBuiltinActionList();
   setupComPortListeners();
   refreshComPortListPreservingSelection();
   setupAutoStartListener();

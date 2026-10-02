@@ -1,0 +1,22 @@
+# Python dependencies for the Windows headless backends
+# (src/backend/main.pyw and src/backend/main_pro.pyw), built into
+# VolumeMaster-Headless.exe / VolumeMaster-Pro-Headless.exe via
+# `npm run prebuild` (PyInstaller). Install with:
+#   pip install -r requirements.txt
+
+PyYAML==6.0.1
+pyserial==3.5
+pycaw==20251023
+comtypes==1.3.1
+watchdog==6.0.0
+
+# The PyPI package named "voicemeeter" is an unrelated abandoned Python <3.6
+# project — the real source is this GitHub repo (installs its own "toml" dep).
+voicemeeter @ git+https://github.com/Freemanium/voicemeeter-remote-python.git
+
+# main_pro.pyw only (Keyboard Shortcut button action) — harmless to install
+# even if you're only building the standard backend.
+keyboard==0.13.5
+
+# Build tool — runs `pyinstaller` for both prebuild scripts in package.json.
+pyinstaller==6.13.0

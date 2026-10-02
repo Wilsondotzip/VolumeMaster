@@ -37,6 +37,7 @@ function registerIpcHandlers() {
     merged.vm = existing.vm;
     merged.vmversion = existing.vmversion;
     merged.presets = existing.presets;
+    merged.deviceModel = existing.deviceModel;
     saveConfig(deviceDir, merged);
     return cloneConfigSnapshot(loadConfig(deviceDir));
   });
@@ -137,6 +138,18 @@ function registerIpcHandlers() {
   ipcMain.handle('get-vm-version', (event) => {
     const { deviceDir } = getDeviceContext(event);
     return loadConfig(deviceDir).vmversion || 'banana';
+  });
+
+  ipcMain.handle('set-device-model', (event, model) => {
+    const { deviceDir } = getDeviceContext(event);
+    const config = loadConfig(deviceDir);
+    config.deviceModel = model;
+    saveConfig(deviceDir, config);
+  });
+
+  ipcMain.handle('get-device-model', (event) => {
+    const { deviceDir } = getDeviceContext(event);
+    return loadConfig(deviceDir).deviceModel || 'volumemaster';
   });
 
   ipcMain.handle('get-auto-start', () => {
