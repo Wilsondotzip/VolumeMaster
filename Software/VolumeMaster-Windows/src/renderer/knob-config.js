@@ -15,7 +15,7 @@ export function isProDevice() {
   return state.config.deviceModel === 'volumemaster_pro';
 }
 
-function getEncoderMode(knobId) {
+export function getEncoderMode(knobId) {
   return state.config.Mappings[knobId]?.EncoderMode || ENCODER_MODE_DEFAULT;
 }
 
@@ -66,9 +66,18 @@ function openKnobConfigModal(knobId) {
   document.getElementById('knobConfigSaveBtn').onclick = async () => {
     const mapping = state.config.Mappings[knobId];
     if (mapping) {
+      const modeChanged = select.value !== getEncoderMode(knobId);
       mapping.EncoderMode = select.value;
       await saveConfigAndSync();
       window._autoSaveActivePreset?.();
+      // Turn Action sections only render in increment mode — re-render this
+      // knob's card so they appear/disappear immediately rather than only
+      // after the next unrelated re-render. Dynamic import avoids a static
+      // circular dependency (mappings.js already imports from this module).
+      if (modeChanged) {
+        const { renderAllKnobsAndApps } = await import('./mappings.js');
+        await renderAllKnobsAndApps();
+      }
     }
     modal.close();
   };
@@ -344,20 +353,12 @@ function makeShortcutRecorderInput(input, initialValue) {
   };
 }
 
-/** Reuses the knob config dialog to fill in a built-in action's params (key combo, program path). */
-function openButtonActionConfigModal(knobId, entry, sub) {
-  const modal = document.getElementById('knobConfigModal');
-  if (!modal) return;
-  // `entry` may go stale by save-time — saveConfigAndSync() replaces state.config
-  // wholesale with a fresh clone from the main process, so any object reference
-  // held from before that round-trip no longer belongs to the live config tree.
-  const uid = buttonActionUid(entry);
-  const meta = getBuiltinTypeMeta(entry.type);
-  document.getElementById('knobConfigModalTitle').textContent = `Configure ${meta?.label ?? entry.type}`;
-
-  const fields = document.getElementById('knobConfigFields');
-  fields.innerHTML = '';
-
+/**
+ * Builds the param fields for a builtin action's type (keyboard combo, program
+ * path) into `fields`, returning a getValue() that reads back the current form
+ * state. Shared by the button-press and turn-action config modals below.
+ */
+function buildBuiltinActionFields(entry, fields) {
   if (!entry.params || typeof entry.params !== 'object') entry.params = {};
 
   const wrapper = document.createElement('div');
@@ -432,6 +433,24 @@ function openButtonActionConfigModal(knobId, entry, sub) {
   }
 
   fields.appendChild(wrapper);
+  return getValue;
+}
+
+/** Reuses the knob config dialog to fill in a built-in action's params (key combo, program path). */
+function openButtonActionConfigModal(knobId, entry, sub) {
+  const modal = document.getElementById('knobConfigModal');
+  if (!modal) return;
+  // `entry` may go stale by save-time — saveConfigAndSync() replaces state.config
+  // wholesale with a fresh clone from the main process, so any object reference
+  // held from before that round-trip no longer belongs to the live config tree.
+  const uid = buttonActionUid(entry);
+  const meta = getBuiltinTypeMeta(entry.type);
+  document.getElementById('knobConfigModalTitle').textContent = `Configure ${meta?.label ?? entry.type}`;
+
+  const fields = document.getElementById('knobConfigFields');
+  fields.innerHTML = '';
+
+  const getValue = buildBuiltinActionFields(entry, fields);
 
   document.getElementById('knobConfigSaveBtn').onclick = async () => {
     const current = getButtonActions(knobId).find((e) => buttonActionUid(e) === uid);
@@ -497,5 +516,199 @@ export async function handleButtonActionDrop(event, knobId) {
   if (entry.kind === 'builtin' && getBuiltinTypeMeta(entry.type)?.configurable) {
     const sub = card.querySelector('[data-button-action-sub]');
     openButtonActionConfigModal(knobId, entry, sub);
+  }
+}
+
+// --- Turn action (Pro only, EncoderMode 'increment' only) -------------------
+//
+// Mappings[knobId].TurnLeftActions / TurnRightActions: array of
+// { kind: 'builtin', type: 'keyboard_shortcut'|'mute'|'open_program', id, params }.
+// Builtin only — no plugin dispatch for turn ticks (yet). Replaces volume
+// control entirely for that knob rather than running alongside it.
+
+function turnActionsKey(direction) {
+  return direction === 'left' ? 'TurnLeftActions' : 'TurnRightActions';
+}
+
+function getTurnActions(knobId, direction) {
+  const list = state.config.Mappings[knobId]?.[turnActionsKey(direction)];
+  return Array.isArray(list) ? list : [];
+}
+
+async function removeTurnAction(knobId, direction, entry, card, host) {
+  const mapping = state.config.Mappings[knobId];
+  if (!mapping) return;
+  const list = getTurnActions(knobId, direction);
+  const idx = list.findIndex((e) => e.id === entry.id);
+  if (idx === -1) return;
+  list.splice(idx, 1);
+  mapping[turnActionsKey(direction)] = list;
+  await saveConfigAndSync();
+  window._autoSaveActivePreset?.();
+  card.remove();
+  refreshTurnActionEmptyState(host);
+}
+
+function createTurnActionCard(entry, knobId, direction, host) {
+  const meta = getBuiltinTypeMeta(entry.type);
+  const card = document.createElement('div');
+  card.className =
+    'flex items-center gap-3 p-2 rounded border border-amber-600 bg-amber-900 bg-opacity-20 hover:border-amber-400 transition overflow-hidden cursor-pointer';
+  card.setAttribute('data-turn-action', entry.id);
+
+  const icon = document.createElement('div');
+  icon.className = 'w-8 h-8 rounded bg-amber-700 flex items-center justify-center text-lg shrink-0';
+  icon.textContent = meta?.icon ?? '⚙️';
+
+  const textCol = document.createElement('div');
+  textCol.className = 'flex flex-col min-w-0';
+
+  const labelEl = document.createElement('div');
+  labelEl.textContent = meta?.label ?? entry.type;
+  labelEl.className = 'text-sm font-semibold text-amber-300 truncate';
+
+  const sub = document.createElement('div');
+  sub.textContent = describeBuiltinAction(entry);
+  sub.className = 'text-xs text-slate-500 truncate';
+  sub.setAttribute('data-turn-action-sub', '');
+
+  textCol.append(labelEl, sub);
+  card.append(icon, textCol);
+
+  if (meta?.configurable) {
+    card.onclick = () => openTurnActionConfigModal(knobId, direction, entry, sub);
+    card.appendChild(createRemoveBadge(() => removeTurnAction(knobId, direction, entry, card, host)));
+  } else {
+    card.onclick = () => removeTurnAction(knobId, direction, entry, card, host);
+  }
+
+  return card;
+}
+
+function refreshTurnActionEmptyState(host) {
+  const hasCards = !!host.querySelector('[data-turn-action]');
+  const existingMsg = host.querySelector('[data-turn-action-empty]');
+  if (hasCards) {
+    existingMsg?.remove();
+    return;
+  }
+  if (existingMsg) return;
+  const msg = document.createElement('p');
+  msg.setAttribute('data-turn-action-empty', '');
+  msg.className = 'text-[11px] text-slate-500 italic';
+  msg.textContent = 'Drag a built-in action here.';
+  host.appendChild(msg);
+}
+
+function createTurnActionZone(knobId, direction, label) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'flex flex-col gap-1 flex-1 min-w-0';
+
+  const labelEl = document.createElement('div');
+  labelEl.className = 'text-[10px] font-semibold text-slate-500 uppercase tracking-wide';
+  labelEl.textContent = label;
+  wrapper.appendChild(labelEl);
+
+  const host = document.createElement('div');
+  host.className = 'flex flex-col gap-2 min-h-12 rounded border border-dashed border-slate-700 p-2';
+  host.setAttribute('data-turn-action-host', direction);
+
+  for (const entry of getTurnActions(knobId, direction)) {
+    host.appendChild(createTurnActionCard(entry, knobId, direction, host));
+  }
+  refreshTurnActionEmptyState(host);
+
+  wrapper.appendChild(host);
+  return wrapper;
+}
+
+/** Only rendered when the knob's EncoderMode is 'increment' — see createKnobSection in mappings.js. */
+export function createTurnActionSection(knobId) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'mt-3 pt-3 border-t border-slate-700 shrink-0';
+
+  const label = document.createElement('div');
+  label.className = 'text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2';
+  label.textContent = 'Turn Action';
+  wrapper.appendChild(label);
+
+  const row = document.createElement('div');
+  row.className = 'flex gap-2';
+  row.append(createTurnActionZone(knobId, 'left', '← Left'), createTurnActionZone(knobId, 'right', 'Right →'));
+  wrapper.appendChild(row);
+
+  return wrapper;
+}
+
+/** Returns 'left' | 'right' if target is inside a turn-action drop zone, else null. */
+export function getTurnActionHostDirection(target) {
+  return target?.closest?.('[data-turn-action-host]')?.getAttribute('data-turn-action-host') || null;
+}
+
+function openTurnActionConfigModal(knobId, direction, entry, sub) {
+  const modal = document.getElementById('knobConfigModal');
+  if (!modal) return;
+  const uid = entry.id;
+  const meta = getBuiltinTypeMeta(entry.type);
+  document.getElementById('knobConfigModalTitle').textContent = `Configure ${meta?.label ?? entry.type}`;
+
+  const fields = document.getElementById('knobConfigFields');
+  fields.innerHTML = '';
+
+  const getValue = buildBuiltinActionFields(entry, fields);
+
+  document.getElementById('knobConfigSaveBtn').onclick = async () => {
+    const current = getTurnActions(knobId, direction).find((e) => e.id === uid);
+    if (current) current.params = getValue();
+    await saveConfigAndSync();
+    window._autoSaveActivePreset?.();
+    if (sub) sub.textContent = describeBuiltinAction(current || entry);
+    modal.close();
+  };
+  document.getElementById('knobConfigCancelBtn').onclick = () => modal.close();
+  document.getElementById('knobConfigCloseBtn').onclick = () => modal.close();
+
+  modal.showModal();
+}
+
+export async function handleTurnActionDrop(event, knobId, direction) {
+  const host = event.target.closest('[data-turn-action-host]');
+  if (!host || !knobId) return;
+
+  let name = '';
+  try {
+    name = event.dataTransfer?.getData('text/plain') || '';
+  } catch {
+    // Electron/Chromium sometimes throws reading dataTransfer on drop; fall back below.
+  }
+  if (!name && state.mappingDragPayload?.name) name = state.mappingDragPayload.name;
+  name = name.trim();
+  state.mappingDragPayload = null;
+
+  if (!isBuiltinItem(name)) return;
+  const type = builtinTypeFromDragName(name);
+  if (!getBuiltinTypeMeta(type)) return;
+
+  const mapping = state.config.Mappings[knobId];
+  if (!mapping) return;
+  const list = getTurnActions(knobId, direction);
+  // Same reasoning as the button-action zone: a second parameterless Mute
+  // would just flip itself back off on every tick.
+  if (type === 'mute' && list.some((e) => e.type === 'mute')) return;
+
+  const entry = { kind: 'builtin', type, id: crypto.randomUUID(), params: {} };
+  list.push(entry);
+  mapping[turnActionsKey(direction)] = list;
+
+  await saveConfigAndSync();
+  window._autoSaveActivePreset?.();
+
+  host.querySelector('[data-turn-action-empty]')?.remove();
+  const card = createTurnActionCard(entry, knobId, direction, host);
+  host.appendChild(card);
+
+  if (getBuiltinTypeMeta(entry.type)?.configurable) {
+    const sub = card.querySelector('[data-turn-action-sub]');
+    openTurnActionConfigModal(knobId, direction, entry, sub);
   }
 }

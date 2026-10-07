@@ -230,8 +230,14 @@ def build_mappings(config):
         if isinstance(cats, list):
             entry['categories'] = [c.strip() for c in cats if isinstance(c, str) and c.strip()]
 
+        encoder_mode = val.get('EncoderMode')
+        entry['encoder_mode'] = encoder_mode if encoder_mode in ('absolute', 'increment') else 'absolute'
+
         mappings[index] = entry
     return mappings
+
+def _builtin_entries(raw):
+    return [entry for entry in raw if isinstance(entry, dict) and entry.get('kind') == 'builtin'] if isinstance(raw, list) else []
 
 def build_button_actions(config):
     """Built-in (non-plugin) button actions per knob index — the plugin-mediated
@@ -243,13 +249,25 @@ def build_button_actions(config):
         except ValueError:
             continue
 
-        raw = val.get('ButtonActions')
-        if not isinstance(raw, list):
-            continue
-
-        builtins = [entry for entry in raw if isinstance(entry, dict) and entry.get('kind') == 'builtin']
+        builtins = _builtin_entries(val.get('ButtonActions'))
         if builtins:
             actions[index] = builtins
+    return actions
+
+def build_turn_actions(config):
+    """Built-in turn actions per knob index, for knobs in EncoderMode 'increment':
+    {index: {'left': [...], 'right': [...]}}. No plugin-mediated entries (yet)."""
+    actions = {}
+    for key, val in config.get('Mappings', {}).items():
+        try:
+            index = int(key)
+        except ValueError:
+            continue
+
+        left = _builtin_entries(val.get('TurnLeftActions'))
+        right = _builtin_entries(val.get('TurnRightActions'))
+        if left or right:
+            actions[index] = {'left': left, 'right': right}
     return actions
 
 # Load config and initialize
@@ -258,6 +276,9 @@ config = load_config()
 mappings = build_mappings(config)
 button_actions = build_button_actions(config)
 button_mute_state = {}  # knob index -> bool, toggled by the 'mute' button action
+turn_actions = build_turn_actions(config)
+encoder_positions = {}  # knob index -> software-accumulated 0-100 position, for EncoderMode 'absolute'
+ENCODER_STEP = 2  # position change per tick, for EncoderMode 'absolute'
 buttons = {
     key: val.split(';') for key, val in config.get('Buttons', {}).items() if val
 }
@@ -401,7 +422,7 @@ def setup_audio_interfaces(ser=None):
 
 
 def reload_config():
-    global config, mappings, button_actions, buttons, volumes, _reconnect_serial
+    global config, mappings, button_actions, turn_actions, buttons, volumes, _reconnect_serial
     print('[Watcher] Reloading config...')
     try:
         old_port = config.get('comport')
@@ -409,6 +430,7 @@ def reload_config():
         config = load_config()
         mappings = build_mappings(config)
         button_actions = build_button_actions(config)
+        turn_actions = build_turn_actions(config)
         buttons = {
             key: val.split(';') for key, val in config.get('Buttons', {}).items() if val
         }
@@ -545,10 +567,10 @@ def launch_program(path):
         print(f"Failed to launch program '{path}': {e}")
 
 
-def execute_button_actions(index):
+def _execute_action_entries(index, entries, failure_label):
     # Each action already guards its own execution; this outer guard exists so a
     # bug in one action type can't take down the serial read loop for every knob.
-    for entry in button_actions.get(index, []):
+    for entry in entries:
         try:
             action_type = entry.get('type')
             params = entry.get('params') or {}
@@ -559,7 +581,13 @@ def execute_button_actions(index):
             elif action_type == 'open_program':
                 launch_program(params.get('path', ''))
         except Exception as e:
-            print(f"Failed to execute button action {entry}: {e}")
+            print(f"Failed to execute {failure_label} {entry}: {e}")
+
+def execute_button_actions(index):
+    _execute_action_entries(index, button_actions.get(index, []), 'button action')
+
+def execute_turn_actions(index, direction):
+    _execute_action_entries(index, turn_actions.get(index, {}).get(direction, []), 'turn action')
 
 
 def main():
@@ -646,13 +674,32 @@ def main():
                 continue
 
             if '@' in line:
+                # +@<index> / -@<index> — one tick right/left. A bare numeric value
+                # (<value>@<index>) is also accepted as a legacy/manual-test path,
+                # but the Pro device always sends ticks now, never an absolute value.
                 try:
-                    value_str, index_str = line.split('@')
-                    value, index = int(value_str), int(index_str)
-                    volume_cache.append((index, value))
+                    left_str, index_str = line.split('@')
+                    index = int(index_str)
                 except ValueError:
                     print("Malformed input:", line)
                     continue
+
+                if left_str in ('+', '-'):
+                    encoder_mode = mappings.get(index, {}).get('encoder_mode', 'absolute')
+                    if encoder_mode == 'increment':
+                        execute_turn_actions(index, 'right' if left_str == '+' else 'left')
+                    else:
+                        position = encoder_positions.get(index, 50)
+                        step = ENCODER_STEP if left_str == '+' else -ENCODER_STEP
+                        position = max(0, min(100, position + step))
+                        encoder_positions[index] = position
+                        volume_cache.append((index, position))
+                else:
+                    try:
+                        volume_cache.append((index, int(left_str)))
+                    except ValueError:
+                        print("Malformed input:", line)
+                        continue
 
             # BTN_DOWN:<knob index> — built-in actions (mute/keyboard shortcut/open
             # program) execute right here on press; the line is forwarded to Electron

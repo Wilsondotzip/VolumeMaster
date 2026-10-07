@@ -15,10 +15,14 @@ import {
 import { isBuiltinItem } from './builtin-actions.js';
 import {
   isProDevice,
+  getEncoderMode,
   createKnobConfigButton,
   createButtonActionSection,
   isButtonActionHost,
   handleButtonActionDrop,
+  createTurnActionSection,
+  getTurnActionHostDirection,
+  handleTurnActionDrop,
 } from './knob-config.js';
 
 // Live volume levels keyed by knobId string
@@ -90,13 +94,20 @@ function onKnobsDragOverCapture(e) {
   if (!isKnobMappingDrag(e.dataTransfer)) return;
 
   // The button-action zone accepts built-in action cards and plugin actions not
-  // restricted to 'knob'; everywhere else rejects both built-in cards (they only
-  // make sense as button presses) and plugin actions restricted to 'button'.
+  // restricted to 'knob'; the turn-action zones accept built-in cards only (no
+  // plugin dispatch for turn ticks yet); everywhere else rejects both built-in
+  // cards (they only make sense as button/turn actions) and plugin actions
+  // restricted to 'button'.
   const draggedName = state.mappingDragPayload?.name;
   const isPluginDrag = isPluginItem(draggedName);
   const isBuiltinDrag = isBuiltinItem(draggedName);
   if (isButtonActionHost(e.target)) {
     if (!isBuiltinDrag && !(isPluginDrag && isPluginDragAllowedFor('button'))) {
+      clearDragHighlight();
+      return;
+    }
+  } else if (getTurnActionHostDirection(e.target)) {
+    if (!isBuiltinDrag) {
       clearDragHighlight();
       return;
     }
@@ -126,11 +137,14 @@ function onKnobsDropCapture(e) {
   if (!isKnobMappingDrag(e.dataTransfer)) return;
 
   const isButtonAction = isButtonActionHost(e.target);
+  const turnDirection = getTurnActionHostDirection(e.target);
   const draggedName = state.mappingDragPayload?.name;
   const isPluginDrag = isPluginItem(draggedName);
   const isBuiltinDrag = isBuiltinItem(draggedName);
   if (isButtonAction) {
     if (!isBuiltinDrag && !(isPluginDrag && isPluginDragAllowedFor('button'))) return;
+  } else if (turnDirection) {
+    if (!isBuiltinDrag) return;
   } else if (isBuiltinDrag || (isPluginDrag && !isPluginDragAllowedFor('knob'))) {
     return;
   }
@@ -145,6 +159,8 @@ function onKnobsDropCapture(e) {
   const knobId = section.id.replace('knob-section-', '');
   if (isButtonAction) {
     handleButtonActionDrop(e, knobId);
+  } else if (turnDirection) {
+    handleTurnActionDrop(e, knobId, turnDirection);
   } else {
     handleDrop(e, knobId);
   }
@@ -265,7 +281,12 @@ function createKnobSection(knobId) {
   }
 
   section.appendChild(cardHost);
-  if (isProDevice()) section.appendChild(createButtonActionSection(knobId));
+  if (isProDevice()) {
+    section.appendChild(createButtonActionSection(knobId));
+    if (getEncoderMode(knobId) === 'increment') {
+      section.appendChild(createTurnActionSection(knobId));
+    }
+  }
   return section;
 }
 
