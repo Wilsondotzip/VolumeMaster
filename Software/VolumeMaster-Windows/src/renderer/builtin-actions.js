@@ -4,11 +4,19 @@ export const BUILTIN_PREFIX = 'builtin:';
 
 // The fixed set of generic button-action templates shown in the Actions tab (Pro only).
 // 'configurable: true' types open the knob config modal immediately on drop.
+// 'buttonOnly: true' types change app settings, which the Electron main process
+// owns (see main/button-settings-actions.js) — it only hears about button
+// presses, not turn ticks, so these can't be placed in a Turn Action zone.
 export const BUILTIN_ACTION_TYPES = [
   { type: 'keyboard_shortcut', label: 'Keyboard Shortcut', icon: '⌨️', configurable: true },
   { type: 'mute', label: 'Mute', icon: '🔇', configurable: false },
   { type: 'open_program', label: 'Open Program', icon: '📂', configurable: true },
+  { type: 'switch_preset', label: 'Switch Preset', icon: '🗂️', configurable: true, buttonOnly: true },
+  { type: 'encoder_mode', label: 'Knob Mode', icon: '🔄', configurable: true, buttonOnly: true },
 ];
+
+const PRESET_MODE_LABELS = { next: 'Next preset', previous: 'Previous preset' };
+const ENCODER_MODE_LABELS = { toggle: 'Toggle', absolute: 'Set Absolute', increment: 'Set Increment' };
 
 export function getBuiltinTypeMeta(type) {
   return BUILTIN_ACTION_TYPES.find((t) => t.type === type) || null;
@@ -26,6 +34,12 @@ export function builtinTypeFromDragName(dragName) {
   return dragName.slice(BUILTIN_PREFIX.length);
 }
 
+/** Whether a dragged built-in card may be dropped into a Turn Action zone. */
+export function isBuiltinTurnCompatible(dragName) {
+  const meta = getBuiltinTypeMeta(builtinTypeFromDragName(dragName));
+  return !!meta && !meta.buttonOnly;
+}
+
 /** Sub-label shown on a placed card, reflecting whatever's configured so far. */
 export function describeBuiltinAction(entry) {
   if (entry.type === 'keyboard_shortcut') return entry.params?.keys || 'Click to set shortcut';
@@ -34,6 +48,16 @@ export function describeBuiltinAction(entry) {
     return path ? path.split(/[\\/]/).pop() : 'Click to choose program';
   }
   if (entry.type === 'mute') return "Mutes this knob's targets";
+  if (entry.type === 'switch_preset') {
+    const mode = entry.params?.mode || 'next';
+    if (mode === 'specific') return entry.params?.name ? `Load "${entry.params.name}"` : 'Click to choose preset';
+    return PRESET_MODE_LABELS[mode] || '';
+  }
+  if (entry.type === 'encoder_mode') {
+    const knob = entry.params?.knob;
+    const target = knob ? `Knob ${knob}` : 'this knob';
+    return `${ENCODER_MODE_LABELS[entry.params?.mode || 'toggle'] || ''} — ${target}`;
+  }
   return '';
 }
 

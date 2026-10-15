@@ -99,6 +99,17 @@ export async function setupPresets() {
 
   cancelBtn.addEventListener('click', () => hideNameRow(presetsBar, nameRow));
 
+  // A hardware button action (switch preset / knob mode) changed config.yaml in
+  // the main process — adopt it, or the next renderer save would write the old
+  // Mappings straight back over it.
+  window.api.onConfigChanged(async ({ config, loadedPreset }) => {
+    if (!config) return;
+    state.config = cloneConfig(config);
+    await refreshPresetDropdown(selectEl, config.lastPreset);
+    await renderAllKnobsAndApps();
+    if (loadedPreset) showAlert('success', `Preset "${loadedPreset}" loaded`);
+  });
+
   // Auto-save current mappings into the active preset (called by mappings.js on changes)
   window._autoSaveActivePreset = async () => {
     const name = selectEl.value;

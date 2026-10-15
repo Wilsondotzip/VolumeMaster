@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('api', {
   onBackendStatus: (callback) => ipcRenderer.on('backend-status', (_, data) => callback(data)),
   onVolumeUpdate: (callback) => ipcRenderer.on('volume-update', (_, data) => callback(data)),
   onButtonPress: (callback) => ipcRenderer.on('button-press', (_, data) => callback(data)),
+  onConfigChanged: (callback) => ipcRenderer.on('config-changed', (_, data) => callback(data)),
   enableVM: () => ipcRenderer.invoke('enable-vm'),
   disableVM: () => ipcRenderer.invoke('disable-vm'),
   getVMEnabled: () => ipcRenderer.invoke('get-vm-enabled'),

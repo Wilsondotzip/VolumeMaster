@@ -7,6 +7,7 @@ const deviceManager = require('./device-manager');
 const { handleVolumeChange } = require('./notification-window');
 const { dispatchKnobEvent, dispatchKnobButtonEvent } = require('./plugin-server');
 const { loadConfig } = require('./config-store');
+const { executeSettingsButtonActions } = require('./button-settings-actions');
 
 // Map<deviceId, { process, retryTimeout }>
 const backends = new Map();
@@ -123,6 +124,7 @@ function startBackend(deviceId, deviceDir) {
           const win = deviceManager.getWindowForDevice(deviceId);
           if (win) win.webContents.send('button-press', { index, pressed: true });
           dispatchKnobButtonEvent(deviceId, index, loadConfig(deviceDir));
+          executeSettingsButtonActions(deviceId, deviceDir, index);
         }
       } else {
         sendStatusToDevice(deviceId, 'info', `[Backend] ${trimmed}`);

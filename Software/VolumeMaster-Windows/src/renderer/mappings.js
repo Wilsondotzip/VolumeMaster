@@ -12,7 +12,7 @@ import {
   pluginActionAllowsKind,
   isPluginDragAllowedFor,
 } from './plugins.js';
-import { isBuiltinItem } from './builtin-actions.js';
+import { isBuiltinItem, isBuiltinTurnCompatible } from './builtin-actions.js';
 import {
   isProDevice,
   getEncoderMode,
@@ -95,7 +95,8 @@ function onKnobsDragOverCapture(e) {
 
   // The button-action zone accepts built-in action cards and plugin actions not
   // restricted to 'knob'; the turn-action zones accept built-in cards only (no
-  // plugin dispatch for turn ticks yet); everywhere else rejects both built-in
+  // plugin dispatch for turn ticks yet), minus the button-only settings actions
+  // (preset / knob mode); everywhere else rejects both built-in
   // cards (they only make sense as button/turn actions) and plugin actions
   // restricted to 'button'.
   const draggedName = state.mappingDragPayload?.name;
@@ -107,7 +108,7 @@ function onKnobsDragOverCapture(e) {
       return;
     }
   } else if (getTurnActionHostDirection(e.target)) {
-    if (!isBuiltinDrag) {
+    if (!isBuiltinDrag || !isBuiltinTurnCompatible(draggedName)) {
       clearDragHighlight();
       return;
     }
@@ -144,7 +145,7 @@ function onKnobsDropCapture(e) {
   if (isButtonAction) {
     if (!isBuiltinDrag && !(isPluginDrag && isPluginDragAllowedFor('button'))) return;
   } else if (turnDirection) {
-    if (!isBuiltinDrag) return;
+    if (!isBuiltinDrag || !isBuiltinTurnCompatible(draggedName)) return;
   } else if (isBuiltinDrag || (isPluginDrag && !isPluginDragAllowedFor('knob'))) {
     return;
   }

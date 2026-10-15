@@ -580,6 +580,9 @@ def _execute_action_entries(index, entries, failure_label):
                 send_keyboard_shortcut(params.get('keys', ''))
             elif action_type == 'open_program':
                 launch_program(params.get('path', ''))
+            # 'switch_preset' / 'encoder_mode' are executed by the Electron main
+            # process (it owns presets); the resulting config change reaches us
+            # through the config watcher.
         except Exception as e:
             print(f"Failed to execute {failure_label} {entry}: {e}")
 

@@ -37,6 +37,9 @@ function registerIpcHandlers() {
     merged.vm = existing.vm;
     merged.vmversion = existing.vmversion;
     merged.presets = existing.presets;
+    // Owned by set-last-preset (and preset-switching button actions) — the
+    // renderer's state.config copy can be stale, so it must not clobber it.
+    merged.lastPreset = existing.lastPreset;
     merged.deviceModel = existing.deviceModel;
     saveConfig(deviceDir, merged);
     return cloneConfigSnapshot(loadConfig(deviceDir));

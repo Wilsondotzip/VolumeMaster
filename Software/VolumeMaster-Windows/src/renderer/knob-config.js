@@ -6,6 +6,7 @@ import {
   builtinTypeFromDragName,
   getBuiltinTypeMeta,
   describeBuiltinAction,
+  isBuiltinTurnCompatible,
 } from './builtin-actions.js';
 
 const ENCODER_MODE_DEFAULT = 'absolute';
@@ -96,6 +97,9 @@ function openKnobConfigModal(knobId) {
 // Mappings[knobId].ButtonActions is an array of either:
 //   { kind: 'plugin', key: 'pluginId:actionId' }
 //   { kind: 'builtin', type: 'keyboard_shortcut'|'mute'|'open_program', id, params }
+//   { kind: 'builtin', type: 'switch_preset', id, params: { mode: 'next'|'previous'|'specific', name? } }
+//   { kind: 'builtin', type: 'encoder_mode', id, params: { knob: ''|'<knobId>', mode: 'toggle'|'absolute'|'increment' } }
+// The last two are executed by the Electron main process, not the Python backend.
 
 function getButtonActions(knobId) {
   const list = state.config.Mappings[knobId]?.ButtonActions;
@@ -430,10 +434,93 @@ function buildBuiltinActionFields(entry, fields) {
     row.append(pathText, browseBtn);
     wrapper.append(label, row);
     getValue = () => ({ path: pathText.dataset.path || '' });
+  } else if (entry.type === 'switch_preset') {
+    const modeSelect = createSelectField(wrapper, 'Action', [
+      ['next', 'Next preset'],
+      ['previous', 'Previous preset'],
+      ['specific', 'Specific preset'],
+    ], entry.params.mode || 'next');
+
+    const presetWrap = document.createElement('div');
+    presetWrap.className = 'flex flex-col gap-1 mt-2';
+    const presetSelect = createSelectField(presetWrap, 'Preset', [], '');
+    wrapper.appendChild(presetWrap);
+
+    const hint = document.createElement('p');
+    hint.className = 'text-xs text-slate-500 mt-1';
+    hint.textContent =
+      'Presets store their own button actions — add this action to each preset you want to be able to switch away from.';
+    wrapper.appendChild(hint);
+
+    const syncPresetVisibility = () => presetWrap.classList.toggle('hidden', modeSelect.value !== 'specific');
+    modeSelect.addEventListener('change', syncPresetVisibility);
+    syncPresetVisibility();
+
+    window.api.listPresets().then((names) => {
+      const saved = entry.params.name || '';
+      const options = [...(names || [])];
+      if (saved && !options.includes(saved)) options.unshift(saved);
+      if (!options.length) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'No presets yet';
+        presetSelect.appendChild(opt);
+      }
+      for (const name of options) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        presetSelect.appendChild(opt);
+      }
+      presetSelect.value = saved || options[0] || '';
+    });
+
+    getValue = () =>
+      modeSelect.value === 'specific'
+        ? { mode: 'specific', name: presetSelect.value }
+        : { mode: modeSelect.value };
+  } else if (entry.type === 'encoder_mode') {
+    const knobIds = Object.keys(state.config.Mappings || {}).sort((a, b) => Number(a) - Number(b));
+    const knobSelect = createSelectField(wrapper, 'Knob', [
+      ['', 'This knob'],
+      ...knobIds.map((id) => [id, state.config.Mappings[id]?.Name || `Knob ${id}`]),
+    ], entry.params.knob || '');
+
+    const modeWrap = document.createElement('div');
+    modeWrap.className = 'flex flex-col gap-1 mt-2';
+    const modeSelect = createSelectField(modeWrap, 'Mode', [
+      ['toggle', 'Toggle Absolute / Increment'],
+      ['absolute', 'Set to Absolute'],
+      ['increment', 'Set to Increment'],
+    ], entry.params.mode || 'toggle');
+    wrapper.appendChild(modeWrap);
+
+    getValue = () => ({ knob: knobSelect.value, mode: modeSelect.value });
   }
 
   fields.appendChild(wrapper);
   return getValue;
+}
+
+/** Appends a labelled <select> to `parent` and returns the select element. */
+function createSelectField(parent, labelText, options, value) {
+  const label = document.createElement('label');
+  label.className = 'text-xs text-gray-400';
+  label.textContent = labelText;
+
+  const select = document.createElement('select');
+  select.className =
+    'w-full px-2 py-1.5 text-sm bg-slate-700 border border-slate-600 rounded text-gray-200 focus:outline-none focus:border-indigo-500';
+  for (const [optValue, optLabel] of options) {
+    const option = document.createElement('option');
+    option.value = optValue;
+    option.textContent = optLabel;
+    select.appendChild(option);
+  }
+  select.value = value;
+
+  parent.append(label, select);
+  return select;
 }
 
 /** Reuses the knob config dialog to fill in a built-in action's params (key combo, program path). */
@@ -685,9 +772,8 @@ export async function handleTurnActionDrop(event, knobId, direction) {
   name = name.trim();
   state.mappingDragPayload = null;
 
-  if (!isBuiltinItem(name)) return;
+  if (!isBuiltinItem(name) || !isBuiltinTurnCompatible(name)) return;
   const type = builtinTypeFromDragName(name);
-  if (!getBuiltinTypeMeta(type)) return;
 
   const mapping = state.config.Mappings[knobId];
   if (!mapping) return;
