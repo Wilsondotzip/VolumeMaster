@@ -11,7 +11,10 @@ import atexit
 import threading
 import queue
 import subprocess
+import json
 import keyboard
+import output_devices
+from selector import SelectorManager
 from pycaw.pycaw import (
     AudioUtilities,
     ISimpleAudioVolume,
@@ -279,6 +282,7 @@ button_mute_state = {}  # knob index -> bool, toggled by the 'mute' button actio
 turn_actions = build_turn_actions(config)
 encoder_positions = {}  # knob index -> software-accumulated 0-100 position, for EncoderMode 'absolute'
 ENCODER_STEP = 2  # position change per tick, for EncoderMode 'absolute'
+selectors = SelectorManager()  # knob-driven pick-one-of-N popup, see selector.py
 buttons = {
     key: val.split(';') for key, val in config.get('Buttons', {}).items() if val
 }
@@ -567,6 +571,41 @@ def launch_program(path):
         print(f"Failed to launch program '{path}': {e}")
 
 
+def refresh_master_volume_interface():
+    """Re-point the 'master' knob at the current default output right away —
+    otherwise it keeps driving the old device until the next 2s session refresh."""
+    global master_volume_interface
+    try:
+        master_volume_interface = AudioUtilities.GetSpeakers().EndpointVolume
+    except Exception:
+        master_volume_interface = None
+
+
+def _apply_output(device_id, name, include_communications):
+    output_devices.set_default_output(device_id, include_communications)
+    refresh_master_volume_interface()
+    print(f'OUTPUT_CHANGED:{name}', flush=True)
+
+
+def switch_output(index, action_id, params):
+    include_communications = params.get('communications', True) is not False
+    mode = params.get('mode', 'toggle')
+
+    if mode == 'selector':
+        items, current = output_devices.selector_items(params.get('devices'))
+        if not selectors.open(
+            index, 'Output Device', items, current,
+            on_select=lambda item: _apply_output(item['id'], item['label'], include_communications),
+        ):
+            print('No output devices available to choose from', flush=True)
+        return
+
+    name = output_devices.toggle_output(action_id, params.get('device'), include_communications)
+    if name:
+        refresh_master_volume_interface()
+        print(f'OUTPUT_CHANGED:{name}', flush=True)
+
+
 def _execute_action_entries(index, entries, failure_label):
     # Each action already guards its own execution; this outer guard exists so a
     # bug in one action type can't take down the serial read loop for every knob.
@@ -580,6 +619,8 @@ def _execute_action_entries(index, entries, failure_label):
                 send_keyboard_shortcut(params.get('keys', ''))
             elif action_type == 'open_program':
                 launch_program(params.get('path', ''))
+            elif action_type == 'switch_output':
+                switch_output(index, entry.get('id'), params)
             # 'switch_preset' / 'encoder_mode' are executed by the Electron main
             # process (it owns presets); the resulting config change reaches us
             # through the config watcher.
@@ -616,11 +657,35 @@ def main():
                 if cmd == 'LIST_SESSIONS':
                     names = list({exe for (_, exe) in session_cache.keys()})
                     print(f"SESSIONS:{','.join(names)}", flush=True)
+                elif cmd == 'LIST_OUTPUTS':
+                    # JSON, since device names contain commas/parentheses.
+                    try:
+                        payload = {
+                            'devices': output_devices.list_outputs(),
+                            'default': output_devices.get_default_output_id(),
+                        }
+                    except Exception as e:
+                        print(f'Failed to list output devices: {e}', flush=True)
+                        payload = {'devices': [], 'default': None}
+                    print(f'OUTPUTS:{json.dumps(payload)}', flush=True)
+                elif cmd.startswith('SET_OUTPUT:'):
+                    try:
+                        output_devices.set_default_output(cmd[len('SET_OUTPUT:'):])
+                        refresh_master_volume_interface()
+                    except Exception as e:
+                        print(f'Failed to set output device: {e}', flush=True)
+                elif cmd.startswith('OPEN_SELECTOR:'):
+                    selectors.open_from_command(cmd[len('OPEN_SELECTOR:'):])
+                elif cmd == 'CLOSE_SELECTOR':
+                    selectors.cancel()
+
+            selectors.check_timeout()
 
             # If comport changed via settings, close current connection and reconnect
             global _reconnect_serial
             if _reconnect_serial and ser is not None:
                 _reconnect_serial = False
+                selectors.cancel()
                 try:
                     ser.close()
                 except Exception:
@@ -669,6 +734,9 @@ def main():
                     pass
             except Exception:
                 print('ERROR:COM_PORT:Device disconnected from serial port.', flush=True)
+                # A selector in use has no timeout — with the knob gone nothing
+                # could ever confirm or dismiss it.
+                selectors.cancel()
                 try:
                     ser.close()
                 except Exception:
@@ -689,7 +757,10 @@ def main():
 
                 if left_str in ('+', '-'):
                     encoder_mode = mappings.get(index, {}).get('encoder_mode', 'absolute')
-                    if encoder_mode == 'increment':
+                    if selectors.is_open_for(index):
+                        # An open selector takes over this knob's ticks entirely.
+                        selectors.move(1 if left_str == '+' else -1)
+                    elif encoder_mode == 'increment':
                         execute_turn_actions(index, 'right' if left_str == '+' else 'left')
                     else:
                         position = encoder_positions.get(index, 50)
@@ -715,6 +786,15 @@ def main():
             elif line.startswith('BTN_DOWN:'):
                 try:
                     button_index = int(line[len('BTN_DOWN:'):])
+                    # While a selector is open, presses belong to it: the same
+                    # knob confirms, any other knob cancels. Either way the press
+                    # is consumed — no BUTTON: line, so no actions/plugins fire.
+                    if selectors.active is not None:
+                        if selectors.is_open_for(button_index):
+                            selectors.confirm()
+                        else:
+                            selectors.cancel()
+                        continue
                     print(f'BUTTON:{button_index}', flush=True)
                     execute_button_actions(button_index)
                 except ValueError:

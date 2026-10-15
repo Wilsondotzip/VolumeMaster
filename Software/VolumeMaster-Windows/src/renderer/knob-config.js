@@ -439,6 +439,7 @@ function buildBuiltinActionFields(entry, fields) {
       ['next', 'Next preset'],
       ['previous', 'Previous preset'],
       ['specific', 'Specific preset'],
+      ['selector', 'Choose with knob (popup)'],
     ], entry.params.mode || 'next');
 
     const presetWrap = document.createElement('div');
@@ -496,6 +497,118 @@ function buildBuiltinActionFields(entry, fields) {
     wrapper.appendChild(modeWrap);
 
     getValue = () => ({ knob: knobSelect.value, mode: modeSelect.value });
+  } else if (entry.type === 'switch_output') {
+    const saved = entry.params.device || null;
+    const savedIncluded = Array.isArray(entry.params.devices) ? entry.params.devices : [];
+    const sameDevice = (a, b) => a.id === b.id || a.name === b.name;
+
+    const modeSelect = createSelectField(wrapper, 'Action', [
+      ['toggle', 'Toggle to a device and back'],
+      ['selector', 'Choose with knob (popup)'],
+    ], entry.params.mode || 'toggle');
+
+    // --- toggle mode
+    const toggleWrap = document.createElement('div');
+    toggleWrap.className = 'flex flex-col gap-1 mt-2';
+    const deviceSelect = createSelectField(toggleWrap, 'Output Device', [], '');
+    const toggleHint = document.createElement('p');
+    toggleHint.className = 'text-xs text-slate-500 mt-1';
+    toggleHint.textContent = 'Press to switch to this output; press again to switch back to the previous one.';
+    toggleWrap.appendChild(toggleHint);
+    wrapper.appendChild(toggleWrap);
+
+    // --- selector mode
+    const selectorWrap = document.createElement('div');
+    selectorWrap.className = 'flex flex-col gap-1 mt-2';
+    const listLabel = document.createElement('div');
+    listLabel.className = 'text-xs text-gray-400';
+    listLabel.textContent = 'Show in popup';
+    const checklist = document.createElement('div');
+    checklist.className =
+      'flex flex-col gap-1 max-h-48 overflow-y-auto p-2 bg-slate-900 border border-slate-700 rounded';
+    const selectorHint = document.createElement('p');
+    selectorHint.className = 'text-xs text-slate-500 mt-1';
+    selectorHint.textContent =
+      'Press to open the list, turn this knob to choose, press again to switch. Nothing ticked shows every output.';
+    selectorWrap.append(listLabel, checklist, selectorHint);
+    wrapper.appendChild(selectorWrap);
+
+    const syncModeVisibility = () => {
+      toggleWrap.classList.toggle('hidden', modeSelect.value !== 'toggle');
+      selectorWrap.classList.toggle('hidden', modeSelect.value !== 'selector');
+    };
+    modeSelect.addEventListener('change', syncModeVisibility);
+    syncModeVisibility();
+
+    const commsRow = document.createElement('label');
+    commsRow.className = 'flex items-center gap-2 mt-2 text-xs text-gray-400 cursor-pointer';
+    const commsCheckbox = document.createElement('input');
+    commsCheckbox.type = 'checkbox';
+    commsCheckbox.checked = entry.params.communications !== false;
+    commsRow.append(commsCheckbox, 'Also switch the communications device (Discord, Teams…)');
+    wrapper.appendChild(commsRow);
+
+    // The device list comes from the running backend (it owns the audio APIs).
+    // Saved devices that aren't currently connected stay listed so re-saving
+    // the action doesn't silently drop them.
+    let devices = saved ? [saved] : [];
+    let checkboxes = []; // [{ device, input }]
+    window.api.listOutputDevices().then(({ devices: live = [] }) => {
+      const missing = (list) => list.filter((s) => !live.some((d) => sameDevice(d, s)));
+      const describe = (d) => (live.includes(d) ? d.name : `${d.name} (not connected)`);
+      const emptyText = 'Start VolumeMaster (Run) to list devices';
+
+      devices = [...(saved ? missing([saved]) : []), ...live];
+      if (!devices.length) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = emptyText;
+        deviceSelect.appendChild(opt);
+      }
+      devices.forEach((d, i) => {
+        const opt = document.createElement('option');
+        opt.value = String(i);
+        opt.textContent = describe(d);
+        deviceSelect.appendChild(opt);
+      });
+      const savedIdx = saved ? devices.findIndex((d) => sameDevice(d, saved)) : -1;
+      deviceSelect.value = String(Math.max(savedIdx, 0));
+
+      const checklistDevices = [...missing(savedIncluded), ...live];
+      if (!checklistDevices.length) {
+        const empty = document.createElement('p');
+        empty.className = 'text-xs text-slate-500 italic';
+        empty.textContent = emptyText;
+        checklist.appendChild(empty);
+      }
+      checkboxes = checklistDevices.map((device) => {
+        const row = document.createElement('label');
+        row.className = 'flex items-center gap-2 text-xs text-gray-300 cursor-pointer';
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.checked = savedIncluded.some((s) => sameDevice(device, s));
+        const text = document.createElement('span');
+        text.className = 'truncate';
+        text.textContent = describe(device);
+        row.append(input, text);
+        checklist.appendChild(row);
+        return { device, input };
+      });
+    });
+
+    getValue = () => {
+      const d = devices[Number(deviceSelect.value)];
+      // Before the device list has loaded, keep whatever was saved.
+      const included = checkboxes.length
+        ? checkboxes.filter((c) => c.input.checked).map(({ device }) => ({ id: device.id, name: device.name }))
+        : savedIncluded;
+      return {
+        mode: modeSelect.value,
+        device: d ? { id: d.id, name: d.name } : saved,
+        devices: included,
+        communications: commsCheckbox.checked,
+      };
+    };
   }
 
   fields.appendChild(wrapper);

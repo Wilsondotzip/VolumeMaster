@@ -1,5 +1,6 @@
 const { loadConfig, saveConfig, cloneConfigSnapshot } = require('./config-store');
 const deviceManager = require('./device-manager');
+const { openSelector } = require('./selector-service');
 
 // Built-in button actions that change app settings (switch preset, knob encoder
 // mode). Unlike keyboard shortcut / mute / open program, these run here rather
@@ -29,12 +30,50 @@ function resolvePresetTarget(config, params) {
   return names[(current + step + names.length) % names.length];
 }
 
-function applySwitchPreset(config, params) {
-  const name = resolvePresetTarget(config, params);
-  if (!name) return null;
+function loadPresetInto(config, name) {
+  if (!config.presets?.[name]) return null;
   config.Mappings = JSON.parse(JSON.stringify(config.presets[name]));
   config.lastPreset = name;
   return name;
+}
+
+function applySwitchPreset(config, params) {
+  const name = resolvePresetTarget(config, params);
+  return name ? loadPresetInto(config, name) : null;
+}
+
+/** Opens the knob selector over the preset list; loading happens once the user confirms. */
+function openPresetSelector(deviceId, deviceDir, config, index) {
+  const names = Object.keys(config.presets || {});
+  if (!names.length) return;
+  openSelector(
+    deviceId,
+    {
+      knob: index,
+      title: 'Preset',
+      items: names.map((name) => ({ id: name, label: name, detail: name === config.lastPreset ? 'Current' : '' })),
+      index: Math.max(0, names.indexOf(config.lastPreset)),
+    },
+    (item) => {
+      // Re-read: config may have changed while the selector was open.
+      const latest = loadConfig(deviceDir);
+      if (item.id === latest.lastPreset) return;
+      if (loadPresetInto(latest, item.id)) commitConfigChange(deviceId, deviceDir, latest, item.id);
+    }
+  );
+}
+
+function commitConfigChange(deviceId, deviceDir, config, loadedPreset) {
+  saveConfig(deviceDir, config);
+
+  const win = deviceManager.getWindowForDevice(deviceId);
+  if (win && !win.isDestroyed()) {
+    try {
+      win.webContents.send('config-changed', { config: cloneConfigSnapshot(config), loadedPreset });
+    } catch {
+      // Renderer may be reloading
+    }
+  }
 }
 
 function applyEncoderMode(config, index, params) {
@@ -72,7 +111,9 @@ function executeSettingsButtonActions(deviceId, deviceDir, index) {
   let loadedPreset = null;
   for (const action of actions) {
     try {
-      if (action.type === 'switch_preset') {
+      if (action.type === 'switch_preset' && action.params?.mode === 'selector') {
+        openPresetSelector(deviceId, deviceDir, config, index);
+      } else if (action.type === 'switch_preset') {
         const name = applySwitchPreset(config, action.params);
         if (name) {
           loadedPreset = name;
@@ -85,18 +126,7 @@ function executeSettingsButtonActions(deviceId, deviceDir, index) {
       console.error(`[${deviceId}] Failed to execute button action`, action, err);
     }
   }
-  if (!changed) return;
-
-  saveConfig(deviceDir, config);
-
-  const win = deviceManager.getWindowForDevice(deviceId);
-  if (win && !win.isDestroyed()) {
-    try {
-      win.webContents.send('config-changed', { config: cloneConfigSnapshot(config), loadedPreset });
-    } catch {
-      // Renderer may be reloading
-    }
-  }
+  if (changed) commitConfigChange(deviceId, deviceDir, config, loadedPreset);
 }
 
 module.exports = { executeSettingsButtonActions };

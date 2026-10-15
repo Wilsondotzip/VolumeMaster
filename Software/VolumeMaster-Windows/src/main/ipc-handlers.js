@@ -3,7 +3,14 @@ const { SerialPort } = require('serialport');
 const platform = require('./platform');
 const { loadConfig, saveConfig, cloneConfigSnapshot } = require('./config-store');
 const { getAppIcon } = require('./icon-service');
-const { startBackend, killBackend, getBackendProcess, requestAudioSessions } = require('./backend-process');
+const {
+  startBackend,
+  killBackend,
+  getBackendProcess,
+  requestAudioSessions,
+  requestOutputDevices,
+  setOutputDevice,
+} = require('./backend-process');
 const deviceManager = require('./device-manager');
 const { getConnectedPlugins, getPluginLabel, getPluginServerStatus, sendConfigToPlugin, PLUGIN_PORT } = require('./plugin-server');
 const { getPluginConfig, savePluginValues, getConfigurablePlugins } = require('./plugin-config-store');
@@ -205,6 +212,20 @@ function registerIpcHandlers() {
     } catch {
       return [];
     }
+  });
+
+  ipcMain.handle('list-output-devices', async (event) => {
+    const { deviceId } = getDeviceContext(event);
+    try {
+      return await requestOutputDevices(deviceId);
+    } catch {
+      return { devices: [], default: null };
+    }
+  });
+
+  ipcMain.handle('set-output-device', (event, outputId) => {
+    const { deviceId } = getDeviceContext(event);
+    return setOutputDevice(deviceId, outputId);
   });
 
   ipcMain.handle('get-last-preset', (event) => {

@@ -8,12 +8,16 @@ const { handleVolumeChange } = require('./notification-window');
 const { dispatchKnobEvent, dispatchKnobButtonEvent } = require('./plugin-server');
 const { loadConfig } = require('./config-store');
 const { executeSettingsButtonActions } = require('./button-settings-actions');
+const { handleSelectorEvent, clearDeviceSelectors } = require('./selector-service');
 
 // Map<deviceId, { process, retryTimeout }>
 const backends = new Map();
 
 // Pending LIST_SESSIONS responses: Map<deviceId, resolve>
 const sessionRequests = new Map();
+
+// Pending LIST_OUTPUTS responses: Map<deviceId, resolve>
+const outputRequests = new Map();
 
 // PIDs killed on purpose (Stop button, a restart) — the process's own 'close'
 // handler checks this so it doesn't auto-relaunch what we just told it to stop.
@@ -78,8 +82,15 @@ function startBackend(deviceId, deviceDir) {
   proc.stdout.on('error', (err) => console.error(`[${deviceId}] stdout error:`, err));
   proc.stderr.on('error', (err) => console.error(`[${deviceId}] stderr error:`, err));
 
+  // A 'data' chunk is an arbitrary slice of the pipe, not a whole number of
+  // lines: carry any trailing partial line over to the next chunk, or a line
+  // straddling the boundary (e.g. a long SELECTOR_OPEN JSON) is lost as two
+  // unparseable halves. setEncoding likewise keeps multi-byte chars intact.
+  proc.stdout.setEncoding('utf8');
+  let stdoutRemainder = '';
   proc.stdout.on('data', (data) => {
-    const lines = data.toString().split(/\r?\n/);
+    const lines = (stdoutRemainder + data).split(/\r?\n/);
+    stdoutRemainder = lines.pop();
     for (const line of lines) {
       const trimmed = line.trim();
       if (!trimmed) continue;
@@ -100,6 +111,31 @@ function startBackend(deviceId, deviceDir) {
           const names = trimmed.slice('SESSIONS:'.length).split(',').filter(Boolean);
           resolve(names);
         }
+      } else if (trimmed.startsWith('OUTPUTS:')) {
+        const resolve = outputRequests.get(deviceId);
+        if (resolve) {
+          outputRequests.delete(deviceId);
+          let payload = { devices: [], default: null };
+          try {
+            payload = JSON.parse(trimmed.slice('OUTPUTS:'.length));
+          } catch {
+            // Malformed line — resolve with the empty default
+          }
+          resolve(payload);
+        }
+      } else if (trimmed.startsWith('SELECTOR_')) {
+        const colon = trimmed.indexOf(':');
+        if (colon !== -1) {
+          let payload = null;
+          try {
+            payload = JSON.parse(trimmed.slice(colon + 1));
+          } catch {
+            // Malformed line — ignore
+          }
+          handleSelectorEvent(deviceId, trimmed.slice('SELECTOR_'.length, colon), payload);
+        }
+      } else if (trimmed.startsWith('OUTPUT_CHANGED:')) {
+        sendStatusToDevice(deviceId, 'info', `Output switched to ${trimmed.slice('OUTPUT_CHANGED:'.length)}`);
       } else if (trimmed.startsWith('VOLUME:')) {
         const parts = trimmed.split(':');
         if (parts.length === 3) {
@@ -163,6 +199,7 @@ function startBackend(deviceId, deviceDir) {
   proc.on('close', (code) => {
     console.log(`[${deviceId}] Backend exited with code ${code}`);
     const wasIntentional = intentionalKills.delete(proc.pid);
+    clearDeviceSelectors(deviceId);
     if (!isStillTracked()) return;
     const message = wasIntentional
       ? 'Backend stopped.'
@@ -205,25 +242,48 @@ function getBackendProcess(deviceId) {
   return backends.get(deviceId)?.process || null;
 }
 
-function requestAudioSessions(deviceId) {
+/** Writes `command` to the backend's stdin and waits (max 2s) for the stdout handler to resolve it via `pending`. */
+function requestFromBackend(deviceId, command, pending, fallback) {
   return new Promise((resolve) => {
-    const proc = backends.get(deviceId)?.process;
-    if (!proc) { resolve([]); return; }
-    sessionRequests.set(deviceId, resolve);
-    try {
-      proc.stdin.write('LIST_SESSIONS\n');
-    } catch {
-      sessionRequests.delete(deviceId);
-      resolve([]);
+    pending.set(deviceId, resolve);
+    if (!sendBackendCommand(deviceId, command)) {
+      pending.delete(deviceId);
+      resolve(fallback);
       return;
     }
     setTimeout(() => {
-      if (sessionRequests.get(deviceId) === resolve) {
-        sessionRequests.delete(deviceId);
-        resolve([]);
+      if (pending.get(deviceId) === resolve) {
+        pending.delete(deviceId);
+        resolve(fallback);
       }
     }, 2000);
   });
+}
+
+function requestAudioSessions(deviceId) {
+  return requestFromBackend(deviceId, 'LIST_SESSIONS', sessionRequests, []);
+}
+
+/** Resolves { devices: [{ id, name }], default: id|null } — empty if the backend isn't running (Pro only). */
+function requestOutputDevices(deviceId) {
+  return requestFromBackend(deviceId, 'LIST_OUTPUTS', outputRequests, { devices: [], default: null });
+}
+
+/** Writes one stdin command line to the device's backend. Returns false if it isn't running. */
+function sendBackendCommand(deviceId, line) {
+  const proc = backends.get(deviceId)?.process;
+  if (!proc || typeof line !== 'string' || /[\r\n]/.test(line)) return false;
+  try {
+    proc.stdin.write(`${line}\n`);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function setOutputDevice(deviceId, outputId) {
+  if (typeof outputId !== 'string' || !outputId) return false;
+  return sendBackendCommand(deviceId, `SET_OUTPUT:${outputId}`);
 }
 
 module.exports = {
@@ -232,4 +292,7 @@ module.exports = {
   killAllBackends,
   getBackendProcess,
   requestAudioSessions,
+  requestOutputDevices,
+  setOutputDevice,
+  sendBackendCommand,
 };

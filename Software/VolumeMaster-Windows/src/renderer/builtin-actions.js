@@ -4,18 +4,20 @@ export const BUILTIN_PREFIX = 'builtin:';
 
 // The fixed set of generic button-action templates shown in the Actions tab (Pro only).
 // 'configurable: true' types open the knob config modal immediately on drop.
-// 'buttonOnly: true' types change app settings, which the Electron main process
-// owns (see main/button-settings-actions.js) — it only hears about button
-// presses, not turn ticks, so these can't be placed in a Turn Action zone.
+// 'buttonOnly: true' types can't be placed in a Turn Action zone: preset / knob
+// mode change app settings, which the Electron main process owns (see
+// main/button-settings-actions.js) and it only hears about button presses, not
+// turn ticks; switch output toggles, which would flip-flop on every tick.
 export const BUILTIN_ACTION_TYPES = [
   { type: 'keyboard_shortcut', label: 'Keyboard Shortcut', icon: '⌨️', configurable: true },
   { type: 'mute', label: 'Mute', icon: '🔇', configurable: false },
   { type: 'open_program', label: 'Open Program', icon: '📂', configurable: true },
   { type: 'switch_preset', label: 'Switch Preset', icon: '🗂️', configurable: true, buttonOnly: true },
   { type: 'encoder_mode', label: 'Knob Mode', icon: '🔄', configurable: true, buttonOnly: true },
+  { type: 'switch_output', label: 'Switch Output', icon: '🔈', configurable: true, buttonOnly: true },
 ];
 
-const PRESET_MODE_LABELS = { next: 'Next preset', previous: 'Previous preset' };
+const PRESET_MODE_LABELS = { next: 'Next preset', previous: 'Previous preset', selector: 'Choose with knob' };
 const ENCODER_MODE_LABELS = { toggle: 'Toggle', absolute: 'Set Absolute', increment: 'Set Increment' };
 
 export function getBuiltinTypeMeta(type) {
@@ -52,6 +54,14 @@ export function describeBuiltinAction(entry) {
     const mode = entry.params?.mode || 'next';
     if (mode === 'specific') return entry.params?.name ? `Load "${entry.params.name}"` : 'Click to choose preset';
     return PRESET_MODE_LABELS[mode] || '';
+  }
+  if (entry.type === 'switch_output') {
+    if (entry.params?.mode === 'selector') {
+      const count = entry.params.devices?.length || 0;
+      return `Choose with knob — ${count ? `${count} output${count === 1 ? '' : 's'}` : 'all outputs'}`;
+    }
+    const name = entry.params?.device?.name;
+    return name ? `Toggle ⇄ ${name}` : 'Click to choose output';
   }
   if (entry.type === 'encoder_mode') {
     const knob = entry.params?.knob;

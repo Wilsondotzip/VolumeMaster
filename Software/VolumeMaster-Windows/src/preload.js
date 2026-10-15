@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld('api', {
   getAppIcon: (nameOrPath) => ipcRenderer.invoke('get-app-icon', nameOrPath),
   listProcesses: () => ipcRenderer.invoke('list-processes'),
   listAudioSessions: () => ipcRenderer.invoke('list-audio-sessions'),
+  listOutputDevices: () => ipcRenderer.invoke('list-output-devices'),
+  setOutputDevice: (outputId) => ipcRenderer.invoke('set-output-device', outputId),
   listSerialPorts: () => ipcRenderer.invoke('list-serial-ports'),
   getComPort: () => ipcRenderer.invoke('get-com-port'),
   setComPort: (port) => ipcRenderer.invoke('set-com-port', port),

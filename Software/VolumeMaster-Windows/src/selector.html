@@ -1,0 +1,216 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        width: 100%;
+        height: 100%;
+        background: transparent;
+        overflow: hidden;
+        font-family: Inter, system-ui, sans-serif;
+        user-select: none;
+      }
+      #card {
+        position: absolute;
+        inset: 0;
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 14px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        display: flex;
+        flex-direction: column;
+        padding: 12px 8px 8px;
+        opacity: 0;
+        transform: translateY(6px);
+        transition: opacity 0.16s ease, transform 0.16s ease;
+      }
+      #card.visible { opacity: 1; transform: translateY(0); }
+
+      #header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 0 8px;
+        height: 38px;
+        flex-shrink: 0;
+      }
+      #title {
+        color: #818cf8;
+        font-weight: 700;
+        font-size: 13px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      #hint {
+        color: #64748b;
+        font-size: 11px;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      #viewport {
+        position: relative;
+        overflow: hidden;
+        flex: 1;
+      }
+      #list {
+        position: relative;
+        transition: transform 0.14s ease;
+      }
+      #highlight {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        border-radius: 8px;
+        background: rgba(129, 140, 248, 0.18);
+        border: 1px solid rgba(129, 140, 248, 0.55);
+        transition: transform 0.12s ease, background 0.12s ease;
+      }
+      #card.confirmed #highlight {
+        background: rgba(129, 140, 248, 0.45);
+        border-color: #a5b4fc;
+      }
+
+      .row {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 10px;
+      }
+      .row .icon {
+        width: 20px;
+        text-align: center;
+        font-size: 15px;
+        flex-shrink: 0;
+      }
+      .row .label {
+        flex: 1;
+        min-width: 0;
+        color: #cbd5e1;
+        font-size: 13px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        transition: color 0.12s ease;
+      }
+      .row.active .label { color: #f1f5f9; font-weight: 600; }
+      .row .detail {
+        color: #64748b;
+        font-size: 11px;
+        flex-shrink: 0;
+      }
+
+      /* Fades hinting there's more list above / below the visible window */
+      .fade {
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 18px;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.12s ease;
+      }
+      .fade.show { opacity: 1; }
+      #fadeTop { top: 0; background: linear-gradient(#1e293b, rgba(30, 41, 59, 0)); }
+      #fadeBottom { bottom: 0; background: linear-gradient(rgba(30, 41, 59, 0), #1e293b); }
+    </style>
+  </head>
+  <body>
+    <div id="card">
+      <div id="header">
+        <span id="title"></span>
+        <span id="hint">Turn to choose · Press to select</span>
+      </div>
+      <div id="viewport">
+        <div id="list"><div id="highlight"></div></div>
+        <div id="fadeTop" class="fade"></div>
+        <div id="fadeBottom" class="fade"></div>
+      </div>
+    </div>
+
+    <script>
+      const card = document.getElementById('card');
+      const list = document.getElementById('list');
+      const highlight = document.getElementById('highlight');
+      const fadeTop = document.getElementById('fadeTop');
+      const fadeBottom = document.getElementById('fadeBottom');
+
+      let rows = [];
+      let rowHeight = 40;
+      let maxVisible = 7;
+      let fadeOutTimer = null; // pending post-confirm fade; must not outlive a re-open
+
+      function render(index) {
+        rows.forEach((row, i) => row.classList.toggle('active', i === index));
+        highlight.style.transform = `translateY(${index * rowHeight}px)`;
+
+        // Keep the highlighted row roughly centred once the list overflows.
+        const visible = Math.min(rows.length, maxVisible);
+        const maxOffset = Math.max(0, rows.length - visible);
+        const offset = Math.max(0, Math.min(maxOffset, index - Math.floor(visible / 2)));
+        list.style.transform = `translateY(${-offset * rowHeight}px)`;
+        fadeTop.classList.toggle('show', offset > 0);
+        fadeBottom.classList.toggle('show', offset < maxOffset);
+      }
+
+      window.selector.onOpen((state) => {
+        clearTimeout(fadeOutTimer);
+        rowHeight = state.rowHeight || rowHeight;
+        maxVisible = state.maxVisibleRows || maxVisible;
+        document.getElementById('title').textContent = state.title || 'Select';
+
+        for (const row of rows) row.remove();
+        rows = (state.items || []).map((item) => {
+          const row = document.createElement('div');
+          row.className = 'row';
+          row.style.height = `${rowHeight}px`;
+          if (item.icon) {
+            const icon = document.createElement('span');
+            icon.className = 'icon';
+            icon.textContent = item.icon;
+            row.appendChild(icon);
+          }
+          const label = document.createElement('span');
+          label.className = 'label';
+          label.textContent = item.label ?? String(item.id);
+          row.appendChild(label);
+          if (item.detail) {
+            const detail = document.createElement('span');
+            detail.className = 'detail';
+            detail.textContent = item.detail;
+            row.appendChild(detail);
+          }
+          list.appendChild(row);
+          return row;
+        });
+        highlight.style.height = `${rowHeight}px`;
+
+        // Jump straight to the initial position — no slide-in from row 0.
+        list.style.transition = highlight.style.transition = 'none';
+        render(state.index || 0);
+        void list.offsetHeight;
+        list.style.transition = highlight.style.transition = '';
+
+        card.classList.remove('confirmed');
+        card.classList.add('visible');
+      });
+
+      window.selector.onMove(({ index }) => render(index));
+
+      window.selector.onClose(({ reason }) => {
+        if (reason === 'selected') {
+          card.classList.add('confirmed');
+          fadeOutTimer = setTimeout(() => card.classList.remove('visible'), 220);
+        } else {
+          card.classList.remove('visible');
+        }
+      });
+    </script>
+  </body>
+</html>
