@@ -47,6 +47,14 @@ Windows Software
 - Volume Change Notifications
 - Windows Autostart
 - When minimized, software which runs quietly in the background as a tray icon
+- Presets for saving and switching between knob layouts
+- Plugin system and [API](Software/PLUGIN_API.md) to expand app integration
+
+VolumeMaster Pro (push-button rotary encoders)
+
+- Button press actions: mute, keyboard shortcut, open program, switch preset, switch knob mode and switch output device
+- Pick a preset or output device from an on-screen list by turning and pressing the knob
+- Absolute (volume) or increment (turn actions) mode per knob
 
 Linux Software. Thanks to emmolab
 
@@ -54,6 +62,4 @@ Linux Software. Thanks to emmolab
 
 This project is still in active development, so here are some of the features we plan to add in the future.
 
-- Buttons for possible functions like muting and config switching.
-- Plugin system/ api to expand app integration
 - MacOS support, currently in beta. 

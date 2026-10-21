@@ -1,8 +1,9 @@
-# Backend for VolumeMaster Pro (rotary encoders — incremental and absolute
-# modes). Forked from main.pyw rather than branching one backend, since the
-# serial protocols diverge. Currently identical to main.pyw; the '@'-delimited
-# parsing in main()'s read loop (~line 498) is where increment/absolute
-# command handling needs to be added.
+# Backend for VolumeMaster Pro (push-button rotary encoders). Forked from
+# main.pyw rather than branching one backend, since the serial protocols
+# diverge: the Pro sends +@<knob> / -@<knob> ticks (accumulated into a volume
+# in EncoderMode 'absolute', or run as turn actions in 'increment') and
+# BTN_DOWN / BTN_UP button events, which drive the built-in button actions and
+# the knob selector popup (selector.py).
 import sys
 import os
 import yaml

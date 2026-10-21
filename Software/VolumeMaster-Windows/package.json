@@ -1,13 +1,14 @@
 {
   "name": "volume-master",
-  "version": "1.4.0-beta.2",
+  "version": "1.4.0",
   "description": "VolumeMaster configuration software",
   "main": "src/main.js",
   "author": "William Spalding",
   "license": "ISC",
   "scripts": {
     "start": "electron .",
-    "prebuild": ".venv\\Scripts\\python -m PyInstaller --onefile --noconsole --name VolumeMaster-Headless src/backend/main.pyw --distpath . && .venv\\Scripts\\python -m PyInstaller --onefile --noconsole --name VolumeMaster-Pro-Headless src/backend/main_pro.pyw --distpath .",
+    "build:css": "tailwindcss -i src/tailwind.css -o src/output.css",
+    "prebuild": "npm run build:css && .venv\\Scripts\\python -m PyInstaller --onefile --noconsole --name VolumeMaster-Headless src/backend/main.pyw --distpath . && .venv\\Scripts\\python -m PyInstaller --onefile --noconsole --name VolumeMaster-Pro-Headless src/backend/main_pro.pyw --distpath .",
     "test": ".venv\\Scripts\\python -m PyInstaller --onefile --noconsole --name VolumeMaster-Headless src/backend/main.pyw --distpath . && .venv\\Scripts\\python -m PyInstaller --onefile --noconsole --name VolumeMaster-Pro-Headless src/backend/main_pro.pyw --distpath . && move VolumeMaster-Headless.exe node_modules/electron/dist/resources/VolumeMaster-Headless.exe && move VolumeMaster-Pro-Headless.exe node_modules/electron/dist/resources/VolumeMaster-Pro-Headless.exe && electron .",
     "build": "electron-builder",
     "dist": "electron-builder",
@@ -63,18 +64,17 @@
     }
   },
   "dependencies": {
-    "@tailwindcss/cli": "^4.2.2",
-    "@tailwindcss/postcss": "^4.2.2",
     "icojs": "^0.20.1",
     "ps-list": "^8.1.1",
     "serialport": "^13.0.0",
     "tree-kill": "^1.2.2",
     "ws": "^8.21.0",
-    "x64": "^1.0.0",
     "yaml": "^2.8.3"
   },
   "devDependencies": {
     "@electron/fuses": "^1.8.0",
+    "@tailwindcss/cli": "^4.2.2",
+    "@tailwindcss/postcss": "^4.2.2",
     "autoprefixer": "^10.4.27",
     "electron": "^37.2.0",
     "electron-builder": "^26.8.1",
