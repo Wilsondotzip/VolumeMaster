@@ -10,6 +10,7 @@
  *   findProcessExePath(exe)  → Promise<string|null>
  *   getBackendBinaryPath(deviceModel?) → string
  *   forceKillAllBackends()   → void
+ *   forceKillProcessesByPath(exePaths) → Promise<void>
  */
 
 const platformMap = {

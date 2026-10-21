@@ -37,7 +37,7 @@ if (!gotLock) {
     deviceManager.migrateIfNeeded();
     registerIpcHandlers();
     startPluginServer();
-    startManagedPlugins();
+    startManagedPlugins().catch((err) => console.error('[plugin-process] Failed to start plugins:', err));
 
     const devices = deviceManager.getAllDevices();
     for (const device of devices) {

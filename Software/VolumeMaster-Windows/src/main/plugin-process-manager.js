@@ -6,6 +6,7 @@ const fs = require('fs');
 const { spawn } = require('child_process');
 const treeKill = require('tree-kill');
 const crypto = require('crypto');
+const platform = require('./platform');
 
 function pluginsFilePath() {
   return path.join(app.getPath('userData'), 'plugins.json');
@@ -32,12 +33,23 @@ function savePluginList(list) {
 // Map<id, { process: ChildProcess | null, path: string }>
 const processes = new Map();
 
+// Set once quitting starts, so a startup that's still running its orphan
+// cleanup can't spawn plugins after they've already been killed.
+let shuttingDown = false;
+
 function spawnPlugin(id, exePath) {
-  if (processes.get(id)?.process != null) return;
+  if (shuttingDown || processes.get(id)?.process != null) return;
 
   let proc;
   try {
-    proc = spawn(exePath, [], { detached: false, stdio: 'ignore', shell: true });
+    // Executables are spawned directly so the tracked process (and its PID for
+    // tree-kill) is the plugin itself, not a cmd.exe wrapper. Batch files need
+    // cmd — quote the path so one containing spaces (e.g. a Windows username
+    // like "John Smith") isn't split into a different command.
+    const isBatch = process.platform === 'win32' && /\.(bat|cmd)$/i.test(exePath);
+    proc = isBatch
+      ? spawn(`"${exePath}"`, [], { detached: false, stdio: 'ignore', shell: true, windowsHide: true })
+      : spawn(exePath, [], { detached: false, stdio: 'ignore', windowsHide: true });
   } catch (err) {
     console.error(`[plugin-process] Failed to spawn "${exePath}":`, err.message);
     processes.set(id, { process: null, path: exePath });
@@ -59,13 +71,27 @@ function spawnPlugin(id, exePath) {
   });
 }
 
-function startManagedPlugins() {
-  for (const { id, path: exePath } of loadPluginList()) {
+async function startManagedPlugins() {
+  const plugins = loadPluginList();
+  // Clear out copies left running by a previous session that ended without
+  // its quit handler (crash, Task Manager, installer upgrade, dev reload) —
+  // otherwise every such exit leaves another duplicate running alongside the
+  // fresh one. Must finish before spawning, or it would kill the new ones.
+  await platform.forceKillProcessesByPath(plugins.map((p) => p.path));
+  for (const { id, path: exePath } of plugins) {
     spawnPlugin(id, exePath);
   }
 }
 
-function killManagedPlugins() {
+async function killManagedPlugins() {
+  shuttingDown = true;
+  await killTrackedPlugins();
+  // Fallback for anything that escaped the tree-kill (e.g. a process the
+  // plugin re-parented or that outlived its parent mid-kill).
+  await platform.forceKillProcessesByPath(loadPluginList().map((p) => p.path));
+}
+
+function killTrackedPlugins() {
   const kills = [];
   for (const [, entry] of processes) {
     const proc = entry.process;

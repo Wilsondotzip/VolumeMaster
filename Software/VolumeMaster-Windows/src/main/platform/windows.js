@@ -168,7 +168,33 @@ function forceKillAllBackends() {
   }
 }
 
+/**
+ * Force-kills every process whose executable is one of `exePaths` (exact,
+ * case-insensitive match). Used for plugin processes orphaned when the app
+ * exits without running its quit handler (crash, Task Manager, installer
+ * upgrade, dev reload) — Windows doesn't take child processes down with their
+ * parent. Matches on full path rather than image name so an unrelated program
+ * that happens to share a plugin's file name is never touched.
+ */
+async function forceKillProcessesByPath(exePaths) {
+  if (!exePaths.length) return;
+  const list = exePaths.map((p) => `'${path.resolve(p).replace(/'/g, "''")}'`).join(',');
+  const script =
+    `$paths = @(${list}); ` +
+    'Get-CimInstance Win32_Process | ' +
+    'Where-Object { $_.ExecutablePath -and $paths -contains $_.ExecutablePath } | ' +
+    'ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }';
+  // -EncodedCommand (UTF-16LE base64) sidesteps cmd/PowerShell quoting of arbitrary paths.
+  const encoded = Buffer.from(script, 'utf16le').toString('base64');
+  try {
+    await exec(`powershell -NoProfile -NonInteractive -EncodedCommand ${encoded}`, { timeout: 10000 });
+  } catch (err) {
+    console.error('[plugin-process] Orphan cleanup failed:', err.message);
+  }
+}
+
 module.exports = {
+  forceKillProcessesByPath,
   getProcessList,
   getAudioInputDevices,
   findProcessExePath,

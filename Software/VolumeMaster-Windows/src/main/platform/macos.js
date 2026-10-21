@@ -151,7 +151,24 @@ function forceKillAllBackends() {
   }
 }
 
+/**
+ * Force-kills every process whose command line starts with one of `exePaths` —
+ * plugin processes orphaned when the app exits without running its quit
+ * handler. Matches the full path so unrelated same-named programs are untouched.
+ */
+async function forceKillProcessesByPath(exePaths) {
+  for (const exePath of exePaths) {
+    const pattern = `^${path.resolve(exePath).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}( |$)`;
+    try {
+      await execFileAsync('pkill', ['-9', '-f', pattern]);
+    } catch {
+      // pkill exits non-zero when nothing matched — that's fine
+    }
+  }
+}
+
 module.exports = {
+  forceKillProcessesByPath,
   getProcessList,
   getAudioInputDevices,
   findProcessExePath,
