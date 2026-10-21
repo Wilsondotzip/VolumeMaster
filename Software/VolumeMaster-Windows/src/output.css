@@ -259,20 +259,8 @@
   .top-2 {
     top: calc(var(--spacing) * 2);
   }
-  .right-1 {
-    right: var(--spacing);
-  }
   .right-2 {
     right: calc(var(--spacing) * 2);
-  }
-  .bottom-1 {
-    bottom: var(--spacing);
-  }
-  .left-1 {
-    left: var(--spacing);
-  }
-  .z-40 {
-    z-index: 40;
   }
   .container {
     width: 100%;
@@ -428,6 +416,9 @@
   }
   .cursor-pointer {
     cursor: pointer;
+  }
+  .resize {
+    resize: both;
   }
   .flex-col {
     flex-direction: column;

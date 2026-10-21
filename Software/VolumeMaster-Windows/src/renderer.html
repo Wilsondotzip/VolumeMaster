@@ -32,9 +32,12 @@
         background: transparent;
       }
 
+      /* No min-height: the knobs area is what gives up room when the error
+         banners (in flow at the bottom) appear, so the Run/Stop button is never
+         pushed off-screen — even at the 700px minimum window height, where a
+         fixed floor here made the page overflow. Knob cards scroll internally. */
       #knobsAppsContainer {
         justify-content: center;
-        min-height: 250px;
       }
 
       /* Button cap sitting inside a Pro knob's volume ring — shows held/released state */
@@ -51,7 +54,13 @@
         r: 6px;
       }
 
-      /* Notifications are fixed so they don't affect layout */
+      /* Gap above the error banners only while at least one is showing */
+      #errorBanners:has(> :not(.hidden)) {
+        margin-top: 0.5rem;
+      }
+
+      /* Notifications are fixed so they don't affect layout. alerts.js raises
+         'bottom' to sit above the Run/Stop button while it's on screen. */
       #alertContainer {
         position: fixed;
         bottom: 1rem;
@@ -604,8 +613,10 @@
       </div>
     </dialog>
 
-    <!-- Persistent error banners (stack vertically, newest on top) -->
-    <div class="fixed bottom-1 left-1 right-1 z-40 flex flex-col gap-1">
+    <!-- Persistent error banners. In the page flow (not fixed) so the tab
+         content shrinks to make room rather than the banners covering the
+         Run/Stop button at the bottom of the Mappings tab. -->
+    <div id="errorBanners" class="shrink-0 flex flex-col gap-1">
       <div
         id="vmErrorBanner"
         class="hidden px-3 py-2 rounded border text-xs font-medium text-center"
