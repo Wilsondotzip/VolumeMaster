@@ -1,7 +1,27 @@
+# OS junk
 .DS_Store
-**/.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors / tools
+.vscode/
+.idea/
+.claude/
+*.swp
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Logs
+*.log
 
 # Plugins live in their own repos
 Software/plugins/
 Software/plugin-example.exe
-.venv/
