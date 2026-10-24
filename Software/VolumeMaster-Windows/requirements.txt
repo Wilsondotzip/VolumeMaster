@@ -14,7 +14,7 @@ watchdog==6.0.0
 # project — the real source is this GitHub repo (installs its own "toml" dep).
 voicemeeter @ git+https://github.com/Freemanium/voicemeeter-remote-python.git
 
-# main_pro.pyw only (Keyboard Shortcut button action) — harmless to install
+# Pro backend only (Keyboard Shortcut button action, volumemaster/pro/actions.py) — harmless to install
 # even if you're only building the standard backend.
 keyboard==0.13.5
 

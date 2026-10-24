@@ -1,7 +1,7 @@
 const path = require('path');
 const { BrowserWindow, screen } = require('electron');
 
-// Generic knob-selector popup (see backend/selector.py for the state machine).
+// Generic knob-selector popup (see backend/volumemaster/pro/selector.py for the state machine).
 // Purely a view: it renders whatever list the backend opened and follows its
 // MOVE/CLOSE events — it never takes focus or input itself.
 
