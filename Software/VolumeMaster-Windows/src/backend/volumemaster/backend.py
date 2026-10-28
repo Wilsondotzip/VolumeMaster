@@ -16,7 +16,7 @@ from collections import deque
 
 from .audio import AudioController
 from .commands import StdinCommands
-from .config import ConfigWatcher, build_mappings, load_config
+from .config import ConfigWatcher, build_mappings, is_enabled, load_config
 from .serial_link import connect_serial
 from .voicemeeter_link import VoiceMeeter
 
@@ -35,7 +35,8 @@ class Backend:
         self.apply_config(self.config)
         # VoiceMeeter is connected once at startup; toggling it in Settings
         # restarts the backend rather than going through a config reload.
-        if self.config.get('vm'):
+        # connect() returns None if VoiceMeeter is missing or not running.
+        if is_enabled(self.config.get('vm')):
             self.voicemeeter = VoiceMeeter.connect(self.config)
 
         self.ser = None
@@ -139,7 +140,7 @@ class Backend:
 
     def run(self):
         last_update_time = 0
-        last_refresh = time.time()
+        last_refresh = time.monotonic()
         sync_needed = False
         sync_time_target = 0
 
@@ -169,8 +170,8 @@ class Backend:
                     self.ser = connect_serial(self.config)
                     if self.ser is None:
                         # No serial — still refresh audio so banners stay current
-                        if time.time() - last_refresh > AUDIO_REFRESH_SECONDS:
-                            last_refresh = time.time()
+                        if time.monotonic() - last_refresh > AUDIO_REFRESH_SECONDS:
+                            last_refresh = time.monotonic()
                             try:
                                 self.refresh_audio()
                             except Exception as e:
@@ -211,8 +212,8 @@ class Backend:
                     self._flush_volumes()
                     last_update_time = now
 
-                if time.time() - last_refresh > AUDIO_REFRESH_SECONDS:
-                    last_refresh = time.time()
+                if time.monotonic() - last_refresh > AUDIO_REFRESH_SECONDS:
+                    last_refresh = time.monotonic()
                     try:
                         self.refresh_audio(request_sync=True)
                     except Exception as e:

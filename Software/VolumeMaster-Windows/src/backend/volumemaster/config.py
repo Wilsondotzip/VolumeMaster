@@ -14,6 +14,13 @@ def load_config(path=CONFIG_FILE):
         return yaml.safe_load(file) or {}
 
 
+def is_enabled(value):
+    """Strict on/off for config flags: only a real True or the text 'true'.
+    Must match Electron's reading of the same flag (ipc-handlers.js) — plain
+    Python truthiness would treat a leftover string like 'false' as enabled."""
+    return value is True or (isinstance(value, str) and value.strip().lower() == 'true')
+
+
 def mapping_items(config, report_invalid=False):
     """(knob index, raw mapping) pairs from config['Mappings'], skipping non-numeric keys."""
     for key, val in config.get('Mappings', {}).items():

@@ -19,10 +19,19 @@ class VoiceMeeter:
 
     @classmethod
     def connect(cls, config):
-        """Logs in to VoiceMeeter, or prints VM_NOT_RUNNING and returns None."""
-        import voicemeeter  # only needed (and only bundled-in work done) when enabled
+        """Logs in to VoiceMeeter. On any failure prints why (for Electron's
+        banner) and returns None: the backend then runs normally, just without
+        VoiceMeeter control, instead of crashing."""
         try:
-            remote = voicemeeter.remote(config['vmversion'])
+            # Importing the package loads VoiceMeeter's DLL from its install
+            # folder, so this is what fails (VMRError / OSError) when VoiceMeeter
+            # isn't installed or its install is broken.
+            import voicemeeter
+        except Exception as e:
+            print(f'ERROR:VM_NOT_INSTALLED:{e}', flush=True)
+            return None
+        try:
+            remote = voicemeeter.remote(config.get('vmversion', 'banana'))
             remote.login()
         except Exception as e:
             print(f'ERROR:VM_NOT_RUNNING:{e}', flush=True)

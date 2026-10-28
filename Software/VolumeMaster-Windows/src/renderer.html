@@ -627,8 +627,16 @@
           backdrop-filter: blur(4px);
         "
       >
-        VoiceMeeter is not running. VM mappings are disabled. Disable
-        VoiceMeeter in Settings if not in use, as it may slow things down.
+        <span id="vmErrorText">
+          VoiceMeeter isn't running, so VoiceMeeter controls are off. Start
+          VoiceMeeter, or turn it off if you don't use it.
+        </span>
+        <button
+          id="vmBannerDisableBtn"
+          class="ml-2 px-2 py-0.5 rounded border border-red-300 hover:bg-red-900 transition font-semibold"
+        >
+          Turn off VoiceMeeter
+        </button>
       </div>
       <div
         id="audioErrorBanner"

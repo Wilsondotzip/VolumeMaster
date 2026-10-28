@@ -63,7 +63,13 @@ function loadConfig(deviceDir) {
   detachMappingArrays(config);
 
   let dirty = false;
-  if (config.vm === undefined) { config.vm = false; dirty = true; }
+  if (typeof config.vm !== 'boolean') {
+    // Older or hand-edited configs can hold it as text ('false', 'True'). The
+    // backend treats only true / 'true' as on, but normalise it to a real
+    // boolean so the UI and backend can never disagree about it.
+    config.vm = typeof config.vm === 'string' && config.vm.trim().toLowerCase() === 'true';
+    dirty = true;
+  }
   if (config.vmversion === undefined) { config.vmversion = 'banana'; dirty = true; }
   if (config.deviceModel === undefined) { config.deviceModel = 'volumemaster'; dirty = true; }
   if (config.volumeNotifications === undefined) { config.volumeNotifications = true; dirty = true; }

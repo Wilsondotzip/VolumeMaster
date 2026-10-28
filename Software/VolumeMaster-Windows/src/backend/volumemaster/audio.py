@@ -31,20 +31,35 @@ def get_all_output_sessions():
     return sessions
 
 
+def _session_instance_id(session):
+    """Windows' unique ID for this session instance. One app can have several
+    sessions at once — one per output device it has played through, plus old
+    inactive ones — so (pid, exe) alone doesn't identify a session."""
+    try:
+        return session.InstanceIdentifier or ''
+    except Exception:
+        return ''
+
+
 class AudioController:
     def __init__(self):
-        self.session_cache = {}   # (pid, exe_name_lower) -> ISimpleAudioVolume
-        self.session_paths = {}   # (pid, exe_name_lower) -> exe_path_lower
+        # Keyed (pid, exe_name_lower, instance_id): every session of a mapped app
+        # is controlled, not just whichever one Windows happened to list last.
+        self.session_cache = {}   # key -> ISimpleAudioVolume
+        self.session_paths = {}   # key -> exe_path_lower
         self.master = None        # default output's IAudioEndpointVolume, when a knob maps 'master'
         self.mics = {}            # mapped mic name (lowercase) -> IAudioEndpointVolume
         self._available = True    # tracks state so we only print on change
 
     def session_names(self):
-        return list({exe for (_, exe) in self.session_cache.keys()})
+        return list({key[1] for key in self.session_cache.keys()})
 
     def refresh(self, mappings):
         """Re-enumerates sessions (and the master / mic endpoints the mappings
-        need). Returns True if a process with audio appeared since last time."""
+        need). Returns True if a new session appeared since last time — a new
+        app, or an existing app that created a fresh session (e.g. after
+        switching output device), which starts at its own volume until the
+        knob's value is re-applied."""
         try:
             sessions = get_all_output_sessions()
         except Exception as e:
@@ -63,7 +78,7 @@ class AudioController:
                     pid = session.Process.pid
                     # Store the lowercase executable name immediately for fast matching
                     exe_name_lower = session.Process.name().lower()
-                    key = (pid, exe_name_lower)
+                    key = (pid, exe_name_lower, _session_instance_id(session))
                     vol_interface = session.SimpleAudioVolume
 
                     new_session_cache[key] = vol_interface
@@ -138,8 +153,7 @@ class AudioController:
 
     def _category_sessions(self, cat_name):
         for key, vol_interface in list(self.session_cache.items()):
-            pid, exe_name_lower = key
-            if matches_category(exe_name_lower, self.session_paths.get(key, ''), cat_name):
+            if matches_category(key[1], self.session_paths.get(key, ''), cat_name):
                 yield key, vol_interface
 
     def set_volume(self, mapping, volume_scalar):

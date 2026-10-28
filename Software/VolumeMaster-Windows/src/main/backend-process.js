@@ -96,6 +96,8 @@ function startBackend(deviceId, deviceDir) {
       if (!trimmed) continue;
       if (trimmed.startsWith('ERROR:VM_NOT_RUNNING:')) {
         sendStatusToDevice(deviceId, 'vm-error', trimmed.slice('ERROR:VM_NOT_RUNNING:'.length));
+      } else if (trimmed.startsWith('ERROR:VM_NOT_INSTALLED:')) {
+        sendStatusToDevice(deviceId, 'vm-not-installed', trimmed.slice('ERROR:VM_NOT_INSTALLED:'.length));
       } else if (trimmed.startsWith('ERROR:AUDIO_UNAVAILABLE:')) {
         sendStatusToDevice(deviceId, 'audio-error', trimmed.slice('ERROR:AUDIO_UNAVAILABLE:'.length));
       } else if (trimmed === 'STATUS:AUDIO_OK') {
