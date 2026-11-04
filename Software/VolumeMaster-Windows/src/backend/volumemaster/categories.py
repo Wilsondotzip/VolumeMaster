@@ -14,6 +14,16 @@ CATEGORIES = {
             r'rockstar games',
             r'origin games',
         ],
+        # Launchers, overlays and anti-cheat that live under the folders above
+        # but aren't games (e.g. Epic's overlay, which Steam games like Rocket
+        # League also load).
+        'exclude_fragments': [
+            r'epic games\epic online services',
+            r'epic games\launcher',
+            r'riot games\riot client',
+            r'battle.net\battle.net',
+            r'easyanticheat',
+        ],
         'known_names': frozenset(),
     },
     'Browser': {
@@ -49,4 +59,6 @@ def matches_category(exe_name_lower, path_lower, cat_name):
         return False
     if exe_name_lower in cat['known_names']:
         return True
+    if any(frag in path_lower for frag in cat.get('exclude_fragments', [])):
+        return False
     return any(frag in path_lower for frag in cat['path_fragments'])
