@@ -1,7 +1,7 @@
-# Default output (render) device switching for main_pro.pyw — the 'switch_output'
-# button action and the LIST_OUTPUTS / SET_OUTPUT stdin commands.
+# Default output (render) device switching — the 'switch_output' button action
+# (actions.py) and the LIST_OUTPUTS / SET_OUTPUT stdin commands (backend.py).
 #
-# Kept self-contained (no main_pro globals) so it could later move out into a
+# Kept self-contained (no backend state) so it could later move out into a
 # standalone plugin once the plugin API supports what the selector needs.
 #
 # Switching goes through pycaw's AudioUtilities.SetDefaultDevice, which wraps

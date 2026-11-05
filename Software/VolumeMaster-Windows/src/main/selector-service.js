@@ -1,6 +1,6 @@
 const { showSelector, moveSelector, closeSelector, getCurrentSession } = require('./selector-window');
 
-// Electron side of the generic knob selector (backend/selector.py).
+// Electron side of the generic knob selector (backend/volumemaster/pro/selector.py).
 //
 // Any main-process feature can ask the user to pick one item with the knob:
 //

@@ -4,6 +4,34 @@ import { renderAllKnobsAndApps } from './mappings.js';
 import { isProDevice } from './knob-config.js';
 import { setSubTabAvailable } from './tabs.js';
 
+function renderVoiceMeeterButton(enabled) {
+  const button = document.getElementById('vmEnableButton');
+  if (!button) return;
+  button.dataset.enabled = enabled;
+  button.textContent = enabled ? 'Enabled' : 'Disabled';
+  button.classList.toggle('bg-green-500', enabled);
+  button.classList.toggle('hover:bg-green-600', enabled);
+  button.classList.toggle('bg-red-500', !enabled);
+  button.classList.toggle('hover:bg-red-600', !enabled);
+}
+
+async function setVoiceMeeterEnabled(enabled) {
+  renderVoiceMeeterButton(enabled);
+  if (enabled) {
+    await window.api.enableVM();
+  } else {
+    await window.api.disableVM();
+    document.getElementById('vmErrorBanner')?.classList.add('hidden');
+  }
+  setSubTabAvailable('subTabVoiceMeeter', enabled);
+
+  // The backend only reads this setting at startup — restart it so the
+  // change takes effect now rather than on the next launch.
+  if (await window.api.getBackendStatus()) {
+    await window.api.saveAndRun();
+  }
+}
+
 export function setupSettingsListeners() {
   document.getElementById('saveAndRunBtn')?.addEventListener('click', async () => {
     const btn = document.getElementById('saveAndRunBtn');
@@ -17,21 +45,11 @@ export function setupSettingsListeners() {
   document.getElementById('vmEnableButton')?.addEventListener('click', async () => {
     const button = document.getElementById('vmEnableButton');
     const isOn = button.textContent.trim().toLowerCase() === 'enabled';
-    const newState = !isOn;
-    button.dataset.enabled = newState;
-    button.textContent = newState ? 'Enabled' : 'Disabled';
-
-    if (newState) {
-      button.classList.remove('bg-red-500', 'hover:bg-red-600');
-      button.classList.add('bg-green-500', 'hover:bg-green-600');
-      await window.api.enableVM();
-    } else {
-      button.classList.remove('bg-green-500', 'hover:bg-green-600');
-      button.classList.add('bg-red-500', 'hover:bg-red-600');
-      await window.api.disableVM();
-    }
-    setSubTabAvailable('subTabVoiceMeeter', newState);
+    await setVoiceMeeterEnabled(!isOn);
   });
+
+  // One-click way out of the "VoiceMeeter isn't installed / running" banner.
+  document.getElementById('vmBannerDisableBtn')?.addEventListener('click', () => setVoiceMeeterEnabled(false));
 
   document.getElementById('vmVersionSelect')?.addEventListener('change', async (e) => {
     await window.api.setVMVersion(e.target.value);
@@ -68,7 +86,13 @@ export function setupSettingsListeners() {
     } else if (type === 'warning') {
       document.getElementById('saveAndRunBtn').textContent = 'Run';
       vmBanner?.classList.add('hidden');
-    } else if (type === 'vm-error') {
+    } else if (type === 'vm-error' || type === 'vm-not-installed') {
+      const vmText = document.getElementById('vmErrorText');
+      if (vmText) {
+        vmText.textContent = type === 'vm-not-installed'
+          ? "VoiceMeeter isn't installed, so VoiceMeeter controls are off. Everything else works normally."
+          : "VoiceMeeter isn't running, so VoiceMeeter controls are off. Start VoiceMeeter, or turn it off if you don't use it.";
+      }
       vmBanner?.classList.remove('hidden');
       return;
     } else if (type === 'audio-error') {
