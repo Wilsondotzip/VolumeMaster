@@ -85,9 +85,16 @@ class ActionRunner:
         self._mute_state[index] = new_state
         self._backend.apply_mute(index, new_state)
 
+    def reapply_mutes(self):
+        """Re-mute muted knobs' targets after new sessions / a new default
+        output appear, which start out unmuted."""
+        for index, muted in list(self._mute_state.items()):
+            if muted:
+                self._backend.apply_mute(index, True)
+
     def _apply_output(self, device_id, name, include_communications):
         output_devices.set_default_output(device_id, include_communications)
-        self._backend.audio.refresh_master()
+        self._backend.refresh_master()
         print(f'OUTPUT_CHANGED:{name}', flush=True)
 
     def _switch_output(self, index, action_id, params):
@@ -104,5 +111,5 @@ class ActionRunner:
 
         name = output_devices.toggle_output(action_id, params.get('device'), include_communications)
         if name:
-            self._backend.audio.refresh_master()
+            self._backend.refresh_master()
             print(f'OUTPUT_CHANGED:{name}', flush=True)

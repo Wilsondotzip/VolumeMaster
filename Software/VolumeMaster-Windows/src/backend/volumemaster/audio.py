@@ -48,6 +48,7 @@ class AudioController:
         self.session_cache = {}   # key -> ISimpleAudioVolume
         self.session_paths = {}   # key -> exe_path_lower
         self.master = None        # default output's IAudioEndpointVolume, when a knob maps 'master'
+        self.master_id = None     # id of the device self.master points at
         self.mics = {}            # mapped mic name (lowercase) -> IAudioEndpointVolume
         self._available = True    # tracks state so we only print on change
 
@@ -56,10 +57,11 @@ class AudioController:
 
     def refresh(self, mappings):
         """Re-enumerates sessions (and the master / mic endpoints the mappings
-        need). Returns True if a new session appeared since last time — a new
-        app, or an existing app that created a fresh session (e.g. after
-        switching output device), which starts at its own volume until the
-        knob's value is re-applied."""
+        need). Returns True if knob values need re-applying: a new session
+        appeared since last time (a new app, or an existing app that created a
+        fresh session after switching output device), or the default output
+        device changed. Either starts at its own volume until the knob's value
+        is re-applied."""
         try:
             sessions = get_all_output_sessions()
         except Exception as e:
@@ -99,12 +101,14 @@ class AudioController:
 
         if any('master' in entry.get('apps', []) for entry in mappings.values()):
             try:
-                self.master = AudioUtilities.GetSpeakers().EndpointVolume
+                if self._set_master(AudioUtilities.GetSpeakers()):
+                    newly_opened = True
             except Exception as e:
                 if self._available:
                     print(f'ERROR:AUDIO_UNAVAILABLE:No default audio output device: {e}', flush=True)
                     self._available = False
                 self.master = None
+                self.master_id = None
                 return newly_opened
 
         self._refresh_mics(mappings)
@@ -116,11 +120,21 @@ class AudioController:
 
     def refresh_master(self):
         """Re-point 'master' at the current default output right away (after a
-        default-device switch) instead of waiting for the next refresh()."""
+        default-device switch) instead of waiting for the next refresh().
+        Returns True if the default device changed."""
         try:
-            self.master = AudioUtilities.GetSpeakers().EndpointVolume
+            return self._set_master(AudioUtilities.GetSpeakers())
         except Exception:
             self.master = None
+            self.master_id = None
+            return False
+
+    def _set_master(self, device):
+        """Point 'master' at `device`; returns True if it's a different device."""
+        changed = device.id != self.master_id
+        self.master = device.EndpointVolume
+        self.master_id = device.id
+        return changed
 
     def _refresh_mics(self, mappings):
         self.mics.clear()

@@ -96,17 +96,23 @@ class Backend:
         except Exception as e:
             print(f'[Watcher] Failed to reload: {e}')
 
-    def refresh_audio(self, request_sync=False):
-        newly_opened = self.audio.refresh(self.mappings)
-        # A new app with audio appeared: ask the device to re-send every knob
-        # (SYNC) so it gets the current volume. Clearing the dedupe cache first
-        # makes those repeated values actually apply.
-        if newly_opened and request_sync and self.ser is not None:
-            try:
-                self.volumes.clear()
-                self.ser.write(b"SYNC\n")
-            except Exception:
-                pass
+    def refresh_audio(self):
+        # A new app session appeared (including an app moving to another output
+        # device) or the default output changed: give it the knobs' current
+        # volumes. Re-applied from memory rather than by asking the device to
+        # re-send (SYNC), since encoder devices have no absolute positions to send.
+        if self.audio.refresh(self.mappings):
+            self.reapply_volumes()
+
+    def refresh_master(self):
+        """Call after switching the default output device, so the master knob's
+        volume carries over to the new device straight away."""
+        if self.audio.refresh_master():
+            self.reapply_volumes()
+
+    def reapply_volumes(self):
+        for index, value in list(self.volumes.items()):
+            self.apply_volume(index, value)
 
     def apply_volume(self, index, value):
         mapping = self.mappings.get(index, {})
@@ -215,7 +221,7 @@ class Backend:
                 if time.monotonic() - last_refresh > AUDIO_REFRESH_SECONDS:
                     last_refresh = time.monotonic()
                     try:
-                        self.refresh_audio(request_sync=True)
+                        self.refresh_audio()
                     except Exception as e:
                         print(f'[Audio] Session refresh failed: {e}', flush=True)
 

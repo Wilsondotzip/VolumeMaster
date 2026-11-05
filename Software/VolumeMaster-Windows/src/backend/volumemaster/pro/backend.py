@@ -58,7 +58,7 @@ class ProBackend(Backend):
         elif cmd.startswith('SET_OUTPUT:'):
             try:
                 output_devices.set_default_output(cmd[len('SET_OUTPUT:'):])
-                self.audio.refresh_master()
+                self.refresh_master()
             except Exception as e:
                 print(f'Failed to set output device: {e}', flush=True)
         elif cmd.startswith('OPEN_SELECTOR:'):
@@ -67,6 +67,10 @@ class ProBackend(Backend):
             self.selectors.cancel()
         else:
             super().handle_command(cmd)
+
+    def reapply_volumes(self):
+        super().reapply_volumes()
+        self.actions.reapply_mutes()
 
     def on_loop(self):
         self.selectors.check_timeout()
