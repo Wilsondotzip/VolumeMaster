@@ -1,9 +1,10 @@
+// `description` is kept short enough for a card; `more` marks a non-exhaustive list (shown on hover).
 export const CATEGORIES = [
-  { id: 'Games',   icon: '🎮', label: 'Games',   description: 'Steam, Epic, GOG, Xbox & more' },
-  { id: 'Browser', icon: '🌐', label: 'Browser',  description: 'Chrome, Firefox, Edge & more' },
-  { id: 'Chat',    icon: '💬', label: 'Chat',     description: 'Discord, Slack, Teams & more' },
-  { id: 'Media',   icon: '🎵', label: 'Media',    description: 'Spotify, VLC' },
-  { id: 'Focused', icon: '🎯', label: 'Focused App', description: 'Whatever window is in front' },
+  { id: 'Games',   icon: '🎮', label: 'Games',       description: 'Steam, Epic, GOG, Xbox', more: true },
+  { id: 'Browser', icon: '🌐', label: 'Browser',     description: 'Chrome, Firefox, Edge', more: true },
+  { id: 'Chat',    icon: '💬', label: 'Chat',        description: 'Discord, Slack, Teams', more: true },
+  { id: 'Media',   icon: '🎵', label: 'Media',       description: 'Spotify, VLC' },
+  { id: 'Focused', icon: '🎯', label: 'Focused App', description: 'Window in front' },
 ];
 
 export const CATEGORY_PREFIX = 'category:';
