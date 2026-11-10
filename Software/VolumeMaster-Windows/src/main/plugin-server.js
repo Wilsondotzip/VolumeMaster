@@ -178,16 +178,23 @@ function dispatchKnobEvent(deviceId, index, value, config) {
   sendToPluginActions(pluginActions, (actionId) => ({ type: 'knob', deviceId, index, value, actionId }));
 }
 
-function dispatchKnobButtonEvent(deviceId, index, config) {
+function buttonPluginKeys(config, index) {
   const buttonActions = config?.Mappings?.[String(index)]?.ButtonActions;
-  if (!Array.isArray(buttonActions)) return;
+  if (!Array.isArray(buttonActions)) return [];
   // Built-in actions (keyboard shortcut, mute, open program) aren't plugin-mediated —
   // only 'plugin' entries go out over the WebSocket API. Bare strings are the older
   // pre-migration format (plugin key with no wrapper object); treated the same way.
-  const pluginKeys = buttonActions
+  return buttonActions
     .filter((a) => typeof a === 'string' || a?.kind === 'plugin')
     .map((a) => (typeof a === 'string' ? a : a.key));
-  sendToPluginActions(pluginKeys, (actionId) => ({ type: 'knob-button', deviceId, index, actionId }));
+}
+
+function dispatchKnobButtonEvent(deviceId, index, config) {
+  sendToPluginActions(buttonPluginKeys(config, index), (actionId) => ({ type: 'knob-button', deviceId, index, actionId }));
+}
+
+function dispatchKnobButtonUpEvent(deviceId, index, holdMs, config) {
+  sendToPluginActions(buttonPluginKeys(config, index), (actionId) => ({ type: 'knob-button-up', deviceId, index, holdMs, actionId }));
 }
 
 function getConnectedPlugins() {
@@ -233,6 +240,7 @@ module.exports = {
   stopPluginServer,
   dispatchKnobEvent,
   dispatchKnobButtonEvent,
+  dispatchKnobButtonUpEvent,
   getConnectedPlugins,
   getPluginLabel,
   getPluginServerStatus,

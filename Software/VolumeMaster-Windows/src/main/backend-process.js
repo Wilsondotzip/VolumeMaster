@@ -5,7 +5,7 @@ const platform = require('./platform');
 const { setTrayImageNormal, setTrayImageCrashed } = require('./tray');
 const deviceManager = require('./device-manager');
 const { handleVolumeChange } = require('./notification-window');
-const { dispatchKnobEvent, dispatchKnobButtonEvent } = require('./plugin-server');
+const { dispatchKnobEvent, dispatchKnobButtonEvent, dispatchKnobButtonUpEvent } = require('./plugin-server');
 const { loadConfig } = require('./config-store');
 const { executeSettingsButtonActions } = require('./button-settings-actions');
 const { handleSelectorEvent, clearDeviceSelectors } = require('./selector-service');
@@ -155,6 +155,7 @@ function startBackend(deviceId, deviceDir) {
           const holdMs = parseInt(parts[2], 10);
           const win = deviceManager.getWindowForDevice(deviceId);
           if (win) win.webContents.send('button-press', { index, pressed: false, holdMs });
+          dispatchKnobButtonUpEvent(deviceId, index, holdMs, loadConfig(deviceDir));
         }
       } else if (trimmed.startsWith('BUTTON:')) {
         const index = parseInt(trimmed.slice('BUTTON:'.length), 10);

@@ -129,7 +129,23 @@ Sent when a knob's button is pressed (VolumeMaster Pro devices only, whose knobs
 | `actionId` | The `id` of whichever `kind: "button"` (or unrestricted) action the user assigned.   |
 | `deviceId` | Which VolumeMaster device sent the event (useful if the user has multiple devices). |
 
-There's no `value` — a button press is a discrete event, not a level. Currently this only fires on press; press duration and double-press are on the device/firmware roadmap and would arrive as additional message types later, not as fields on this one.
+There's no `value` — a button press is a discrete event, not a level. It fires as soon as the button goes down; see [`knob-button-up`](#knob-button-up) for the release.
+
+#### `knob-button-up`
+
+Sent when the button is released, to the same actions as `knob-button`.
+
+```json
+{
+  "type": "knob-button-up",
+  "index": 3,
+  "holdMs": 650,
+  "actionId": "press-thing",
+  "deviceId": "abc12345"
+}
+```
+
+`holdMs` is how long the button was held, in milliseconds, so you can tell a tap from a hold. To act only on one or the other, ignore `knob-button` and decide on release (e.g. `holdMs < 500` is a tap).
 
 ---
 
