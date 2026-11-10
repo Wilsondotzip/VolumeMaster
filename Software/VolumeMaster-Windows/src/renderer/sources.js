@@ -174,13 +174,13 @@ export function renderCategoryList() {
   cards.forEach(({ dragName, icon, label, description, more }) => {
     const card = document.createElement('div');
     card.className =
-      'flex items-center gap-2.5 h-14 px-2.5 bg-slate-700 border border-slate-600 rounded-lg cursor-move hover:bg-emerald-700 hover:border-emerald-500 transition group';
+      'flex items-center gap-2.5 h-14 px-2.5 bg-slate-700 border border-slate-600 rounded-lg cursor-move hover:bg-indigo-600 hover:border-indigo-500 transition group';
     card.setAttribute('draggable', 'true');
     card.title = `${label}: ${description}${more ? ' and more' : ''}`;
 
     const iconEl = document.createElement('div');
     iconEl.className =
-      'w-8 h-8 rounded-md bg-slate-600 group-hover:bg-emerald-600 flex items-center justify-center text-lg shrink-0 transition';
+      'w-8 h-8 rounded-md bg-slate-600 group-hover:bg-indigo-500 flex items-center justify-center text-lg shrink-0 transition';
     iconEl.textContent = icon;
 
     const textWrap = document.createElement('div');

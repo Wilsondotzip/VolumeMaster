@@ -307,19 +307,25 @@ function createButtonRow(knobId) {
 function createVolumeCard(knobId, iconText, labelTest) {
   const card = document.createElement('div');
   card.className =
-    'flex items-center gap-4 mb-3 p-3 rounded border border-indigo-400 bg-indigo-900 bg-opacity-30 cursor-pointer transition overflow-hidden';
+    'flex items-center gap-3 mb-3 p-3 rounded border border-slate-700 bg-slate-800 hover:bg-red-900/30 hover:border-red-500 cursor-pointer transition overflow-hidden';
   card.setAttribute('data-appname', 'master');
 
   const icon = document.createElement('div');
   icon.className =
-    'w-10 h-10 rounded bg-indigo-500 flex items-center justify-center text-white font-bold text-lg';
+    'w-10 h-10 rounded bg-slate-700 flex items-center justify-center text-xl shrink-0';
   icon.textContent = iconText;
 
+  const textCol = document.createElement('div');
+  textCol.className = 'flex flex-col min-w-0';
   const label = document.createElement('div');
   label.textContent = labelTest;
-  label.className = 'text-lg font-medium text-indigo-300';
+  label.className = 'text-sm font-semibold text-slate-100';
+  const sub = document.createElement('div');
+  sub.textContent = 'Category';
+  sub.className = 'text-xs text-slate-500';
+  textCol.append(label, sub);
 
-  card.append(icon, label);
+  card.append(icon, textCol);
 
   card.onclick = async () => {
     await removeAppFromKnob(knobId, 'master');
@@ -558,7 +564,7 @@ function createAppCard(app, knobId) {
   const display = getProcessDisplayInfo(app);
   const card = document.createElement('div');
   card.className =
-    'flex items-center gap-4 mb-3 p-3 rounded border border-gray-300 hover:bg-red-100 cursor-pointer transition overflow-hidden';
+    'flex items-center gap-4 mb-3 p-3 rounded border border-gray-300 hover:bg-red-900/30 hover:border-red-500 cursor-pointer transition overflow-hidden';
   card.setAttribute('data-appname', app);
 
   const icon = document.createElement('img');
@@ -608,12 +614,12 @@ function createCategoryCard(catId, knobId) {
   const dragName = `${CATEGORY_PREFIX}${catId}`;
   const card = document.createElement('div');
   card.className =
-    'flex items-center gap-3 mb-3 p-3 rounded border border-emerald-600 bg-emerald-900 bg-opacity-30 hover:bg-red-900 hover:bg-opacity-30 hover:border-red-500 cursor-pointer transition overflow-hidden';
+    'flex items-center gap-3 mb-3 p-3 rounded border border-slate-700 bg-slate-800 hover:bg-red-900/30 hover:border-red-500 cursor-pointer transition overflow-hidden';
   card.setAttribute('data-appname', dragName);
 
   const icon = document.createElement('div');
   icon.className =
-    'w-10 h-10 rounded bg-emerald-700 flex items-center justify-center text-xl shrink-0';
+    'w-10 h-10 rounded bg-slate-700 flex items-center justify-center text-xl shrink-0';
   icon.textContent = meta?.icon ?? '📦';
 
   const textCol = document.createElement('div');
@@ -621,7 +627,7 @@ function createCategoryCard(catId, knobId) {
 
   const labelEl = document.createElement('div');
   labelEl.textContent = meta?.label ?? catId;
-  labelEl.className = 'text-sm font-semibold text-emerald-300';
+  labelEl.className = 'text-sm font-semibold text-slate-100';
 
   const sub = document.createElement('div');
   sub.textContent = 'Category';
@@ -958,7 +964,7 @@ async function removeAppFromKnob(knobId, appName) {
 function createInputDeviceCard(name, knobId) {
   const card = document.createElement('div');
   card.className =
-    'flex items-center gap-4 mb-3 p-3 rounded border border-gray-300 hover:bg-red-100 cursor-pointer transition overflow-hidden';
+    'flex items-center gap-4 mb-3 p-3 rounded border border-gray-300 hover:bg-red-900/30 hover:border-red-500 cursor-pointer transition overflow-hidden';
   card.setAttribute('data-appname', name);
 
   const icon = document.createElement('div');

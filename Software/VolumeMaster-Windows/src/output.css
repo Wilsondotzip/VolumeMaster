@@ -24,12 +24,7 @@
     --color-green-400: oklch(79.2% 0.209 151.711);
     --color-green-500: oklch(72.3% 0.219 149.579);
     --color-green-600: oklch(62.7% 0.194 149.214);
-    --color-emerald-300: oklch(84.5% 0.143 164.978);
     --color-emerald-400: oklch(76.5% 0.177 163.223);
-    --color-emerald-500: oklch(69.6% 0.17 162.48);
-    --color-emerald-600: oklch(59.6% 0.145 163.225);
-    --color-emerald-700: oklch(50.8% 0.118 165.612);
-    --color-emerald-900: oklch(37.8% 0.077 168.94);
     --color-cyan-300: oklch(86.5% 0.127 207.078);
     --color-cyan-500: oklch(71.5% 0.143 215.221);
     --color-cyan-600: oklch(60.9% 0.126 221.723);
@@ -41,13 +36,13 @@
     --color-indigo-500: oklch(58.5% 0.233 277.117);
     --color-indigo-600: oklch(51.1% 0.262 276.966);
     --color-indigo-700: oklch(45.7% 0.24 277.023);
-    --color-indigo-900: oklch(35.9% 0.144 278.697);
     --color-purple-300: oklch(82.7% 0.119 306.383);
     --color-purple-400: oklch(71.4% 0.203 305.504);
     --color-purple-500: oklch(62.7% 0.265 303.9);
     --color-purple-600: oklch(55.8% 0.288 302.321);
     --color-purple-700: oklch(49.6% 0.265 301.924);
     --color-purple-900: oklch(38.1% 0.176 304.987);
+    --color-slate-100: oklch(96.8% 0.007 247.896);
     --color-slate-200: oklch(92.9% 0.013 255.508);
     --color-slate-300: oklch(86.9% 0.022 252.894);
     --color-slate-400: oklch(70.4% 0.04 256.788);
@@ -636,9 +631,6 @@
   .border-cyan-600 {
     border-color: var(--color-cyan-600);
   }
-  .border-emerald-600 {
-    border-color: var(--color-emerald-600);
-  }
   .border-gray-300 {
     border-color: var(--color-gray-300);
   }
@@ -693,20 +685,11 @@
   .bg-emerald-400 {
     background-color: var(--color-emerald-400);
   }
-  .bg-emerald-700 {
-    background-color: var(--color-emerald-700);
-  }
-  .bg-emerald-900 {
-    background-color: var(--color-emerald-900);
-  }
   .bg-green-400 {
     background-color: var(--color-green-400);
   }
   .bg-green-500 {
     background-color: var(--color-green-500);
-  }
-  .bg-indigo-500 {
-    background-color: var(--color-indigo-500);
   }
   .bg-indigo-600 {
     background-color: var(--color-indigo-600);
@@ -716,9 +699,6 @@
     @supports (color: color-mix(in lab, red, red)) {
       background-color: color-mix(in oklab, var(--color-indigo-600) 30%, transparent);
     }
-  }
-  .bg-indigo-900 {
-    background-color: var(--color-indigo-900);
   }
   .bg-purple-400 {
     background-color: var(--color-purple-400);
@@ -942,9 +922,6 @@
   .text-cyan-300 {
     color: var(--color-cyan-300);
   }
-  .text-emerald-300 {
-    color: var(--color-emerald-300);
-  }
   .text-gray-200 {
     color: var(--color-gray-200);
   }
@@ -971,6 +948,9 @@
   }
   .text-red-500 {
     color: var(--color-red-500);
+  }
+  .text-slate-100 {
+    color: var(--color-slate-100);
   }
   .text-slate-200 {
     color: var(--color-slate-200);
@@ -1108,9 +1088,6 @@
     .group-hover\:bg-amber-600:is(:where(.group):hover *) {
       background-color: var(--color-amber-600);
     }
-    .group-hover\:bg-emerald-600:is(:where(.group):hover *) {
-      background-color: var(--color-emerald-600);
-    }
     .group-hover\:bg-indigo-500:is(:where(.group):hover *) {
       background-color: var(--color-indigo-500);
     }
@@ -1133,9 +1110,6 @@
     .hover\:border-cyan-500:hover {
       border-color: var(--color-cyan-500);
     }
-    .hover\:border-emerald-500:hover {
-      border-color: var(--color-emerald-500);
-    }
     .hover\:border-indigo-500:hover {
       border-color: var(--color-indigo-500);
     }
@@ -1150,9 +1124,6 @@
     }
     .hover\:bg-cyan-700:hover {
       background-color: var(--color-cyan-700);
-    }
-    .hover\:bg-emerald-700:hover {
-      background-color: var(--color-emerald-700);
     }
     .hover\:bg-green-600:hover {
       background-color: var(--color-green-600);
@@ -1176,9 +1147,6 @@
     }
     .hover\:bg-purple-700:hover {
       background-color: var(--color-purple-700);
-    }
-    .hover\:bg-red-100:hover {
-      background-color: var(--color-red-100);
     }
     .hover\:bg-red-600:hover {
       background-color: var(--color-red-600);
