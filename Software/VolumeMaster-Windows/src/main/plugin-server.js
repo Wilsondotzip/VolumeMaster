@@ -260,8 +260,8 @@ function buttonPluginKeys(config, index) {
     .map((a) => (typeof a === 'string' ? a : a.key));
 }
 
-function dispatchKnobButtonEvent(deviceId, index, config) {
-  sendToPluginActions(buttonPluginKeys(config, index), (actionId) => ({ type: 'knob-button', deviceId, index, actionId }));
+function dispatchKnobButtonDownEvent(deviceId, index, config) {
+  sendToPluginActions(buttonPluginKeys(config, index), (actionId) => ({ type: 'knob-button-down', deviceId, index, actionId }));
 }
 
 function dispatchKnobButtonUpEvent(deviceId, index, holdMs, config) {
@@ -308,7 +308,7 @@ module.exports = {
   startPluginServer,
   stopPluginServer,
   dispatchKnobEvent,
-  dispatchKnobButtonEvent,
+  dispatchKnobButtonDownEvent,
   dispatchKnobButtonUpEvent,
   getConnectedPlugins,
   getPluginLabel,

@@ -59,7 +59,7 @@ VolumeMaster replies with [`registered`](#registered), or [`error`](#error) if t
 
 Sending `register` again on the same connection replaces your plugin's actions, so a plugin whose actions change (e.g. a new OBS scene was added) can just re-register.
 
-Each action may optionally set `kind` to `"knob"` or `"button"` to restrict where users can assign it — a `"knob"` action can only be dragged onto a knob's turn (volume) targets, a `"button"` action only onto a knob's button-press target (VolumeMaster Pro devices only, whose knobs are push-button rotary encoders). Omit `kind` (or leave it unset) for an action that should be assignable to both. See [`knob-button`](#knob-button) below for the event a button-assigned action receives.
+Each action may optionally set `kind` to `"knob"` or `"button"` to restrict where users can assign it — a `"knob"` action can only be dragged onto a knob's turn (volume) targets, a `"button"` action only onto a knob's button-press target (VolumeMaster Pro devices only, whose knobs are push-button rotary encoders). Omit `kind` (or leave it unset) for an action that should be assignable to both. See [`knob-button-down`](#knob-button-down) below for the event a button-assigned action receives.
 
 Each action may also optionally set `group` to a free-text label. Actions sharing the same `group` are clustered together under that heading in VolumeMaster's UI, so a plugin with many actions (e.g. a smart-home or streaming controller) can organize them instead of dumping everything in one flat list. Actions with no `group` are shown ungrouped, above any named groups. This is purely cosmetic — it has no effect on how actions are matched or dispatched.
 
@@ -113,13 +113,13 @@ Sent whenever a knob moves **and** your plugin has an action assigned to that kn
 
 **Current values.** Right after you register, you're sent a `knob` event with `"sync": true` for each knob that has one of your actions assigned, so you can start in step with the knob instead of waiting for it to move. The same happens when the user assigns one of your actions to a knob. Only knobs that have reported a position since VolumeMaster started are included.
 
-#### `knob-button`
+#### `knob-button-down`
 
 Sent when a knob's button is pressed (VolumeMaster Pro devices only, whose knobs are push-button rotary encoders) **and** your plugin has an action assigned to that knob's button.
 
 ```json
 {
-  "type": "knob-button",
+  "type": "knob-button-down",
   "index": 3,
   "actionId": "press-thing",
   "deviceId": "abc12345"
@@ -136,7 +136,7 @@ There's no `value` — a button press is a discrete event, not a level. It fires
 
 #### `knob-button-up`
 
-Sent when the button is released, to the same actions as `knob-button`.
+Sent when the button is released, to the same actions as `knob-button-down`.
 
 ```json
 {
@@ -148,7 +148,7 @@ Sent when the button is released, to the same actions as `knob-button`.
 }
 ```
 
-`holdMs` is how long the button was held, in milliseconds, so you can tell a tap from a hold. To act only on one or the other, ignore `knob-button` and decide on release (e.g. `holdMs < 500` is a tap).
+`holdMs` is how long the button was held, in milliseconds, so you can tell a tap from a hold. To act only on one or the other, ignore `knob-button-down` and decide on release (e.g. `holdMs < 500` is a tap).
 
 ---
 
