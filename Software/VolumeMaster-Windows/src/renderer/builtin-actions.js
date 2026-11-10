@@ -8,13 +8,14 @@ export const BUILTIN_PREFIX = 'builtin:';
 // mode change app settings, which the Electron main process owns (see
 // main/button-settings-actions.js) and it only hears about button presses, not
 // turn ticks; switch output toggles, which would flip-flop on every tick.
+// 'description' is the card's second line in the Actions tab, kept short enough to fit.
 export const BUILTIN_ACTION_TYPES = [
-  { type: 'keyboard_shortcut', label: 'Keyboard Shortcut', icon: '⌨️', configurable: true },
-  { type: 'mute', label: 'Mute', icon: '🔇', configurable: false },
-  { type: 'open_program', label: 'Open Program', icon: '📂', configurable: true },
-  { type: 'switch_preset', label: 'Switch Preset', icon: '🗂️', configurable: true, buttonOnly: true },
-  { type: 'encoder_mode', label: 'Knob Mode', icon: '🔄', configurable: true, buttonOnly: true },
-  { type: 'switch_output', label: 'Switch Output', icon: '🔈', configurable: true, buttonOnly: true },
+  { type: 'keyboard_shortcut', label: 'Keyboard Shortcut', icon: '⌨️', description: 'Send a key combination', configurable: true },
+  { type: 'mute', label: 'Mute', icon: '🔇', description: "Mute this knob's targets", configurable: false },
+  { type: 'open_program', label: 'Open Program', icon: '📂', description: 'Launch an app or file', configurable: true },
+  { type: 'switch_preset', label: 'Switch Preset', icon: '🗂️', description: 'Next, previous or chosen', configurable: true, buttonOnly: true },
+  { type: 'encoder_mode', label: 'Knob Mode', icon: '🔄', description: 'Absolute or increment', configurable: true, buttonOnly: true },
+  { type: 'switch_output', label: 'Switch Output', icon: '🔈', description: 'Change audio output', configurable: true, buttonOnly: true },
 ];
 
 const PRESET_MODE_LABELS = { next: 'Next preset', previous: 'Previous preset', selector: 'Choose with knob' };
@@ -76,13 +77,16 @@ export function renderBuiltinActionList() {
   if (!list) return;
   while (list.firstChild) list.removeChild(list.firstChild);
 
-  for (const { type, label, icon } of BUILTIN_ACTION_TYPES) {
+  for (const { type, label, icon, description, buttonOnly } of BUILTIN_ACTION_TYPES) {
     const dragName = builtinDragName(type);
 
+    // Same card shape and grid as the Categories tab
     const card = document.createElement('div');
     card.className =
-      'flex items-center gap-3 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg cursor-move hover:bg-amber-700 hover:border-amber-500 transition group';
+      'flex items-center gap-2.5 h-14 px-2.5 bg-slate-700 border border-slate-600 rounded-lg cursor-move hover:bg-amber-700 hover:border-amber-500 transition group';
     card.setAttribute('draggable', 'true');
+    card.title = `${label}: ${description}
+Drag onto a knob's ${buttonOnly ? 'Press row' : 'Press, Left or Right row'}`;
 
     const iconEl = document.createElement('div');
     iconEl.className =
@@ -98,7 +102,7 @@ export function renderBuiltinActionList() {
 
     const sub = document.createElement('div');
     sub.className = 'text-xs text-slate-400 truncate';
-    sub.textContent = 'Drag onto a knob’s Button Press Action';
+    sub.textContent = description;
 
     textWrap.append(labelEl, sub);
     card.append(iconEl, textWrap);
