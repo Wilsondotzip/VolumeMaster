@@ -89,7 +89,7 @@ Pass a `config` array in `register` to give your plugin a settings form (host, p
 | Field         | Description                                                                                                |
 | ------------- | ---------------------------------------------------------------------------------------------------------- |
 | `key`         | Required. Name of the value in the `config` message.                                                       |
-| `type`        | Required. `text`, `number`, `password`, `boolean` or `select`.                                             |
+| `type`        | Required. `text`, `number`, `password`, `boolean` or `select`. Use `password` for anything secret (passwords, API keys, tokens): those values are stored encrypted. |
 | `label`       | Shown next to the field.                                                                                   |
 | `default`     | Shown in the form until the user saves a value. It isn't sent to your plugin — apply your own default when a key is missing. |
 | `placeholder` | Optional hint text for `text`, `number` and `password` fields.                                             |
