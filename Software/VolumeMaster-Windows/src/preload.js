@@ -1,6 +1,10 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
+  platform: process.platform,
+  windowControl: (action) => ipcRenderer.invoke('window-control', action),
+  isWindowMaximized: () => ipcRenderer.invoke('window-is-maximized'),
+  onWindowMaximized: (cb) => ipcRenderer.on('window-maximized', (_, maximized) => cb(maximized)),
   loadConfig: () => ipcRenderer.invoke('load-config'),
   saveConfig: (data) => ipcRenderer.invoke('save-config', data),
   openExeDialog: () => ipcRenderer.invoke('open-exe-dialog'),

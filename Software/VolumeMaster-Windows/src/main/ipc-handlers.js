@@ -27,7 +27,19 @@ function getDeviceContext(event) {
 }
 
 function registerIpcHandlers() {
-  const { ipcMain, dialog, app } = require('electron');
+  const { ipcMain, dialog, app, BrowserWindow } = require('electron');
+
+  // Custom title bar buttons. minimize() and close() go through the window's
+  // own handlers, so they keep their usual behaviour (hide to tray / quit).
+  ipcMain.handle('window-control', (event, action) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return false;
+    if (action === 'minimize') win.minimize();
+    else if (action === 'maximize') (win.isMaximized() ? win.unmaximize() : win.maximize());
+    else if (action === 'close') win.close();
+    return win.isMaximized();
+  });
+  ipcMain.handle('window-is-maximized', (event) => !!BrowserWindow.fromWebContents(event.sender)?.isMaximized());
 
   ipcMain.handle('load-config', (event) => {
     const { deviceDir } = getDeviceContext(event);

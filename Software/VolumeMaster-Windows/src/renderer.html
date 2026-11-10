@@ -6,6 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="output.css" rel="stylesheet" />
     <title>VolumeMaster</title>
+    <script>
+      // Windows draws its own title bar (#titleBar); flag it before first paint
+      // so the layout never jumps. Other platforms keep the native one.
+      if (window.api?.platform === 'win32') document.documentElement.classList.add('custom-titlebar');
+    </script>
     <style>
       body {
         font-family: Inter, system-ui, sans-serif;
@@ -14,6 +19,40 @@
         height: 100vh;
         overflow: hidden;
       }
+
+      /* Custom title bar (Windows). The bar is the drag handle for the window;
+         its buttons opt out so they stay clickable. Buttons match Windows'
+         own size (46×32) and the close button's red. */
+      #titleBar { display: none; }
+      html.custom-titlebar body { padding-top: 0; }
+      html.custom-titlebar #titleBar {
+        display: flex;
+        align-items: center;
+        height: 32px;
+        margin: 0 -1rem 0.5rem;
+        flex-shrink: 0;
+        border-bottom: 1px solid #1e293b;
+        -webkit-app-region: drag;
+        user-select: none;
+      }
+      #titleBar .tb-btn {
+        -webkit-app-region: no-drag;
+        width: 46px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #94a3b8;
+        transition: background 0.1s ease, color 0.1s ease;
+      }
+      #titleBar .tb-btn:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+      #titleBar .tb-btn:active { background: rgba(255, 255, 255, 0.04); }
+      #titleBar .tb-close:hover { background: #e81123; color: #fff; }
+      #titleBar .tb-close:active { background: #f1707a; }
+      #titleBar svg { width: 10px; height: 10px; }
+      #titleBar [data-icon='restore'] { display: none; }
+      #titleBar.maximized [data-icon='restore'] { display: block; }
+      #titleBar.maximized [data-icon='maximize'] { display: none; }
 
       /* Shared scrollbar style */
       .custom-scroll {
@@ -126,6 +165,26 @@
   </head>
 
   <body class="flex flex-col h-screen">
+    <!-- Custom title bar (Windows only, see .custom-titlebar); wired up in renderer/titlebar.js -->
+    <div id="titleBar">
+      <div class="flex items-center gap-2 pl-3 flex-1 min-w-0">
+        <svg viewBox="0 0 32 32" class="shrink-0" style="width: 14px; height: 14px" aria-hidden="true">
+          <path d="M 8.22 23.78 A 11 11 0 1 1 23.78 23.78" fill="none" stroke="#334155" stroke-width="4" stroke-linecap="round" />
+          <path d="M 8.22 23.78 A 11 11 0 1 1 27 16" fill="none" stroke="#818cf8" stroke-width="4" stroke-linecap="round" />
+        </svg>
+        <span class="text-xs font-medium text-slate-400 truncate">VolumeMaster</span>
+      </div>
+      <button type="button" class="tb-btn" data-window-action="minimize" title="Minimize to tray" aria-label="Minimize to tray">
+        <svg viewBox="0 0 10 10"><path d="M0 5.5h10" stroke="currentColor" stroke-width="1" /></svg>
+      </button>
+      <button type="button" class="tb-btn" data-window-action="maximize" title="Maximize" aria-label="Maximize">
+        <svg viewBox="0 0 10 10" data-icon="maximize"><rect x="0.5" y="0.5" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1" /></svg>
+        <svg viewBox="0 0 10 10" data-icon="restore"><path d="M2.5 2.5V0.5h7v7h-2M0.5 2.5h7v7h-7z" fill="none" stroke="currentColor" stroke-width="1" /></svg>
+      </button>
+      <button type="button" class="tb-btn tb-close" data-window-action="close" title="Close" aria-label="Close">
+        <svg viewBox="0 0 10 10"><path d="M0.5 0.5l9 9M9.5 0.5l-9 9" stroke="currentColor" stroke-width="1" /></svg>
+      </button>
+    </div>
     <!-- Device Header -->
     <div
       class="flex items-center gap-2 px-1 pt-1 pb-2 shrink-0 border-b border-slate-700 mb-2"

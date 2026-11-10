@@ -49,6 +49,10 @@ function createWindow(deviceId) {
     title,
     icon: path.join(__dirname, '..', 'assets', 'icons', 'icon.ico'),
     autoHideMenuBar: true,
+    // Windows: the app draws its own title bar (renderer.html #titleBar). 'hidden'
+    // drops the native bar but keeps the frame, so resizing, the drop shadow,
+    // Aero Snap and double-click-to-maximise on the drag area still work.
+    ...(process.platform === 'win32' ? { titleBarStyle: 'hidden' } : {}),
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload.js'),
       contextIsolation: true,
@@ -58,6 +62,13 @@ function createWindow(deviceId) {
 
   deviceManager.registerWindowDevice(win, deviceId);
   win.loadFile('src/renderer.html');
+
+  // The custom title bar swaps its maximise / restore icon
+  const sendMaximized = () => {
+    if (!win.isDestroyed()) win.webContents.send('window-maximized', win.isMaximized());
+  };
+  win.on('maximize', sendMaximized);
+  win.on('unmaximize', sendMaximized);
 
   win.on('minimize', (event) => {
     event.preventDefault();
