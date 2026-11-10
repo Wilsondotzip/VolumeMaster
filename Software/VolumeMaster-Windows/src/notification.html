@@ -2,103 +2,237 @@
 <html>
   <head>
     <meta charset="UTF-8" />
+    <!-- Volume change popup (main/notification-window.js). The window is a little
+         larger than the card so the card's shadow isn't clipped. -->
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body {
-        width: 288px;
-        height: 80px;
+        width: 100%;
+        height: 100%;
         background: transparent;
         overflow: hidden;
         font-family: Inter, system-ui, sans-serif;
         -webkit-app-region: no-drag;
+        user-select: none;
       }
       #card {
-        width: 100%;
-        height: 100%;
-        background: #1e293b;
-        border: 1px solid #334155;
-        border-radius: 14px;
+        position: absolute;
+        inset: 12px;
         display: flex;
         align-items: center;
-        gap: 12px;
-        padding: 0 16px 0 12px;
+        gap: 14px;
+        padding: 0 18px 0 12px;
+        border-radius: 18px;
+        background:
+          linear-gradient(135deg, rgba(99, 102, 241, 0.10), transparent 55%),
+          rgba(15, 23, 42, 0.94);
+        border: 1px solid rgba(71, 85, 105, 0.7);
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.04);
         opacity: 0;
-        transition: opacity 0.18s ease;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        transform: translateX(24px);
+        transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
       }
-      #card.visible { opacity: 1; }
-      #text {
+      #card.visible { opacity: 1; transform: translateX(0); }
+
+      /* Gauge: the volume arc with the target's icon in the middle */
+      #gauge { position: relative; width: 56px; height: 56px; flex-shrink: 0; }
+      #gauge svg { position: absolute; inset: 0; overflow: visible; }
+      #val-arc { filter: drop-shadow(0 0 4px rgba(129, 140, 248, 0.7)); }
+      #icon {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 26px;
+        height: 26px;
+        transform: translate(-50%, -48%);
         display: flex;
-        flex-direction: column;
-        flex: 1;
-        min-width: 0;
+        align-items: center;
+        justify-content: center;
+        font-size: 19px;
+        line-height: 1;
+        transition: filter 0.2s ease, opacity 0.2s ease;
       }
+      #icon img { width: 26px; height: 26px; object-fit: contain; }
+      #icon .letter {
+        width: 26px;
+        height: 26px;
+        border-radius: 7px;
+        background: #4f46e5;
+        color: #fff;
+        font-size: 13px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #more {
+        position: absolute;
+        right: -4px;
+        bottom: -2px;
+        min-width: 20px;
+        padding: 0 4px;
+        border-radius: 9999px;
+        background: #334155;
+        border: 1.5px solid #0f172a;
+        color: #cbd5e1;
+        font-size: 9px;
+        font-weight: 700;
+        line-height: 14px;
+        text-align: center;
+      }
+      #more:empty { display: none; }
+
+      #text { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 2px; }
       #knob-label {
         color: #818cf8;
+        font-size: 10px;
         font-weight: 700;
-        font-size: 13px;
-        line-height: 1.2;
-      }
-      #app-label {
-        color: #64748b;
-        font-size: 11px;
-        margin-top: 3px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
       }
-      #pct {
-        color: #e2e8f0;
-        font-weight: 700;
-        font-size: 20px;
-        flex-shrink: 0;
-        letter-spacing: -0.5px;
+      #app-label {
+        color: #f1f5f9;
+        font-size: 14px;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
+
+      #pct {
+        color: #f8fafc;
+        font-size: 26px;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+        font-variant-numeric: tabular-nums;
+        flex-shrink: 0;
+        transition: color 0.2s ease;
+      }
+      #pct small { font-size: 14px; font-weight: 600; color: #94a3b8; margin-left: 1px; }
+
+      /* At 0% the knob is effectively muted */
+      #card.silent #icon { filter: grayscale(1); opacity: 0.45; }
+      #card.silent #pct { color: #64748b; }
     </style>
   </head>
   <body>
     <div id="card">
-      <svg viewBox="0 0 32 32" width="44" height="44" style="flex-shrink:0">
-        <!-- Background track: 270° arc from 7 o'clock to 5 o'clock -->
-        <path
-          d="M 8.22 23.78 A 11 11 0 1 1 23.78 23.78"
-          fill="none" stroke="#334155" stroke-width="3" stroke-linecap="round"
-        />
-        <!-- Value arc -->
-        <path
-          id="val-arc" d=""
-          fill="none" stroke="#818cf8" stroke-width="3" stroke-linecap="round"
-        />
-      </svg>
+      <div id="gauge">
+        <svg viewBox="0 0 56 56" width="56" height="56">
+          <defs>
+            <linearGradient id="arc-gradient" x1="0" y1="1" x2="1" y2="0">
+              <stop offset="0" stop-color="#818cf8" />
+              <stop offset="1" stop-color="#c084fc" />
+            </linearGradient>
+          </defs>
+          <!-- Track: 270° from 7 o'clock round to 5 o'clock -->
+          <path id="track" fill="none" stroke="#2b3a52" stroke-width="5" stroke-linecap="round" />
+          <path id="val-arc" fill="none" stroke="url(#arc-gradient)" stroke-width="5" stroke-linecap="round" />
+        </svg>
+        <div id="icon"></div>
+        <div id="more"></div>
+      </div>
       <div id="text">
         <span id="knob-label">Knob 1</span>
         <span id="app-label"></span>
       </div>
-      <span id="pct">0%</span>
+      <span id="pct">0<small>%</small></span>
     </div>
 
     <script>
-      function getArcPath(value) {
+      const C = 28;
+      const R = 23;
+      const START = 225; // degrees clockwise from 12 o'clock
+      const SWEEP = 270;
+
+      function arcPath(value) {
         if (value <= 0) return '';
-        const cx = 16, cy = 16, r = 11;
         const toRad = (d) => (d * Math.PI) / 180;
-        const startAngle = 225;
-        const sweep = 270 * (value / 100);
-        const endAngle = startAngle + sweep;
-        const sx = cx + r * Math.sin(toRad(startAngle));
-        const sy = cy - r * Math.cos(toRad(startAngle));
-        const ex = cx + r * Math.sin(toRad(endAngle));
-        const ey = cy - r * Math.cos(toRad(endAngle));
-        return `M ${sx.toFixed(2)} ${sy.toFixed(2)} A ${r} ${r} 0 ${sweep > 180 ? 1 : 0} 1 ${ex.toFixed(2)} ${ey.toFixed(2)}`;
+        const sweep = SWEEP * Math.min(value, 100) / 100;
+        const end = START + sweep;
+        const sx = C + R * Math.sin(toRad(START));
+        const sy = C - R * Math.cos(toRad(START));
+        const ex = C + R * Math.sin(toRad(end));
+        const ey = C - R * Math.cos(toRad(end));
+        return `M ${sx.toFixed(2)} ${sy.toFixed(2)} A ${R} ${R} 0 ${sweep > 180 ? 1 : 0} 1 ${ex.toFixed(2)} ${ey.toFixed(2)}`;
       }
 
       const card = document.getElementById('card');
+      const arc = document.getElementById('val-arc');
+      const pct = document.getElementById('pct');
+      const iconEl = document.getElementById('icon');
+      const moreEl = document.getElementById('more');
+      document.getElementById('track').setAttribute('d', arcPath(100));
 
-      window.notif.onShow(({ index, value, label, knobName }) => {
-        document.getElementById('val-arc').setAttribute('d', getArcPath(value));
+      // Arc and number count to each new value rather than jumping.
+      let shown = 0;
+      let target = 0;
+      let frame = null;
+      function draw(value) {
+        arc.setAttribute('d', arcPath(value));
+        pct.innerHTML = `${Math.round(value)}<small>%</small>`;
+      }
+      let settleTimer = null;
+      function animateTo(value) {
+        target = value;
+        // Safety net: if animation frames ever stall, land on the value anyway.
+        clearTimeout(settleTimer);
+        settleTimer = setTimeout(() => {
+          if (shown !== target) {
+            cancelAnimationFrame(frame);
+            frame = null;
+            shown = target;
+            draw(target);
+          }
+        }, 400);
+        if (frame) return;
+        const tick = () => {
+          const diff = target - shown;
+          shown = Math.abs(diff) < 0.5 ? target : shown + diff * 0.35;
+          draw(shown);
+          frame = shown === target ? null : requestAnimationFrame(tick);
+        };
+        frame = requestAnimationFrame(tick);
+      }
+
+      const KIND_ICONS = { master: '🔊', mic: '🎙️', voicemeeter: '🎚️' };
+      function renderIcon(targets) {
+        iconEl.textContent = '';
+        const first = targets[0];
+        if (!first) {
+          iconEl.textContent = '🔈';
+        } else if (first.icon && first.icon.startsWith('data:')) {
+          const img = document.createElement('img');
+          img.src = first.icon;
+          iconEl.appendChild(img);
+        } else if (first.icon || KIND_ICONS[first.kind]) {
+          iconEl.textContent = first.icon || KIND_ICONS[first.kind];
+        } else {
+          const letter = document.createElement('div');
+          letter.className = 'letter';
+          letter.textContent = (first.name || '?').charAt(0).toUpperCase();
+          iconEl.appendChild(letter);
+        }
+        moreEl.textContent = targets.length > 1 ? `+${targets.length - 1}` : '';
+      }
+
+      window.notif.onShow(({ index, value, label, knobName, targets }) => {
+        const wasVisible = card.classList.contains('visible');
         document.getElementById('knob-label').textContent = knobName || `Knob ${index}`;
-        document.getElementById('app-label').textContent = label || '';
-        document.getElementById('pct').textContent = `${value}%`;
+        document.getElementById('app-label').textContent = label || 'Nothing mapped';
+        renderIcon(Array.isArray(targets) ? targets : []);
+        card.classList.toggle('silent', value <= 0);
+        if (!wasVisible) {
+          // Fresh popup: start from the value itself, no count-up from 0
+          shown = value;
+          target = value;
+          draw(value);
+        } else {
+          animateTo(value);
+        }
         card.classList.add('visible');
       });
 

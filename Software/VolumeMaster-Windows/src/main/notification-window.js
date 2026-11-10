@@ -1,6 +1,13 @@
 const path = require('path');
 const { BrowserWindow, screen } = require('electron');
 const { loadConfig } = require('./config-store');
+const { getAppIcon } = require('./icon-service');
+
+// The window is larger than the visible card (notification.html insets it 12px)
+// so the card's shadow has room instead of being clipped at the window edge.
+const WIN_WIDTH = 344;
+const WIN_HEIGHT = 108;
+const MARGIN = 6; // from the work area's corner, on top of the 12px inset
 
 // Per-knob session: { anchor, active, activityTimer }
 // anchor = resting value used for threshold comparison
@@ -25,16 +32,8 @@ function getOrCreateWindow(cb) {
     return;
   }
 
-  const { workArea } = screen.getPrimaryDisplay();
-  const winWidth = 288;
-  const winHeight = 80;
-  const margin = 16;
-
   notifWin = new BrowserWindow({
-    width: winWidth,
-    height: winHeight,
-    x: workArea.x + workArea.width - winWidth - margin,
-    y: workArea.y + workArea.height - winHeight - margin,
+    ...cornerBounds(),
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -47,6 +46,9 @@ function getOrCreateWindow(cb) {
       preload: path.join(__dirname, '..', 'preload-notification.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      // The popup never has focus; don't let Chromium pause its animation frames
+      // (the value's count-up) as if it were a background window.
+      backgroundThrottling: false,
     },
   });
 
@@ -57,7 +59,54 @@ function getOrCreateWindow(cb) {
   notifWin.webContents.once('did-finish-load', () => cb(notifWin));
 }
 
+/** Bottom-right of the main display, worked out per show so resolution or main-display changes are followed. */
+function cornerBounds() {
+  const { workArea } = screen.getPrimaryDisplay();
+  return {
+    x: workArea.x + workArea.width - WIN_WIDTH - MARGIN,
+    y: workArea.y + workArea.height - WIN_HEIGHT - MARGIN,
+    width: WIN_WIDTH,
+    height: WIN_HEIGHT,
+  };
+}
+
 const CATEGORY_ICONS = { Games: '🎮', Browser: '🌐', Chat: '💬', Media: '🎵', Focused: '🎯' };
+
+// exe name -> Promise<data URL | null>. The promise is cached, not the result,
+// so a burst of knob events shares one lookup instead of starting several.
+const iconMemo = new Map();
+function iconFor(exeName) {
+  if (!iconMemo.has(exeName)) {
+    // No icon: the popup shows the app's first letter instead
+    iconMemo.set(exeName, getAppIcon(exeName).catch(() => null));
+  }
+  return iconMemo.get(exeName);
+}
+
+// Popups are shown after an async icon lookup; only the newest may reach the
+// screen, or a slow first lookup could land after (and overwrite) later values.
+let showSeq = 0;
+
+/**
+ * What the knob controls, for the popup's icon: [{ kind, name, icon? }].
+ * Only the first target's icon is shown (plus a "+N"), so only it gets looked up.
+ */
+async function getTargets(config, index) {
+  const mapping = config.Mappings?.[index] ?? config.Mappings?.[String(index)];
+  if (!mapping) return [];
+  const targets = [];
+  for (const name of mapping.ProcessNames || []) {
+    if (name === 'master') targets.push({ kind: 'master', name: 'Master Volume' });
+    else targets.push({ kind: 'app', name: name.replace(/\.exe$/i, ''), exe: name });
+  }
+  for (const name of mapping.MicNames || []) targets.push({ kind: 'mic', name });
+  for (const catId of mapping.Categories || []) {
+    targets.push({ kind: 'category', name: catId, icon: CATEGORY_ICONS[catId] ?? '📦' });
+  }
+  const first = targets[0];
+  if (first?.kind === 'app') first.icon = await iconFor(first.exe);
+  return targets.map(({ exe, ...t }) => t);
+}
 
 function getKnobName(config, index) {
   const mapping = config.Mappings?.[index] ?? config.Mappings?.[String(index)];
@@ -73,10 +122,8 @@ function getLabel(config, index) {
     ...(mapping.MicNames || []),
   ].map((n) => (n === 'master' ? 'Master Volume' : n.replace(/\.exe$/i, '')));
 
-  for (const catId of (mapping.Categories || [])) {
-    const icon = CATEGORY_ICONS[catId] ?? '📦';
-    names.push(`${icon} ${catId}`);
-  }
+  // Plain names: the popup's icon already shows the first target's emoji / app icon
+  names.push(...(mapping.Categories || []));
 
   if (names.length === 0) return null;
   const joined = names.join(', ');
@@ -122,11 +169,13 @@ function handleVolumeChange(deviceId, deviceDir, index, value) {
   const label = getLabel(config, index);
   const knobName = getKnobName(config, index);
 
-  getOrCreateWindow((win) => {
+  const seq = ++showSeq;
+  getTargets(config, index).then((targets) => seq === showSeq && getOrCreateWindow((win) => {
     // Cancel any pending hide so a re-show isn't immediately undone
     if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
 
-    win.webContents.send('show-notification', { index, value, label, knobName });
+    if (!win.isVisible()) win.setBounds(cornerBounds());
+    win.webContents.send('show-notification', { index, value, label, knobName, targets });
     win.showInactive();
 
     // Extend dismiss window while knob is actively moving
@@ -141,7 +190,7 @@ function handleVolumeChange(deviceId, deviceDir, index, value) {
         }, 220);
       }
     }, 2200);
-  });
+  }));
 }
 
 module.exports = { handleVolumeChange };
