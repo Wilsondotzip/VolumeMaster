@@ -7,6 +7,8 @@ import {
   getBuiltinTypeMeta,
   describeBuiltinAction,
   isBuiltinTurnCompatible,
+  defaultBuiltinParams,
+  MEDIA_COMMANDS,
 } from './builtin-actions.js';
 
 const ENCODER_MODE_DEFAULT = 'absolute';
@@ -567,6 +569,13 @@ function buildBuiltinActionFields(entry, fields) {
       modeSelect.value === 'specific'
         ? { mode: 'specific', name: presetSelect.value }
         : { mode: modeSelect.value };
+  } else if (entry.type === 'media_control') {
+    const commandSelect = createSelectField(wrapper, 'Control', MEDIA_COMMANDS, entry.params.command || 'play_pause');
+    const hint = document.createElement('p');
+    hint.className = 'text-xs text-slate-500 mt-1';
+    hint.textContent = 'Works like the media keys on a keyboard: it controls whichever app is playing.';
+    wrapper.appendChild(hint);
+    getValue = () => ({ command: commandSelect.value });
   } else if (entry.type === 'encoder_mode') {
     const knobIds = Object.keys(state.config.Mappings || {}).sort((a, b) => Number(a) - Number(b));
     const knobSelect = createSelectField(wrapper, 'Knob', [
@@ -785,7 +794,7 @@ export async function handleButtonActionDrop(event, knobId) {
     // flip it on then immediately back off on every press. Keyboard shortcuts
     // and Open Program each carry their own params, so duplicates are fine there.
     if (type === 'mute' && list.some((e) => e.kind === 'builtin' && e.type === 'mute')) return;
-    entry = { kind: 'builtin', type, id: crypto.randomUUID(), params: {} };
+    entry = { kind: 'builtin', type, id: crypto.randomUUID(), params: defaultBuiltinParams(type, 'press') };
   } else {
     return;
   }
@@ -952,7 +961,7 @@ export async function handleTurnActionDrop(event, knobId, direction) {
   // would just flip itself back off on every tick.
   if (type === 'mute' && list.some((e) => e.type === 'mute')) return;
 
-  const entry = { kind: 'builtin', type, id: crypto.randomUUID(), params: {} };
+  const entry = { kind: 'builtin', type, id: crypto.randomUUID(), params: defaultBuiltinParams(type, direction) };
   list.push(entry);
   mapping[turnActionsKey(direction)] = list;
 

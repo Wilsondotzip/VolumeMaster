@@ -9,7 +9,7 @@
     "start": "electron .",
     "build:css": "tailwindcss -i src/tailwind.css -o src/output.css",
     "prebuild": "npm run build:css && .venv\\Scripts\\python -m PyInstaller --onefile --noconsole --name VolumeMaster-Headless src/backend/main.pyw --distpath . && .venv\\Scripts\\python -m PyInstaller --onefile --noconsole --name VolumeMaster-Pro-Headless src/backend/main_pro.pyw --distpath .",
-    "test": ".venv\\Scripts\\python -m PyInstaller --onefile --noconsole --name VolumeMaster-Headless src/backend/main.pyw --distpath . && .venv\\Scripts\\python -m PyInstaller --onefile --noconsole --name VolumeMaster-Pro-Headless src/backend/main_pro.pyw --distpath . && move VolumeMaster-Headless.exe node_modules/electron/dist/resources/VolumeMaster-Headless.exe && move VolumeMaster-Pro-Headless.exe node_modules/electron/dist/resources/VolumeMaster-Pro-Headless.exe && electron .",
+    "test": ".venv\\Scripts\\python -m PyInstaller --onefile --noconsole --name VolumeMaster-Headless src/backend/main.pyw --distpath . && .venv\\Scripts\\python -m PyInstaller --onefile --noconsole --name VolumeMaster-Pro-Headless src/backend/main_pro.pyw --distpath . && electron .",
     "build": "electron-builder",
     "dist": "electron-builder",
     "prebuild:mac": "cd src/backend/macos && swift build -c release",

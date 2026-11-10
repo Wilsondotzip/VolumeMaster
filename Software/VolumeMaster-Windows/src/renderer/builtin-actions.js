@@ -13,6 +13,7 @@ export const BUILTIN_ACTION_TYPES = [
   { type: 'keyboard_shortcut', label: 'Keyboard Shortcut', icon: '⌨️', description: 'Send a key combination', configurable: true },
   { type: 'mute', label: 'Mute', icon: '🔇', description: "Mute this knob's targets", configurable: false },
   { type: 'open_program', label: 'Open Program', icon: '📂', description: 'Launch an app or file', configurable: true },
+  { type: 'media_control', label: 'Media Controls', icon: '⏯️', description: 'Play/pause, next, previous', configurable: true },
   { type: 'switch_preset', label: 'Switch Preset', icon: '🗂️', description: 'Next, previous or chosen', configurable: true, buttonOnly: true },
   { type: 'encoder_mode', label: 'Knob Mode', icon: '🔄', description: 'Absolute or increment', configurable: true, buttonOnly: true },
   { type: 'switch_output', label: 'Switch Output', icon: '🔈', description: 'Change audio output', configurable: true, buttonOnly: true },
@@ -20,6 +21,27 @@ export const BUILTIN_ACTION_TYPES = [
 
 const PRESET_MODE_LABELS = { next: 'Next preset', previous: 'Previous preset', selector: 'Choose with knob' };
 const ENCODER_MODE_LABELS = { toggle: 'Toggle', absolute: 'Set Absolute', increment: 'Set Increment' };
+
+// Sent as Windows media keys, so they control whatever app Windows routes media
+// keys to (Spotify, a browser tab, ...). The keys only toggle play/pause, so
+// there's no separate Play and Pause.
+export const MEDIA_COMMANDS = [
+  ['play_pause', 'Play / Pause'],
+  ['next', 'Next track'],
+  ['previous', 'Previous track'],
+  ['stop', 'Stop'],
+];
+
+/**
+ * Starting params for a built-in action dropped into a zone ('press' | 'left' | 'right').
+ * Media controls start on the obvious command for where they land.
+ */
+export function defaultBuiltinParams(type, zone) {
+  if (type === 'media_control') {
+    return { command: zone === 'left' ? 'previous' : zone === 'right' ? 'next' : 'play_pause' };
+  }
+  return {};
+}
 
 export function getBuiltinTypeMeta(type) {
   return BUILTIN_ACTION_TYPES.find((t) => t.type === type) || null;
@@ -51,6 +73,10 @@ export function describeBuiltinAction(entry) {
     return path ? path.split(/[\\/]/).pop() : 'Click to choose program';
   }
   if (entry.type === 'mute') return "Mutes this knob's targets";
+  if (entry.type === 'media_control') {
+    const command = MEDIA_COMMANDS.find(([value]) => value === entry.params?.command) || MEDIA_COMMANDS[0];
+    return command[1];
+  }
   if (entry.type === 'switch_preset') {
     const mode = entry.params?.mode || 'next';
     if (mode === 'specific') return entry.params?.name ? `Load "${entry.params.name}"` : 'Click to choose preset';

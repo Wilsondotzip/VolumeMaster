@@ -151,7 +151,13 @@ const BACKEND_EXE_PRO = 'VolumeMaster-Pro-Headless.exe';
  */
 function getBackendBinaryPath(deviceModel) {
   const exeName = deviceModel === 'volumemaster_pro' ? BACKEND_EXE_PRO : BACKEND_EXE_STANDARD;
-  return path.join(process.resourcesPath, exeName);
+  // Packaged builds ship it in resources/. In development (`npm start`) use the
+  // one PyInstaller writes to the project root (see the prebuild script), not
+  // Electron's own resources folder, which only holds whatever copy was last
+  // moved there by hand and so is easily stale.
+  const { app } = require('electron');
+  const dir = app.isPackaged ? process.resourcesPath : path.join(__dirname, '..', '..', '..');
+  return path.join(dir, exeName);
 }
 
 /**

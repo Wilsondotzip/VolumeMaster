@@ -27,6 +27,26 @@ def send_keyboard_shortcut(keys):
         print(f"Failed to send keyboard shortcut '{keys}': {e}")
 
 
+# Windows media keys, by the names the `keyboard` package uses for them.
+MEDIA_KEYS = {
+    'play_pause': 'play/pause media',
+    'next': 'next track',
+    'previous': 'previous track',
+    'stop': 'stop media',
+}
+
+
+def send_media_key(command):
+    key = MEDIA_KEYS.get(command or 'play_pause')
+    if not key:
+        print(f"Unknown media command '{command}'")
+        return
+    try:
+        keyboard.send(key)
+    except Exception as e:
+        print(f"Failed to send media key '{key}': {e}")
+
+
 def launch_program(path):
     if not path:
         return
@@ -74,6 +94,8 @@ class ActionRunner:
                     send_keyboard_shortcut(params.get('keys', ''))
                 elif action_type == 'open_program':
                     launch_program(params.get('path', ''))
+                elif action_type == 'media_control':
+                    send_media_key(params.get('command'))
                 elif action_type == 'switch_output':
                     self._switch_output(index, entry.get('id'), params)
             except Exception as e:
