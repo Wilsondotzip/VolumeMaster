@@ -3,12 +3,22 @@
 const { WebSocketServer } = require('ws');
 const { BrowserWindow } = require('electron');
 const { getPluginConfig, savePluginRegistration } = require('./plugin-config-store');
+const { loadConfig, onConfigSaved } = require('./config-store');
 
 const PLUGIN_PORT = 59284;
 const appVersion = require('../../package.json').version;
 
 // Map<ws, { pluginId, name, actions: [{id, label}] }>
 const clients = new Map();
+
+// Last value seen per knob, so a plugin can be told the current level when it
+// registers or one of its actions is assigned, instead of waiting for the knob
+// to move. Map<deviceId, { deviceDir, values: Map<index, value> }>
+const lastKnobValues = new Map();
+
+// PluginActions per knob as of the last config save, to spot new assignments.
+// Map<deviceId, Map<index, Set<actionKey>>>
+const knownAssignments = new Map();
 let wss = null;
 let serverStatus = { running: false, error: null };
 
@@ -34,6 +44,58 @@ function safeSend(socket, data) {
     console.error('[plugin-server] send error:', err.message);
   }
 }
+
+function splitActionKey(actionKey) {
+  const colonIdx = actionKey.indexOf(':');
+  if (colonIdx === -1) return null;
+  return { pluginId: actionKey.slice(0, colonIdx), actionId: actionKey.slice(colonIdx + 1) };
+}
+
+function knobPluginActions(config, index) {
+  const keys = config?.Mappings?.[String(index)]?.PluginActions;
+  return Array.isArray(keys) ? keys.filter((k) => typeof k === 'string') : [];
+}
+
+function sendCurrentValues(socket, record) {
+  for (const [deviceId, { deviceDir, values }] of lastKnobValues) {
+    let config;
+    try {
+      config = loadConfig(deviceDir);
+    } catch {
+      continue;
+    }
+    for (const [index, value] of values) {
+      for (const key of knobPluginActions(config, index)) {
+        const parts = splitActionKey(key);
+        if (parts?.pluginId === record.pluginId) {
+          safeSend(socket, { type: 'knob', deviceId, index, value, actionId: parts.actionId, sync: true });
+        }
+      }
+    }
+  }
+}
+
+// A newly assigned plugin action gets the knob's current value straight away.
+onConfigSaved((deviceDir, config) => {
+  for (const [deviceId, entry] of lastKnobValues) {
+    if (entry.deviceDir !== deviceDir) continue;
+
+    const previous = knownAssignments.get(deviceId) || new Map();
+    const current = new Map();
+    for (const index of Object.keys(config?.Mappings || {})) {
+      current.set(Number(index), new Set(knobPluginActions(config, index)));
+    }
+    knownAssignments.set(deviceId, current);
+
+    for (const [index, keys] of current) {
+      if (!entry.values.has(index)) continue;
+      const added = [...keys].filter((k) => !previous.get(index)?.has(k));
+      sendToPluginActions(added, (actionId) => ({
+        type: 'knob', deviceId, index, value: entry.values.get(index), actionId, sync: true,
+      }));
+    }
+  }
+});
 
 function handleRegister(socket, msg) {
   const { pluginId, name, actions, config: configSchema } = msg;
@@ -77,6 +139,7 @@ function handleRegister(socket, msg) {
     safeSend(socket, { type: 'config', values: values || {} });
   }
 
+  sendCurrentValues(socket, record);
   broadcastPluginUpdate();
 }
 
@@ -160,22 +223,30 @@ function sendToPluginActions(actionKeys, buildMessage) {
   if (!clients.size || !Array.isArray(actionKeys) || actionKeys.length === 0) return;
 
   for (const actionKey of actionKeys) {
-    const colonIdx = actionKey.indexOf(':');
-    if (colonIdx === -1) continue;
-    const pluginId = actionKey.slice(0, colonIdx);
-    const actionId = actionKey.slice(colonIdx + 1);
+    const parts = splitActionKey(actionKey);
+    if (!parts) continue;
 
     for (const [socket, record] of clients) {
-      if (record.pluginId === pluginId) {
-        safeSend(socket, buildMessage(actionId));
+      if (record.pluginId === parts.pluginId) {
+        safeSend(socket, buildMessage(parts.actionId));
       }
     }
   }
 }
 
-function dispatchKnobEvent(deviceId, index, value, config) {
-  const pluginActions = config?.Mappings?.[String(index)]?.PluginActions;
-  sendToPluginActions(pluginActions, (actionId) => ({ type: 'knob', deviceId, index, value, actionId }));
+function dispatchKnobEvent(deviceId, deviceDir, index, value, config) {
+  if (!lastKnobValues.has(deviceId)) {
+    lastKnobValues.set(deviceId, { deviceDir, values: new Map() });
+    // Baseline, so the first config save only syncs actions assigned after it.
+    const assignments = new Map();
+    for (const i of Object.keys(config?.Mappings || {})) {
+      assignments.set(Number(i), new Set(knobPluginActions(config, i)));
+    }
+    knownAssignments.set(deviceId, assignments);
+  }
+  lastKnobValues.get(deviceId).values.set(index, value);
+
+  sendToPluginActions(knobPluginActions(config, index), (actionId) => ({ type: 'knob', deviceId, index, value, actionId }));
 }
 
 function buttonPluginKeys(config, index) {
@@ -221,14 +292,12 @@ function sendConfigToPlugin(pluginId, values) {
 
 function getPluginLabel(actionKey) {
   if (!actionKey || typeof actionKey !== 'string') return actionKey;
-  const colonIdx = actionKey.indexOf(':');
-  if (colonIdx === -1) return actionKey;
-  const pluginId = actionKey.slice(0, colonIdx);
-  const actionId = actionKey.slice(colonIdx + 1);
+  const parts = splitActionKey(actionKey);
+  if (!parts) return actionKey;
 
   for (const record of clients.values()) {
-    if (record.pluginId === pluginId) {
-      const action = record.actions.find((a) => a.id === actionId);
+    if (record.pluginId === parts.pluginId) {
+      const action = record.actions.find((a) => a.id === parts.actionId);
       if (action) return action.label;
     }
   }

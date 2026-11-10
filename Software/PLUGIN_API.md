@@ -107,8 +107,11 @@ Sent whenever a knob moves **and** your plugin has an action assigned to that kn
 | `value`    | Knob position, `0`–`100`.                                                           |
 | `actionId` | The `id` of whichever action the user assigned to this knob.                        |
 | `deviceId` | Which VolumeMaster device sent the event (useful if the user has multiple devices). |
+| `sync`     | Present (`true`) when this isn't a movement but the knob's current value, sent so you can match it — see below. |
 
 > You only receive events for knobs that have one of your actions assigned. If no knob has your action assigned, you receive nothing.
+
+**Current values.** Right after you register, you're sent a `knob` event with `"sync": true` for each knob that has one of your actions assigned, so you can start in step with the knob instead of waiting for it to move. The same happens when the user assigns one of your actions to a knob. Only knobs that have reported a position since VolumeMaster started are included.
 
 #### `knob-button`
 

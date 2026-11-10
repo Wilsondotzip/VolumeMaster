@@ -146,7 +146,7 @@ function startBackend(deviceId, deviceDir) {
           const win = deviceManager.getWindowForDevice(deviceId);
           if (win) win.webContents.send('volume-update', { index, value });
           handleVolumeChange(deviceId, deviceDir, index, value);
-          dispatchKnobEvent(deviceId, index, value, loadConfig(deviceDir));
+          dispatchKnobEvent(deviceId, deviceDir, index, value, loadConfig(deviceDir));
         }
       } else if (trimmed.startsWith('BUTTON_UP:')) {
         const parts = trimmed.split(':');

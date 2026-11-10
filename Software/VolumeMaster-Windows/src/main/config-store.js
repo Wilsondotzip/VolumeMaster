@@ -80,11 +80,25 @@ function loadConfig(deviceDir) {
   return config;
 }
 
+// Called with (deviceDir, config) after every save
+const saveListeners = [];
+
+function onConfigSaved(fn) {
+  saveListeners.push(fn);
+}
+
 function saveConfig(deviceDir, data) {
   if (!data || typeof data !== 'object') return;
   detachMappingArrays(data);
   configCaches.set(deviceDir, data);
   fs.writeFileSync(configFilePath(deviceDir), yaml.stringify(data, STRINGIFY_OPTIONS), 'utf8');
+  for (const fn of saveListeners) {
+    try {
+      fn(deviceDir, data);
+    } catch (err) {
+      console.error('[config-store] save listener error:', err.message);
+    }
+  }
 }
 
 function cloneConfigSnapshot(cfg) {
@@ -99,6 +113,7 @@ function cloneConfigSnapshot(cfg) {
 module.exports = {
   loadConfig,
   saveConfig,
+  onConfigSaved,
   cloneConfigSnapshot,
   DEFAULT_CONFIG_PATH,
 };
