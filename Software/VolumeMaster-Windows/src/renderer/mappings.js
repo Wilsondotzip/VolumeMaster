@@ -17,10 +17,9 @@ import {
   isProDevice,
   getEncoderMode,
   createKnobConfigButton,
-  createButtonActionSection,
+  createKnobActionSection,
   isButtonActionHost,
   handleButtonActionDrop,
-  createTurnActionSection,
   getTurnActionHostDirection,
   handleTurnActionDrop,
 } from './knob-config.js';
@@ -283,10 +282,7 @@ function createKnobSection(knobId) {
 
   section.appendChild(cardHost);
   if (isProDevice()) {
-    section.appendChild(createButtonActionSection(knobId));
-    if (getEncoderMode(knobId) === 'increment') {
-      section.appendChild(createTurnActionSection(knobId));
-    }
+    section.appendChild(createKnobActionSection(knobId, { turn: getEncoderMode(knobId) === 'increment' }));
   }
   return section;
 }

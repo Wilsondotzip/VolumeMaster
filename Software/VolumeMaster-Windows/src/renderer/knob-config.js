@@ -12,12 +12,22 @@ import {
 const ENCODER_MODE_DEFAULT = 'absolute';
 const ENCODER_MODE_OPTIONS = [['absolute', 'Absolute'], ['increment', 'Increment']];
 
+// Volume change per encoder click in Absolute mode. Same range the backend clamps to.
+const ENCODER_STEP_DEFAULT = 2;
+const ENCODER_STEP_MIN = 1;
+const ENCODER_STEP_MAX = 25;
+
 export function isProDevice() {
   return state.config.deviceModel === 'volumemaster_pro';
 }
 
 export function getEncoderMode(knobId) {
   return state.config.Mappings[knobId]?.EncoderMode || ENCODER_MODE_DEFAULT;
+}
+
+export function getEncoderStep(knobId) {
+  const step = Number(state.config.Mappings[knobId]?.EncoderStep);
+  return Number.isInteger(step) && step >= ENCODER_STEP_MIN && step <= ENCODER_STEP_MAX ? step : ENCODER_STEP_DEFAULT;
 }
 
 export function createKnobConfigButton(knobId) {
@@ -64,11 +74,55 @@ function openKnobConfigModal(knobId) {
   wrapper.append(label, select);
   fields.appendChild(wrapper);
 
+  // Volume per click: only meaningful in Absolute mode (Increment runs the
+  // knob's turn actions instead of changing volume), so it hides otherwise.
+  const stepWrapper = document.createElement('div');
+  stepWrapper.className = 'flex flex-col gap-1';
+
+  // Label on the left, live value on the right, slider underneath.
+  const stepHeader = document.createElement('div');
+  stepHeader.className = 'flex items-baseline justify-between';
+  const stepLabel = document.createElement('label');
+  stepLabel.className = 'text-xs text-gray-400';
+  stepLabel.textContent = 'Volume per click';
+  stepLabel.htmlFor = 'knobConfigEncoderStep';
+  const stepValue = document.createElement('span');
+  stepValue.className = 'text-sm font-semibold text-indigo-300 tabular-nums';
+  stepHeader.append(stepLabel, stepValue);
+
+  const stepSlider = document.createElement('input');
+  stepSlider.type = 'range';
+  stepSlider.id = 'knobConfigEncoderStep';
+  stepSlider.min = String(ENCODER_STEP_MIN);
+  stepSlider.max = String(ENCODER_STEP_MAX);
+  stepSlider.step = '1';
+  stepSlider.value = String(getEncoderStep(knobId));
+  stepSlider.className = 'range-slider w-full my-1.5'; // styled in tailwind.css
+  const showStep = () => {
+    stepValue.textContent = `${stepSlider.value}%`;
+    const fill = (stepSlider.value - ENCODER_STEP_MIN) / (ENCODER_STEP_MAX - ENCODER_STEP_MIN);
+    stepSlider.style.setProperty('--fill', `${fill * 100}%`);
+  };
+  stepSlider.oninput = showStep;
+  showStep();
+
+  const stepHint = document.createElement('p');
+  stepHint.className = 'text-xs text-slate-500';
+  stepHint.textContent = `How much the volume changes for each click of the knob. Default ${ENCODER_STEP_DEFAULT}%.`;
+
+  stepWrapper.append(stepHeader, stepSlider, stepHint);
+  fields.appendChild(stepWrapper);
+
+  const syncStepVisibility = () => stepWrapper.classList.toggle('hidden', select.value !== 'absolute');
+  select.onchange = syncStepVisibility;
+  syncStepVisibility();
+
   document.getElementById('knobConfigSaveBtn').onclick = async () => {
     const mapping = state.config.Mappings[knobId];
     if (mapping) {
       const modeChanged = select.value !== getEncoderMode(knobId);
       mapping.EncoderMode = select.value;
+      mapping.EncoderStep = Number(stepSlider.value);
       await saveConfigAndSync();
       window._autoSaveActivePreset?.();
       // Turn Action sections only render in increment mode — re-render this
@@ -128,6 +182,37 @@ async function removeButtonAction(knobId, entry, card, host) {
   refreshButtonActionEmptyState(host);
 }
 
+// Compact action chips for the Press / Left / Right rows on a Pro knob card.
+// The drop zone is rounded-lg (8px) with 1px border + 4px padding, so chips
+// are 8 - 5 = 3px; the chip's icon sits 7px in and stays below that (2px).
+const ACTION_ZONE_CLASS =
+  'flex-1 min-w-0 flex flex-col gap-1 min-h-8 rounded-lg border border-dashed border-slate-700 p-1';
+const ACTION_CHIP_CLASS =
+  'flex items-center gap-2 px-1.5 py-1 rounded-[3px] border transition overflow-hidden cursor-pointer';
+const ACTION_CHIP_ICON_CLASS = 'w-6 h-6 rounded-[2px] flex items-center justify-center text-sm shrink-0';
+const ACTION_CHIP_LABEL_CLASS = 'text-xs font-semibold leading-tight truncate';
+const ACTION_CHIP_SUB_CLASS = 'text-[10px] text-slate-500 leading-tight truncate';
+
+function createActionEmptyMessage(attr, text) {
+  const msg = document.createElement('p');
+  msg.setAttribute(attr, '');
+  msg.className = 'text-[11px] text-slate-500 italic px-1.5 leading-[22px]';
+  msg.textContent = text;
+  return msg;
+}
+
+/** "Press  [drop zone]" — a fixed-width label beside the zone it describes. */
+function createActionRow(label, zone, title) {
+  const row = document.createElement('div');
+  row.className = 'flex items-start gap-2';
+  const labelEl = document.createElement('div');
+  labelEl.className = 'w-10 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-slate-500 leading-8';
+  labelEl.textContent = label;
+  labelEl.title = title;
+  row.append(labelEl, zone);
+  return row;
+}
+
 function createRemoveBadge(onRemove) {
   const btn = document.createElement('button');
   btn.type = 'button';
@@ -143,12 +228,12 @@ function createRemoveBadge(onRemove) {
 
 function createPluginButtonActionCard(entry, knobId, host) {
   const card = document.createElement('div');
-  card.className =
-    'flex items-center gap-3 p-2 rounded border border-cyan-600 bg-cyan-900 bg-opacity-30 hover:bg-red-900 hover:bg-opacity-30 hover:border-red-500 cursor-pointer transition overflow-hidden';
+  card.className = `${ACTION_CHIP_CLASS} border-cyan-600 bg-cyan-900/30 hover:bg-red-900/30 hover:border-red-500`;
   card.setAttribute('data-button-action', buttonActionUid(entry));
+  card.title = 'Click to remove';
 
   const icon = document.createElement('div');
-  icon.className = 'w-8 h-8 rounded bg-cyan-700 flex items-center justify-center text-lg shrink-0';
+  icon.className = `${ACTION_CHIP_ICON_CLASS} bg-cyan-700`;
   icon.textContent = '🔌';
 
   const textCol = document.createElement('div');
@@ -162,11 +247,11 @@ function createPluginButtonActionCard(entry, knobId, host) {
 
   const labelEl = document.createElement('div');
   labelEl.textContent = action?.label ?? entry.key;
-  labelEl.className = 'text-sm font-semibold text-cyan-300';
+  labelEl.className = `${ACTION_CHIP_LABEL_CLASS} text-cyan-300`;
 
   const sub = document.createElement('div');
   sub.textContent = plugin ? plugin.name : `${pluginId} (offline)`;
-  sub.className = 'text-xs text-slate-500';
+  sub.className = ACTION_CHIP_SUB_CLASS;
 
   textCol.append(labelEl, sub);
   card.append(icon, textCol);
@@ -179,12 +264,12 @@ function createPluginButtonActionCard(entry, knobId, host) {
 function createBuiltinButtonActionCard(entry, knobId, host) {
   const meta = getBuiltinTypeMeta(entry.type);
   const card = document.createElement('div');
-  card.className =
-    'flex items-center gap-3 p-2 rounded border border-amber-600 bg-amber-900 bg-opacity-20 hover:border-amber-400 transition overflow-hidden';
+  card.className = `${ACTION_CHIP_CLASS} border-amber-600 bg-amber-900/20 hover:border-amber-400`;
   card.setAttribute('data-button-action', buttonActionUid(entry));
+  card.title = meta?.configurable ? 'Click to edit' : 'Click to remove';
 
   const icon = document.createElement('div');
-  icon.className = 'w-8 h-8 rounded bg-amber-700 flex items-center justify-center text-lg shrink-0';
+  icon.className = `${ACTION_CHIP_ICON_CLASS} bg-amber-700`;
   icon.textContent = meta?.icon ?? '⚙️';
 
   const textCol = document.createElement('div');
@@ -192,16 +277,15 @@ function createBuiltinButtonActionCard(entry, knobId, host) {
 
   const labelEl = document.createElement('div');
   labelEl.textContent = meta?.label ?? entry.type;
-  labelEl.className = 'text-sm font-semibold text-amber-300';
+  labelEl.className = `${ACTION_CHIP_LABEL_CLASS} text-amber-300`;
 
   const sub = document.createElement('div');
   sub.textContent = describeBuiltinAction(entry);
-  sub.className = 'text-xs text-slate-500 truncate';
+  sub.className = ACTION_CHIP_SUB_CLASS;
   sub.setAttribute('data-button-action-sub', '');
 
   textCol.append(labelEl, sub);
   card.append(icon, textCol);
-  card.classList.add('cursor-pointer');
 
   if (meta?.configurable) {
     card.onclick = () => openButtonActionConfigModal(knobId, entry, sub);
@@ -227,32 +311,35 @@ function refreshButtonActionEmptyState(host) {
     return;
   }
   if (existingMsg) return;
-  const msg = document.createElement('p');
-  msg.setAttribute('data-button-action-empty', '');
-  msg.className = 'text-xs text-slate-500 italic';
-  msg.textContent = 'Drag a plugin or built-in action here.';
-  host.appendChild(msg);
+  host.appendChild(createActionEmptyMessage('data-button-action-empty', 'Drop an action'));
 }
 
-export function createButtonActionSection(knobId) {
-  const wrapper = document.createElement('div');
-  wrapper.className = 'mt-3 pt-3 border-t border-slate-700 shrink-0';
-
-  const label = document.createElement('div');
-  label.className = 'text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2';
-  label.textContent = 'Button Press Action';
-  wrapper.appendChild(label);
-
+function createButtonActionZone(knobId) {
   const host = document.createElement('div');
-  host.className = 'flex flex-col gap-2 min-h-12 rounded border border-dashed border-slate-700 p-2';
+  host.className = ACTION_ZONE_CLASS;
   host.setAttribute('data-button-action-host', '');
 
   for (const entry of getButtonActions(knobId)) {
     host.appendChild(createButtonActionCard(entry, knobId, host));
   }
   refreshButtonActionEmptyState(host);
+  return host;
+}
 
-  wrapper.appendChild(host);
+/**
+ * The Pro knob's actions, one compact row each: Press always, plus Left and
+ * Right when the knob is in Increment mode (turns run actions instead of
+ * changing volume). Drops are routed by the zones' data-*-host attributes.
+ */
+export function createKnobActionSection(knobId, { turn = false } = {}) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'mt-3 pt-3 border-t border-slate-700 shrink-0 flex flex-col gap-1.5';
+
+  wrapper.appendChild(createActionRow('Press', createButtonActionZone(knobId), 'Runs when the knob is pressed'));
+  if (turn) {
+    wrapper.appendChild(createActionRow('Left', createTurnActionZone(knobId, 'left'), 'Runs on each click to the left'));
+    wrapper.appendChild(createActionRow('Right', createTurnActionZone(knobId, 'right'), 'Runs on each click to the right'));
+  }
   return wrapper;
 }
 
@@ -752,12 +839,12 @@ async function removeTurnAction(knobId, direction, entry, card, host) {
 function createTurnActionCard(entry, knobId, direction, host) {
   const meta = getBuiltinTypeMeta(entry.type);
   const card = document.createElement('div');
-  card.className =
-    'flex items-center gap-3 p-2 rounded border border-amber-600 bg-amber-900 bg-opacity-20 hover:border-amber-400 transition overflow-hidden cursor-pointer';
+  card.className = `${ACTION_CHIP_CLASS} border-amber-600 bg-amber-900/20 hover:border-amber-400`;
   card.setAttribute('data-turn-action', entry.id);
+  card.title = meta?.configurable ? 'Click to edit' : 'Click to remove';
 
   const icon = document.createElement('div');
-  icon.className = 'w-8 h-8 rounded bg-amber-700 flex items-center justify-center text-lg shrink-0';
+  icon.className = `${ACTION_CHIP_ICON_CLASS} bg-amber-700`;
   icon.textContent = meta?.icon ?? '⚙️';
 
   const textCol = document.createElement('div');
@@ -765,11 +852,11 @@ function createTurnActionCard(entry, knobId, direction, host) {
 
   const labelEl = document.createElement('div');
   labelEl.textContent = meta?.label ?? entry.type;
-  labelEl.className = 'text-sm font-semibold text-amber-300 truncate';
+  labelEl.className = `${ACTION_CHIP_LABEL_CLASS} text-amber-300`;
 
   const sub = document.createElement('div');
   sub.textContent = describeBuiltinAction(entry);
-  sub.className = 'text-xs text-slate-500 truncate';
+  sub.className = ACTION_CHIP_SUB_CLASS;
   sub.setAttribute('data-turn-action-sub', '');
 
   textCol.append(labelEl, sub);
@@ -793,51 +880,21 @@ function refreshTurnActionEmptyState(host) {
     return;
   }
   if (existingMsg) return;
-  const msg = document.createElement('p');
-  msg.setAttribute('data-turn-action-empty', '');
-  msg.className = 'text-[11px] text-slate-500 italic';
-  msg.textContent = 'Drag a built-in action here.';
-  host.appendChild(msg);
+  // Turn zones take built-in actions only (no plugin dispatch for turn ticks yet)
+  host.appendChild(createActionEmptyMessage('data-turn-action-empty', 'Drop a built-in action'));
 }
 
-function createTurnActionZone(knobId, direction, label) {
-  const wrapper = document.createElement('div');
-  wrapper.className = 'flex flex-col gap-1 flex-1 min-w-0';
-
-  const labelEl = document.createElement('div');
-  labelEl.className = 'text-[10px] font-semibold text-slate-500 uppercase tracking-wide';
-  labelEl.textContent = label;
-  wrapper.appendChild(labelEl);
-
+/** Only shown when the knob's EncoderMode is 'increment' — see createKnobActionSection. */
+function createTurnActionZone(knobId, direction) {
   const host = document.createElement('div');
-  host.className = 'flex flex-col gap-2 min-h-12 rounded border border-dashed border-slate-700 p-2';
+  host.className = ACTION_ZONE_CLASS;
   host.setAttribute('data-turn-action-host', direction);
 
   for (const entry of getTurnActions(knobId, direction)) {
     host.appendChild(createTurnActionCard(entry, knobId, direction, host));
   }
   refreshTurnActionEmptyState(host);
-
-  wrapper.appendChild(host);
-  return wrapper;
-}
-
-/** Only rendered when the knob's EncoderMode is 'increment' — see createKnobSection in mappings.js. */
-export function createTurnActionSection(knobId) {
-  const wrapper = document.createElement('div');
-  wrapper.className = 'mt-3 pt-3 border-t border-slate-700 shrink-0';
-
-  const label = document.createElement('div');
-  label.className = 'text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2';
-  label.textContent = 'Turn Action';
-  wrapper.appendChild(label);
-
-  const row = document.createElement('div');
-  row.className = 'flex gap-2';
-  row.append(createTurnActionZone(knobId, 'left', '← Left'), createTurnActionZone(knobId, 'right', 'Right →'));
-  wrapper.appendChild(row);
-
-  return wrapper;
+  return host;
 }
 
 /** Returns 'left' | 'right' if target is inside a turn-action drop zone, else null. */

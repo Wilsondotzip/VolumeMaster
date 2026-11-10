@@ -3,3 +3,28 @@
 @source "./*.html";
 @source "./renderer.js";
 @source "./**/*.js";
+
+/* Range slider matching the dark theme. Set --fill (e.g. "20%") from JS for
+   the filled part of the track; Chromium has no native styling for it. */
+.range-slider {
+  appearance: none;
+  height: 6px;
+  border-radius: 9999px;
+  background: linear-gradient(to right, var(--color-indigo-500) var(--fill, 0%), var(--color-slate-700) var(--fill, 0%));
+  outline: none;
+  cursor: pointer;
+}
+.range-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: var(--color-indigo-400);
+  border: 2px solid var(--color-slate-800);
+  box-shadow: 0 0 0 1px var(--color-indigo-500);
+  transition: transform 0.1s ease;
+}
+.range-slider:hover::-webkit-slider-thumb,
+.range-slider:focus-visible::-webkit-slider-thumb {
+  transform: scale(1.15);
+}

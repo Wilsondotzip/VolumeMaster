@@ -22,8 +22,21 @@ from . import output_devices
 from .actions import ActionRunner
 from .selector import SelectorManager
 
-ENCODER_STEP = 2  # volume change per tick, for EncoderMode 'absolute'
+# Volume change per tick in EncoderMode 'absolute': per knob from the config's
+# EncoderStep, else this default. Clamped so a hand-edited value can't make a
+# knob jump from silent to full in one click (or do nothing).
+ENCODER_STEP = 2
+ENCODER_STEP_RANGE = (1, 25)
 ENCODER_MODES = ('absolute', 'increment')
+
+
+def parse_encoder_step(value):
+    try:
+        step = int(value)
+    except (TypeError, ValueError):
+        return ENCODER_STEP
+    lo, hi = ENCODER_STEP_RANGE
+    return max(lo, min(hi, step))
 
 
 class ProBackend(Backend):
@@ -33,14 +46,17 @@ class ProBackend(Backend):
         self.selectors = SelectorManager()  # knob-driven pick-one-of-N popup
         self.actions = ActionRunner(self)
         self.encoder_modes = {}      # knob index -> 'absolute' | 'increment'
+        self.encoder_steps = {}      # knob index -> volume % per tick ('absolute')
         self.encoder_positions = {}  # knob index -> software-accumulated 0-100 volume ('absolute')
         super().__init__()
 
     def on_config_loaded(self, config):
         self.encoder_modes = {}
+        self.encoder_steps = {}
         for index, val in mapping_items(config):
             mode = val.get('EncoderMode')
             self.encoder_modes[index] = mode if mode in ENCODER_MODES else 'absolute'
+            self.encoder_steps[index] = parse_encoder_step(val.get('EncoderStep'))
         self.actions.load(config)
 
     def handle_command(self, cmd):
@@ -111,7 +127,7 @@ class ProBackend(Backend):
             self.actions.run_turn(index, 'right' if step > 0 else 'left')
         else:
             position = self.encoder_positions.get(index, 50)
-            position = max(0, min(100, position + step * ENCODER_STEP))
+            position = max(0, min(100, position + step * self.encoder_steps.get(index, ENCODER_STEP)))
             self.encoder_positions[index] = position
             self.volume_cache.append((index, position))
 
