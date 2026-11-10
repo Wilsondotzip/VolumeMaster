@@ -1,4 +1,5 @@
 import { state } from './state.js';
+import { renderPluginActionList } from './plugins.js';
 
 /** Breaks shared refs from IPC/YAML quirks; renderer must not share Mappings array instances. */
 export function cloneConfig(data) {
@@ -23,6 +24,8 @@ export function saveConfigAndSync() {
     if (next && typeof next === 'object') {
       state.config = cloneConfig(next);
     }
+    // Keeps the Plugins tab's "On Knob 2" labels in step with the mappings
+    renderPluginActionList();
   });
   // Keep the queue alive even if one save throws.
   _saveQueue = p.catch(() => {});

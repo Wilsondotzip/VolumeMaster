@@ -2,6 +2,7 @@ import { state } from './state.js';
 import { saveConfigAndSync, cloneConfig } from './config-sync.js';
 import { renderAllKnobsAndApps } from './mappings.js';
 import { showAlert } from './alerts.js';
+import { renderPluginActionList } from './plugins.js';
 
 async function refreshPresetDropdown(selectEl, selectedName = null) {
   const names = await window.api.listPresets();
@@ -107,6 +108,7 @@ export async function setupPresets() {
     state.config = cloneConfig(config);
     await refreshPresetDropdown(selectEl, config.lastPreset);
     await renderAllKnobsAndApps();
+    renderPluginActionList();
     if (loadedPreset) showAlert('success', `Preset "${loadedPreset}" loaded`);
   });
 
