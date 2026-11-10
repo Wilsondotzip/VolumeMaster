@@ -556,6 +556,9 @@
   .rounded {
     border-radius: 0.25rem;
   }
+  .rounded-\[3px\] {
+    border-radius: 3px;
+  }
   .rounded-full {
     border-radius: calc(infinity * 1px);
   }

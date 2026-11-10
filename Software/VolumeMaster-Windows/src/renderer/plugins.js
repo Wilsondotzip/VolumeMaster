@@ -130,11 +130,15 @@ function plural(n, word) {
   return `${n} ${word}${n === 1 ? '' : 's'}`;
 }
 
-/** Corner badge: how many of a plugin's or group's actions are mapped. */
+/**
+ * Corner badge: how many of a plugin's or group's actions are mapped. It sits
+ * 5px from the tile's outer edge (1px border + top-1/right-1), so its radius is
+ * the tile's 8px minus that: 3px, following the tile's corner.
+ */
 function createInUseBadge(count) {
   const badge = document.createElement('span');
   badge.className =
-    'absolute top-1 right-1 px-1.5 leading-4 rounded-full bg-cyan-700 text-white text-[10px] font-semibold';
+    'absolute top-1 right-1 px-1.5 leading-4 rounded-[3px] bg-cyan-700 text-white text-[10px] font-semibold';
   badge.textContent = String(count);
   badge.title = `${count} in use`;
   return badge;
@@ -191,7 +195,7 @@ function createPluginTile({ pluginId, name, subtitle, inUse, offline = false, on
 
   const avatar = document.createElement('div');
   avatar.className =
-    'relative w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold text-white tracking-wide shadow-md mb-0.5 transition group-hover:scale-105';
+    'relative w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold text-white tracking-wide shadow-md mb-0.5 transition group-hover:scale-105';
   avatar.style.background = offline
     ? 'linear-gradient(135deg, #64748b, #475569)'
     : `linear-gradient(135deg, hsl(${hue} 65% 52%), hsl(${(hue + 35) % 360} 60% 38%))`;
