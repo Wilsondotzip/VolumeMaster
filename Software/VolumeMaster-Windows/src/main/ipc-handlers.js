@@ -15,6 +15,7 @@ const deviceManager = require('./device-manager');
 const { getConnectedPlugins, getPluginLabel, getPluginServerStatus, sendConfigToPlugin, PLUGIN_PORT } = require('./plugin-server');
 const { getPluginConfig, savePluginValues, getConfigurablePlugins } = require('./plugin-config-store');
 const { getManagedPlugins, addManagedPlugin, removeManagedPlugin } = require('./plugin-process-manager');
+const { listDisplays, getPopupDisplaySetting, setPopupDisplaySetting } = require('./app-settings');
 
 /** Resolves the deviceId and deviceDir for the window that sent an IPC event. */
 function getDeviceContext(event) {
@@ -186,6 +187,20 @@ function registerIpcHandlers() {
       return [];
     }
   });
+
+  // App-wide: which display knob popups (Action Ring, selectors) open on
+  ipcMain.handle('list-displays', () => listDisplays());
+  ipcMain.handle('get-popup-display', () => getPopupDisplaySetting());
+  ipcMain.handle('set-popup-display', (_event, value) => setPopupDisplaySetting(value));
+  const { screen, BrowserWindow: Windows } = require('electron');
+  const notifyDisplaysChanged = () => {
+    for (const win of Windows.getAllWindows()) {
+      if (!win.isDestroyed()) win.webContents.send('displays-changed');
+    }
+  };
+  for (const event of ['display-added', 'display-removed', 'display-metrics-changed']) {
+    screen.on(event, notifyDisplaysChanged);
+  }
 
   ipcMain.handle('get-volume-notifications', (event) => {
     const { deviceDir } = getDeviceContext(event);

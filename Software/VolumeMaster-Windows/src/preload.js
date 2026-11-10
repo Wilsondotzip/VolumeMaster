@@ -34,6 +34,11 @@ contextBridge.exposeInMainWorld('api', {
 
   getBackendStatus: () => ipcRenderer.invoke('get-backend-status'),
 
+  listDisplays: () => ipcRenderer.invoke('list-displays'),
+  getPopupDisplay: () => ipcRenderer.invoke('get-popup-display'),
+  setPopupDisplay: (value) => ipcRenderer.invoke('set-popup-display', value),
+  onDisplaysChanged: (cb) => ipcRenderer.on('displays-changed', () => cb()),
+
   getVolumeNotifications: () => ipcRenderer.invoke('get-volume-notifications'),
   setVolumeNotifications: (enabled) => ipcRenderer.invoke('set-volume-notifications', enabled),
 

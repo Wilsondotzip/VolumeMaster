@@ -517,6 +517,20 @@
           Show a popup when a knob's volume changes by more than 2 units.
         </p>
       </div>
+
+      <!-- Pro only: shown/hidden with the device model (syncProOnlySettings in settings.js) -->
+      <div id="knobPopupsPanel" class="hidden bg-slate-800 rounded-lg shadow p-4 border border-slate-700">
+        <h2 class="text-lg font-semibold text-indigo-400 mb-4">Knob Popups</h2>
+        <label for="popupDisplaySelect" class="block text-sm font-medium text-gray-300 mb-1">Show on</label>
+        <select
+          id="popupDisplaySelect"
+          class="w-full p-2 text-sm border border-slate-700 rounded bg-slate-900 text-gray-300 focus:outline-indigo-400"
+        ></select>
+        <p class="text-xs text-slate-500 mt-2">
+          Where the Action Ring and the knob's pick-from-a-list popups appear.
+          If the chosen monitor is unplugged, they follow the mouse until it's back.
+        </p>
+      </div>
       <div class="bg-slate-800 rounded-lg shadow p-4 border border-slate-700">
         <h2 class="text-lg font-semibold text-indigo-400 mb-4">
           Managed Plugins

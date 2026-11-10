@@ -58,7 +58,7 @@ export function setupSettingsListeners() {
   document.getElementById('deviceModelSelect')?.addEventListener('change', async (e) => {
     await window.api.setDeviceModel(e.target.value);
     state.config.deviceModel = e.target.value;
-    setSubTabAvailable('subTabActions', isProDevice());
+    syncProOnlySettings();
     await renderAllKnobsAndApps();
 
     // The running backend was spawned from the old exe (Standard/Pro) — restart
@@ -72,6 +72,15 @@ export function setupSettingsListeners() {
   document.getElementById('volumeNotifsCheckbox')?.addEventListener('change', async (e) => {
     await window.api.setVolumeNotifications(e.target.checked);
   });
+
+  const popupDisplaySelect = document.getElementById('popupDisplaySelect');
+  popupDisplaySelect?.addEventListener('change', async (e) => {
+    const [mode, id] = e.target.value.split(':');
+    await window.api.setPopupDisplay(mode === 'display' ? { mode, id: Number(id) } : { mode });
+    await applyPopupDisplaySettings();
+  });
+  // Monitors come and go: the main process says when, and the list is rebuilt.
+  window.api.onDisplaysChanged(() => applyPopupDisplaySettings());
 
   window.api.onBackendStatus(({ type, message }) => {
     const vmBanner = document.getElementById('vmErrorBanner');
@@ -317,6 +326,43 @@ export async function applyInitialBackendStatus() {
   if (btn) btn.textContent = running ? 'Stop' : 'Run';
 }
 
+/** Pro-only parts of the UI follow the selected device model. */
+function syncProOnlySettings() {
+  const pro = isProDevice();
+  setSubTabAvailable('subTabActions', pro);
+  document.getElementById('knobPopupsPanel')?.classList.toggle('hidden', !pro);
+}
+
+/** Fills Settings → Knob Popups → Show on with the connected monitors and the saved choice. */
+export async function applyPopupDisplaySettings() {
+  const select = document.getElementById('popupDisplaySelect');
+  if (!select) return;
+  const [displays, saved] = await Promise.all([window.api.listDisplays(), window.api.getPopupDisplay()]);
+
+  const options = [
+    ['mouse', 'Follow the mouse'],
+    ['primary', 'Main display'],
+    ...(displays || []).map((d, i) => [
+      `display:${d.id}`,
+      `${i + 1}. ${d.label} — ${d.width}×${d.height}${d.primary ? ' (main)' : ''}`,
+    ]),
+  ];
+  // A chosen monitor that's unplugged stays selected (and saved) rather than
+  // silently switching to something else.
+  if (saved?.mode === 'display' && !saved.connected) {
+    options.push([`display:${saved.id}`, `${saved.label || 'Monitor'} (not connected)`]);
+  }
+
+  select.textContent = '';
+  for (const [value, label] of options) {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    select.appendChild(option);
+  }
+  select.value = saved?.mode === 'display' ? `display:${saved.id}` : saved?.mode || 'mouse';
+}
+
 export async function applyNotificationSettings() {
   const enabled = await window.api.getVolumeNotifications();
   const cb = document.getElementById('volumeNotifsCheckbox');
@@ -343,5 +389,5 @@ export async function applyDeviceModelUiFromMain() {
   state.config.deviceModel = model || 'volumemaster';
   const select = document.getElementById('deviceModelSelect');
   if (select) select.value = state.config.deviceModel;
-  setSubTabAvailable('subTabActions', isProDevice());
+  syncProOnlySettings();
 }

@@ -1,5 +1,6 @@
 const path = require('path');
-const { BrowserWindow, screen } = require('electron');
+const { BrowserWindow } = require('electron');
+const { resolvePopupDisplay } = require('./app-settings');
 
 // Knob-selector popups (see backend/volumemaster/pro/selector.py for the state machine).
 // Purely views: they render whatever the backend opened and follow its
@@ -118,7 +119,8 @@ async function showSelector(state) {
   await ready;
   if (currentSession !== state.session || win.isDestroyed()) return; // superseded while loading
 
-  const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  // Follow the mouse, the main display or a chosen monitor (Settings → Knob Popups)
+  const { workArea } = resolvePopupDisplay();
   win.setBounds(STYLES[style].bounds(state.items.length, workArea));
   send(style, 'selector-open', { ...state, style, ...STYLES[style].extra });
   win.showInactive();
