@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Action Ring popup: a radial wheel driven by the knob (see main/selector-window.js).
+         Slot 0 sits at 12 o'clock and slots run clockwise, so turning the knob
+         right moves the highlight clockwise. Pure view: never takes input. -->
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        width: 100%;
+        height: 100%;
+        background: transparent;
+        overflow: hidden;
+        font-family: Inter, system-ui, sans-serif;
+        user-select: none;
+      }
+      #wheel {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        transform: scale(0.92);
+        transition: opacity 0.16s ease, transform 0.16s ease;
+      }
+      #wheel.visible { opacity: 1; transform: scale(1); }
+      #wheel.confirmed { transform: scale(1.03); }
+      #wheel.closing { opacity: 0; transform: scale(0.96); }
+
+      svg { position: absolute; inset: 0; overflow: visible; }
+
+      .slot {
+        fill: rgba(51, 65, 85, 0.72);
+        stroke: rgba(71, 85, 105, 0.9);
+        stroke-width: 1;
+        transition: fill 0.12s ease, stroke 0.12s ease;
+      }
+      .slot.active {
+        fill: rgba(129, 140, 248, 0.38);
+        stroke: #a5b4fc;
+        stroke-width: 1.5;
+        filter: drop-shadow(0 0 10px rgba(129, 140, 248, 0.55));
+      }
+      #wheel.confirmed .slot.active { fill: rgba(129, 140, 248, 0.75); }
+
+      .slot-icon {
+        text-anchor: middle;
+        dominant-baseline: central;
+        opacity: 0.75;
+        transition: opacity 0.12s ease;
+      }
+      .slot-icon.active { opacity: 1; }
+
+      /* Outer rim: the highlighted slot's arc glows brighter */
+      .rim { fill: none; stroke: rgba(51, 65, 85, 0.9); }
+      .rim-active {
+        fill: none;
+        stroke: #818cf8;
+        stroke-linecap: round;
+        filter: drop-shadow(0 0 6px rgba(129, 140, 248, 0.9));
+      }
+
+      #centre {
+        position: absolute;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        gap: 4px;
+        border-radius: 50%;
+        padding: 18px;
+      }
+      #title {
+        color: #64748b;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        max-width: 100%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      #icon { font-size: 34px; line-height: 1; margin: 2px 0; }
+      #label {
+        color: #f1f5f9;
+        font-size: 17px;
+        font-weight: 700;
+        line-height: 1.2;
+        max-width: 100%;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        word-break: break-word;
+      }
+      #detail {
+        color: #94a3b8;
+        font-size: 11px;
+        max-width: 100%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      #position { color: #475569; font-size: 10px; font-variant-numeric: tabular-nums; margin-top: 2px; }
+    </style>
+  </head>
+  <body>
+    <div id="wheel">
+      <svg id="svg"></svg>
+      <div id="centre">
+        <div id="title"></div>
+        <div id="icon"></div>
+        <div id="label"></div>
+        <div id="detail"></div>
+        <div id="position"></div>
+      </div>
+    </div>
+
+    <script>
+      // Must match main/selector-window.js RING_SIZE
+      const SIZE = 520;
+      const C = SIZE / 2;
+      const R_PLATE = 250; // dark backing disc
+      const R_OUT = 232;   // slots' outer edge
+      const R_IN = 128;    // slots' inner edge
+      const R_RIM = 241;   // thin rim just outside the slots
+      const GAP = 4;       // px between neighbouring slots, constant at every radius
+
+      const NS = 'http://www.w3.org/2000/svg';
+      const wheel = document.getElementById('wheel');
+      const svg = document.getElementById('svg');
+      const centre = document.getElementById('centre');
+      const titleEl = document.getElementById('title');
+      const iconEl = document.getElementById('icon');
+      const labelEl = document.getElementById('label');
+      const detailEl = document.getElementById('detail');
+      const positionEl = document.getElementById('position');
+
+      let items = [];
+      let slotEls = [];
+      let iconEls = [];
+      let rimActive = null;
+      let index = 0;
+
+      svg.setAttribute('viewBox', `0 0 ${SIZE} ${SIZE}`);
+      svg.setAttribute('width', SIZE);
+      svg.setAttribute('height', SIZE);
+      const inner = R_IN - 10;
+      Object.assign(centre.style, {
+        left: `${C - inner}px`, top: `${C - inner}px`, width: `${inner * 2}px`, height: `${inner * 2}px`,
+      });
+
+      // Angle 0 is 12 o'clock, increasing clockwise.
+      function point(r, a) {
+        return [C + r * Math.sin(a), C - r * Math.cos(a)];
+      }
+
+      function el(tag, attrs) {
+        const node = document.createElementNS(NS, tag);
+        for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+        return node;
+      }
+
+      /** Annular sector between angles a0..a1, with GAP px trimmed off each side. */
+      function sectorPath(a0, a1) {
+        const trimOut = GAP / 2 / R_OUT;
+        const trimIn = GAP / 2 / R_IN;
+        const [o0, o1] = [a0 + trimOut, a1 - trimOut];
+        const [i0, i1] = [a0 + trimIn, a1 - trimIn];
+        const large = o1 - o0 > Math.PI ? 1 : 0;
+        const [x0, y0] = point(R_OUT, o0);
+        const [x1, y1] = point(R_OUT, o1);
+        const [x2, y2] = point(R_IN, i1);
+        const [x3, y3] = point(R_IN, i0);
+        return `M${x0} ${y0} A${R_OUT} ${R_OUT} 0 ${large} 1 ${x1} ${y1} L${x2} ${y2} A${R_IN} ${R_IN} 0 ${large} 0 ${x3} ${y3}Z`;
+      }
+
+      function arcPath(r, a0, a1) {
+        const [x0, y0] = point(r, a0);
+        const [x1, y1] = point(r, a1);
+        const large = a1 - a0 > Math.PI ? 1 : 0;
+        return `M${x0} ${y0} A${r} ${r} 0 ${large} 1 ${x1} ${y1}`;
+      }
+
+      function build() {
+        svg.textContent = '';
+        slotEls = [];
+        iconEls = [];
+        const n = items.length;
+        const step = (Math.PI * 2) / n;
+        // Icons shrink as slots get narrower (up to 24, one per knob detent)
+        const iconSize = n <= 8 ? 28 : n <= 12 ? 24 : n <= 16 ? 19 : 15;
+
+        svg.appendChild(el('circle', {
+          cx: C, cy: C, r: R_PLATE, fill: 'rgba(15, 23, 42, 0.86)', stroke: '#334155', 'stroke-width': 1,
+        }));
+        svg.appendChild(el('circle', { class: 'rim', cx: C, cy: C, r: R_RIM, 'stroke-width': 2 }));
+
+        items.forEach((item, i) => {
+          const a0 = i * step - step / 2;
+          const a1 = a0 + step;
+          const slot = n === 1
+            ? el('path', { class: 'slot', d: `${sectorPath(0, Math.PI)} ${sectorPath(Math.PI, Math.PI * 2)}` })
+            : el('path', { class: 'slot', d: sectorPath(a0, a1) });
+          svg.appendChild(slot);
+          slotEls.push(slot);
+
+          const [ix, iy] = point((R_OUT + R_IN) / 2, i * step);
+          const icon = el('text', { class: 'slot-icon', x: ix, y: iy, 'font-size': iconSize });
+          icon.textContent = item.icon || '•';
+          svg.appendChild(icon);
+          iconEls.push(icon);
+        });
+
+        rimActive = el('path', { class: 'rim-active', 'stroke-width': 4 });
+        svg.appendChild(rimActive);
+      }
+
+      function paint() {
+        const n = items.length;
+        slotEls.forEach((s, i) => s.classList.toggle('active', i === index));
+        iconEls.forEach((s, i) => s.classList.toggle('active', i === index));
+
+        const step = (Math.PI * 2) / n;
+        const half = n === 1 ? Math.PI - 0.001 : step / 2 - GAP / 2 / R_RIM;
+        rimActive.setAttribute('d', arcPath(R_RIM, index * step - half, index * step + half));
+
+        const item = items[index] || {};
+        iconEl.textContent = item.icon || '';
+        labelEl.textContent = item.label || '';
+        detailEl.textContent = item.detail || '';
+        positionEl.textContent = n > 1 ? `${index + 1} / ${n}` : '';
+      }
+
+      window.selector.onOpen(({ title, items: nextItems, index: start }) => {
+        items = Array.isArray(nextItems) ? nextItems : [];
+        index = Math.max(0, Math.min(items.length - 1, start || 0));
+        titleEl.textContent = title || '';
+        wheel.classList.remove('confirmed', 'closing');
+        build();
+        paint();
+        requestAnimationFrame(() => wheel.classList.add('visible'));
+      });
+
+      window.selector.onMove(({ index: next }) => {
+        if (typeof next !== 'number' || !items.length) return;
+        index = next;
+        paint();
+      });
+
+      window.selector.onClose(({ reason }) => {
+        if (reason === 'selected') {
+          wheel.classList.add('confirmed');
+          setTimeout(() => wheel.classList.add('closing'), 220);
+        } else {
+          wheel.classList.add('closing');
+        }
+        setTimeout(() => wheel.classList.remove('visible', 'confirmed', 'closing'), 400);
+      });
+    </script>
+  </body>
+</html>

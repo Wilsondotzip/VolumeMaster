@@ -5,7 +5,8 @@
 # The backend owns the state machine (it sees ticks/presses first, with no IPC
 # round trip); Electron only renders the popup from the events emitted here:
 #
-#   SELECTOR_OPEN:{"session", "knob", "title", "items": [{"id", "label", "detail"?, "icon"?}], "index"}
+#   SELECTOR_OPEN:{"session", "knob", "title", "items": [{"id", "label", "detail"?, "icon"?}], "index",
+#                  "style": "list"|"ring"}
 #   SELECTOR_MOVE:{"session", "index"}
 #   SELECTOR_CLOSE:{"session", "reason": "selected"|"cancelled"|"timeout"|"replaced",
 #                   "source", "key", "item"?}
@@ -13,6 +14,9 @@
 # A selector is opened either from Python (open() with an on_select callback,
 # source 'backend') or from Electron via the OPEN_SELECTOR:<json> stdin command
 # (source 'electron'; Electron matches the result back up by 'key').
+#
+# Styles: 'list' (a vertical list that stops at either end) or 'ring' (a radial
+# wheel that wraps round, for the Action Ring; one detent per slot).
 import json
 import time
 
@@ -21,6 +25,8 @@ import time
 # (same knob confirms, other knob cancels) — it never times out from under
 # someone who's mid-choice.
 STALE_TIMEOUT = 5.0
+
+STYLES = ('list', 'ring')
 
 # Presses this soon after opening are ignored rather than confirming: guards
 # against switch bounce / a doubled BTN_DOWN instantly selecting the item the
@@ -33,8 +39,9 @@ def _emit(event, payload):
 
 
 class _Session:
-    def __init__(self, session_id, knob, title, items, index, on_select, source, key, timeout):
+    def __init__(self, session_id, knob, title, items, index, on_select, source, key, timeout, style):
         self.id = session_id
+        self.style = style
         self.knob = knob
         self.title = title
         self.items = items
@@ -65,10 +72,11 @@ class SelectorManager:
         return self._active is not None and self._active.knob == knob
 
     def open(self, knob, title, items, index=0, on_select=None, source='backend', key=None,
-             timeout=STALE_TIMEOUT):
+             timeout=STALE_TIMEOUT, style='list'):
         """items: [{'id': str, 'label': str, 'detail'?: str, 'icon'?: str}].
         on_select(item) runs on confirm (backend-sourced selectors only).
         timeout: seconds before an untouched selector goes stale (see STALE_TIMEOUT).
+        style: 'list' or 'ring' (see STYLES).
         Returns False (and opens nothing) if there's nothing to choose from."""
         items = [i for i in (items or []) if isinstance(i, dict) and i.get('id') is not None]
         if not items:
@@ -78,7 +86,8 @@ class SelectorManager:
 
         index = max(0, min(len(items) - 1, int(index or 0)))
         self._active = _Session(self._next_id, knob, title or '', items, index, on_select, source, key,
-                                timeout if timeout and timeout > 0 else STALE_TIMEOUT)
+                                timeout if timeout and timeout > 0 else STALE_TIMEOUT,
+                                style if style in STYLES else 'list')
         self._next_id += 1
         self._emit('OPEN', {
             'session': self._active.id,
@@ -86,6 +95,7 @@ class SelectorManager:
             'title': self._active.title,
             'items': items,
             'index': index,
+            'style': self._active.style,
         })
         return True
 
@@ -95,9 +105,13 @@ class SelectorManager:
             return
         # Any tick counts as use, even one that's clamped at the end of the list.
         s.mark_in_use()
-        # Clamp rather than wrap: hitting the end of the list is a useful cue
-        # when you can't see how far you've turned.
-        new_index = max(0, min(len(s.items) - 1, s.index + step))
+        if s.style == 'ring':
+            # A ring has no ends: keep turning and you come back round.
+            new_index = (s.index + step) % len(s.items)
+        else:
+            # Clamp rather than wrap: hitting the end of the list is a useful cue
+            # when you can't see how far you've turned.
+            new_index = max(0, min(len(s.items) - 1, s.index + step))
         if new_index == s.index:
             return
         s.index = new_index

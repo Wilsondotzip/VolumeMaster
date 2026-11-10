@@ -44,6 +44,7 @@ function handleSelectorEvent(deviceId, event, payload) {
       title: payload.title,
       items: Array.isArray(payload.items) ? payload.items : [],
       index: payload.index || 0,
+      style: payload.style,
     });
   } else if (event === 'MOVE') {
     moveSelector(`${deviceId}:${payload.session}`, payload.index);

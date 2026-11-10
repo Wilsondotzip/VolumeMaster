@@ -1,31 +1,69 @@
 const path = require('path');
 const { BrowserWindow, screen } = require('electron');
 
-// Generic knob-selector popup (see backend/volumemaster/pro/selector.py for the state machine).
-// Purely a view: it renders whatever list the backend opened and follows its
-// MOVE/CLOSE events — it never takes focus or input itself.
+// Knob-selector popups (see backend/volumemaster/pro/selector.py for the state machine).
+// Purely views: they render whatever the backend opened and follow its
+// MOVE/CLOSE events — they never take focus or input themselves.
+//
+// Two styles, each its own window so each can be sized for its layout:
+//   list — selector.html, a vertical list at the bottom-centre of the screen
+//   ring — ring.html, a radial wheel in the middle of the screen (Action Ring)
 
-const WIDTH = 340;
+const LIST_WIDTH = 340;
 // Must match selector.html: card top padding (12) + #header (38) + border (2).
-const HEADER_HEIGHT = 52;
-const ROW_HEIGHT = 40;
-const MAX_VISIBLE_ROWS = 7;
-const PADDING_BOTTOM = 8;
-const MARGIN_BOTTOM = 72;
+const LIST_HEADER_HEIGHT = 52;
+const LIST_ROW_HEIGHT = 40;
+const LIST_MAX_VISIBLE_ROWS = 7;
+const LIST_PADDING_BOTTOM = 8;
+const LIST_MARGIN_BOTTOM = 72;
+
+// Must match ring.html's SIZE.
+const RING_SIZE = 520;
 
 const CLOSE_DELAY_MS = { selected: 420, default: 200 }; // lets the confirm flash / fade-out play
 
-let win = null;
-let ready = null; // Promise resolved once the page has loaded
+const STYLES = {
+  list: {
+    file: 'selector.html',
+    bounds(itemCount, workArea) {
+      const rows = Math.max(1, Math.min(itemCount, LIST_MAX_VISIBLE_ROWS));
+      const height = LIST_HEADER_HEIGHT + rows * LIST_ROW_HEIGHT + LIST_PADDING_BOTTOM;
+      return {
+        x: Math.round(workArea.x + (workArea.width - LIST_WIDTH) / 2),
+        y: Math.round(workArea.y + workArea.height - height - LIST_MARGIN_BOTTOM),
+        width: LIST_WIDTH,
+        height,
+      };
+    },
+    extra: { rowHeight: LIST_ROW_HEIGHT, maxVisibleRows: LIST_MAX_VISIBLE_ROWS },
+  },
+  ring: {
+    file: 'ring.html',
+    bounds(_itemCount, workArea) {
+      return {
+        x: Math.round(workArea.x + (workArea.width - RING_SIZE) / 2),
+        y: Math.round(workArea.y + (workArea.height - RING_SIZE) / 2),
+        width: RING_SIZE,
+        height: RING_SIZE,
+      };
+    },
+    extra: {},
+  },
+};
+
+// style -> { win, ready }
+const windows = new Map();
 let currentSession = null;
+let currentStyle = null;
 let hideTimer = null;
 
-function getWindow() {
-  if (win && !win.isDestroyed()) return ready;
+function getWindow(style) {
+  const existing = windows.get(style);
+  if (existing && !existing.win.isDestroyed()) return existing;
 
-  win = new BrowserWindow({
-    width: WIDTH,
-    height: HEADER_HEIGHT + ROW_HEIGHT + PADDING_BOTTOM,
+  const win = new BrowserWindow({
+    width: 100,
+    height: 100,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -43,61 +81,63 @@ function getWindow() {
   win.setAlwaysOnTop(true, 'screen-saver');
   win.setVisibleOnAllWorkspaces(true);
   win.setIgnoreMouseEvents(true);
-  win.on('closed', () => {
-    win = null;
-    ready = null;
-  });
+  win.on('closed', () => windows.delete(style));
 
-  ready = new Promise((resolve) => win.webContents.once('did-finish-load', resolve));
-  win.loadFile(path.join(__dirname, '..', 'selector.html'));
-  return ready;
-}
-
-/** Bottom-centre of the display the cursor is on — where the user is looking. */
-function positionFor(itemCount) {
-  const rows = Math.max(1, Math.min(itemCount, MAX_VISIBLE_ROWS));
-  const height = HEADER_HEIGHT + rows * ROW_HEIGHT + PADDING_BOTTOM;
-  const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
-  return {
-    x: Math.round(workArea.x + (workArea.width - WIDTH) / 2),
-    y: Math.round(workArea.y + workArea.height - height - MARGIN_BOTTOM),
-    width: WIDTH,
-    height,
+  const entry = {
+    win,
+    ready: new Promise((resolve) => win.webContents.once('did-finish-load', resolve)),
   };
+  windows.set(style, entry);
+  win.loadFile(path.join(__dirname, '..', STYLES[style].file));
+  return entry;
 }
 
-function send(channel, payload) {
-  if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
+function send(style, channel, payload) {
+  const entry = windows.get(style);
+  if (entry && !entry.win.isDestroyed()) entry.win.webContents.send(channel, payload);
 }
 
-/** state: { session, title, items: [{ id, label, detail?, icon? }], index } */
+function hideStyle(style) {
+  const entry = windows.get(style);
+  if (entry && !entry.win.isDestroyed()) entry.win.hide();
+}
+
+/** state: { session, title, items: [{ id, label, detail?, icon? }], index, style? } */
 async function showSelector(state) {
+  const style = STYLES[state.style] ? state.style : 'list';
+  // A different-style popup still on screen (e.g. mid fade-out) goes straight away.
+  if (currentStyle && currentStyle !== style) hideStyle(currentStyle);
   currentSession = state.session;
+  currentStyle = style;
   if (hideTimer) {
     clearTimeout(hideTimer);
     hideTimer = null;
   }
-  await getWindow();
-  if (currentSession !== state.session || !win) return; // superseded while loading
 
-  win.setBounds(positionFor(state.items.length));
-  send('selector-open', { ...state, rowHeight: ROW_HEIGHT, maxVisibleRows: MAX_VISIBLE_ROWS });
+  const { win, ready } = getWindow(style);
+  await ready;
+  if (currentSession !== state.session || win.isDestroyed()) return; // superseded while loading
+
+  const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  win.setBounds(STYLES[style].bounds(state.items.length, workArea));
+  send(style, 'selector-open', { ...state, style, ...STYLES[style].extra });
   win.showInactive();
 }
 
 function moveSelector(session, index) {
   if (session !== currentSession) return;
-  send('selector-move', { index });
+  send(currentStyle, 'selector-move', { index });
 }
 
 function closeSelector(session, reason) {
   if (session !== currentSession) return;
+  const style = currentStyle;
   currentSession = null;
-  send('selector-close', { reason });
+  send(style, 'selector-close', { reason });
   if (hideTimer) clearTimeout(hideTimer);
   hideTimer = setTimeout(() => {
     hideTimer = null;
-    if (win && !win.isDestroyed() && currentSession === null) win.hide();
+    if (currentSession === null) hideStyle(style);
   }, CLOSE_DELAY_MS[reason] ?? CLOSE_DELAY_MS.default);
 }
 
