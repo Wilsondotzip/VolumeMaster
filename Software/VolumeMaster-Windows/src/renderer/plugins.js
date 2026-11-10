@@ -50,11 +50,21 @@ export function isPluginDragAllowedFor(context) {
 
 // ── Plugin browser ───────────────────────────────────────────────────────────
 //
-// Three levels, each a list of cards:
-//   plugins  →  one plugin's actions (and its group cards)  →  one group's actions
-// Kept for the session so a re-render (plugin re-registers, a mapping changes)
-// leaves you where you were.
-const nav = { pluginId: null, group: null };
+// Plugin tiles → a plugin's page → its folders, as deep as its group paths go.
+// Every page below the plugin tiles shows the actions at that path as cards and
+// the next level of folders as tiles. Kept for the session so a re-render
+// (plugin re-registers, a mapping changes) leaves you where you were.
+const nav = { pluginId: null, path: [] };
+
+/** An action's folder path. The server sends arrays; a bare string is tolerated. */
+function groupPath(action) {
+  if (Array.isArray(action.group)) return action.group;
+  return typeof action.group === 'string' && action.group ? [action.group] : [];
+}
+
+function pathStartsWith(path, prefix) {
+  return prefix.length <= path.length && prefix.every((part, i) => path[i] === part);
+}
 
 function svgIcon(d, size = 14) {
   const svgNS = 'http://www.w3.org/2000/svg';
@@ -264,15 +274,15 @@ function offlinePlugins(usage) {
   return offline;
 }
 
-function openPage(pluginId, group = null) {
+function openPage(pluginId, path = []) {
   nav.pluginId = pluginId;
-  nav.group = group;
+  nav.path = path;
   renderPluginActionList({ resetScroll: true });
 }
 
 function goBack() {
-  if (nav.group) openPage(nav.pluginId, null);
-  else openPage(null, null);
+  if (nav.path.length) openPage(nav.pluginId, nav.path.slice(0, -1));
+  else openPage(null);
 }
 
 const ROOT_CRUMB = { label: 'Plugins', onClick: () => openPage(null) };
@@ -408,50 +418,59 @@ function appendActionCards(list, pluginId, actions, usage, display = (a) => a.la
   list.appendChild(section);
 }
 
-function renderPluginPage(list, plugin, usage) {
-  list.appendChild(createPageHeader([ROOT_CRUMB, { label: plugin.name }]));
+/** Breadcrumb for a plugin page: Plugins › Plugin › each folder, all but the last clickable. */
+function pluginCrumbs(plugin, path) {
+  const crumbs = [ROOT_CRUMB, { label: plugin.name, onClick: () => openPage(plugin.pluginId) }];
+  path.forEach((part, i) => {
+    crumbs.push({ label: part, onClick: () => openPage(plugin.pluginId, path.slice(0, i + 1)) });
+  });
+  delete crumbs[crumbs.length - 1].onClick;
+  return crumbs;
+}
 
-  // Ungrouped actions first, then a tile per group (in first-seen order).
-  const ungrouped = [];
-  const groups = new Map();
+/**
+ * A plugin's page at `path` ([] is the top): the actions filed exactly there as
+ * cards, then a folder tile for each next level down (in first-seen order),
+ * counting everything inside it.
+ */
+function renderPluginPage(list, plugin, path, usage) {
+  list.appendChild(createPageHeader(pluginCrumbs(plugin, path)));
+
+  const here = [];
+  const folders = new Map(); // name → every action anywhere inside it
   for (const action of plugin.actions) {
-    if (action.group) {
-      if (!groups.has(action.group)) groups.set(action.group, []);
-      groups.get(action.group).push(action);
+    const actionPath = groupPath(action);
+    if (!pathStartsWith(actionPath, path)) continue;
+    if (actionPath.length === path.length) {
+      here.push(action);
     } else {
-      ungrouped.push(action);
+      const name = actionPath[path.length];
+      if (!folders.has(name)) folders.set(name, []);
+      folders.get(name).push(action);
     }
   }
 
   if (!plugin.actions.length) {
     list.appendChild(createNote('This plugin has no actions right now.'));
   }
-  appendActionCards(list, plugin.pluginId, ungrouped, usage);
+  // At the top, labels stay as the plugin wrote them; inside a folder a prefix
+  // they all repeat is dropped.
+  appendActionCards(list, plugin.pluginId, here, usage, path.length ? stripSharedPrefix(here) : undefined);
 
-  if (groups.size) {
+  if (folders.size) {
     const section = createSection('tiles');
-    for (const [groupName, actions] of groups) {
+    for (const [name, actions] of folders) {
       section.appendChild(createNavCard({
         icon: '📁',
-        title: groupName,
+        title: name,
         subtitle: plural(actions.length, 'action'),
         inUse: countInUse(usage, plugin.pluginId, actions.map((a) => a.id)),
         stacked: true,
-        onOpen: () => openPage(plugin.pluginId, groupName),
+        onOpen: () => openPage(plugin.pluginId, [...path, name]),
       }));
     }
     list.appendChild(section);
   }
-}
-
-function renderGroupPage(list, plugin, groupName, usage) {
-  list.appendChild(createPageHeader([
-    ROOT_CRUMB,
-    { label: plugin.name, onClick: () => openPage(plugin.pluginId) },
-    { label: groupName },
-  ]));
-  const actions = plugin.actions.filter((a) => a.group === groupName);
-  appendActionCards(list, plugin.pluginId, actions, usage, stripSharedPrefix(actions));
 }
 
 function renderOfflinePage(list, pluginId, actionIds, usage) {
@@ -484,15 +503,17 @@ export function renderPluginActionList({ resetScroll = false } = {}) {
   const plugin = nav.pluginId && state.pluginActions.find((p) => p.pluginId === nav.pluginId);
   const offlineActions = nav.pluginId && !plugin ? offlinePlugins(usage).get(nav.pluginId) : null;
 
-  // Fall back a level when what was open has gone (plugin quit, group removed).
-  if (plugin && nav.group && !plugin.actions.some((a) => a.group === nav.group)) nav.group = null;
-  if (nav.pluginId && !plugin && !offlineActions) {
-    nav.pluginId = null;
-    nav.group = null;
+  // Fall back to the nearest level that still exists (plugin quit, folder removed).
+  if (plugin) {
+    while (nav.path.length && !plugin.actions.some((a) => pathStartsWith(groupPath(a), nav.path))) {
+      nav.path = nav.path.slice(0, -1);
+    }
+  } else {
+    nav.path = [];
+    if (!offlineActions) nav.pluginId = null;
   }
 
-  if (plugin && nav.group) renderGroupPage(list, plugin, nav.group, usage);
-  else if (plugin) renderPluginPage(list, plugin, usage);
+  if (plugin) renderPluginPage(list, plugin, nav.path, usage);
   else if (offlineActions) renderOfflinePage(list, nav.pluginId, offlineActions, usage);
   else renderPluginCards(list, usage);
 

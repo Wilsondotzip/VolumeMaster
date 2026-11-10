@@ -97,6 +97,24 @@ onConfigSaved((deviceDir, config) => {
   }
 });
 
+// Deeper trees get hard to navigate; a plugin that needs more is unusual
+// enough to warrant raising this rather than allowing anything.
+const MAX_GROUP_DEPTH = 4;
+
+/**
+ * An action's `group` as a clean path: "Lights" → ["Lights"], ["Office", "Lights"]
+ * stays as is, and nothing (or nothing usable) → []. Non-strings and blank
+ * names are dropped rather than rejecting the action.
+ */
+function normalizeGroup(group) {
+  const parts = Array.isArray(group) ? group : [group];
+  return parts
+    .filter((p) => typeof p === 'string')
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .slice(0, MAX_GROUP_DEPTH);
+}
+
 function handleRegister(socket, msg) {
   const { pluginId, name, actions, config: configSchema } = msg;
   if (typeof pluginId !== 'string' || !pluginId) {
@@ -114,12 +132,12 @@ function handleRegister(socket, msg) {
     pluginId,
     name: String(name || pluginId),
     // kind: 'knob' | 'button' restricts where the action can be mapped; omitted/anything else means both.
-    // group: optional free-text label to cluster this plugin's own actions in the UI.
+    // group: where the action sits in the plugin's folders, always sent on as a path array.
     actions: rawActions.filter(a => a?.id && a?.label).map(a => ({
       id: String(a.id),
       label: String(a.label),
       kind: a.kind === 'knob' || a.kind === 'button' ? a.kind : undefined,
-      group: typeof a.group === 'string' && a.group.trim() ? a.group.trim() : undefined,
+      group: normalizeGroup(a.group),
     })),
   };
   clients.set(socket, record);

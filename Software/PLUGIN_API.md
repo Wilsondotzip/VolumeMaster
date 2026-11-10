@@ -62,9 +62,17 @@ Sending `register` again on the same connection replaces your plugin's actions, 
 
 Each action may optionally set `kind` to `"knob"` or `"button"` to restrict where users can assign it — a `"knob"` action can only be dragged onto a knob's turn (volume) targets, a `"button"` action only onto a knob's button-press target (VolumeMaster Pro devices only, whose knobs are push-button rotary encoders). Omit `kind` (or leave it unset) for an action that should be assignable to both. See [`knob-button-down`](#knob-button-down) below for the event a button-assigned action receives.
 
-Each action may also optionally set `group` to a free-text label. Actions sharing the same `group` are clustered together under that heading in VolumeMaster's UI, so a plugin with many actions (e.g. a smart-home or streaming controller) can organize them instead of dumping everything in one flat list. Actions with no `group` are shown ungrouped, above any named groups. This is purely cosmetic — it has no effect on how actions are matched or dispatched.
+Each action may also optionally set `group` to file it in a folder, so a plugin with many actions (e.g. a smart-home or streaming controller) can organize them instead of showing one long list. Use a string for one level, or an array of names for folders inside folders:
 
-After registering, your actions appear as draggable cards in the **Plugins** tab inside VolumeMaster, organized under a collapsible section for your plugin (and sub-grouped if you used `group`). Users drag them onto knobs just like apps.
+```json
+{ "id": "refresh",     "label": "Refresh entities" }
+{ "id": "scene.movie", "label": "Scene: Movie night", "group": "Scenes" }
+{ "id": "light.desk",  "label": "Light: Desk",        "group": ["Office", "Lights"] }
+```
+
+`"Scenes"` and `["Scenes"]` mean the same thing. Actions with no `group` sit directly on your plugin's page, above its folders. Folders appear in the order their first action does. Up to 4 levels are kept; deeper names, blank names and anything that isn't a string are ignored. Only nest when a level would otherwise hold a lot of actions: each level is another click. Grouping is purely cosmetic — it has no effect on how actions are matched or dispatched.
+
+After registering, your plugin appears as a tile in the **Plugins** tab inside VolumeMaster. Clicking it shows your actions as draggable cards, with any folders below them. Users drag actions onto knobs just like apps.
 
 #### Plugin settings
 
