@@ -181,8 +181,11 @@ Sent when a knob's button is pressed (VolumeMaster Pro devices only, whose knobs
 | `index`    | Which knob's button was pressed.                                                    |
 | `actionId` | The `id` of whichever `kind: "button"` (or unrestricted) action the user assigned.   |
 | `deviceId` | Which VolumeMaster device sent the event (useful if the user has multiple devices). |
+| `source`   | Present (`"ring"`) when the action was picked from an Action Ring rather than pressed directly — see below. |
 
 There's no `value` — a button press is a discrete event, not a level. It fires as soon as the button goes down; see [`knob-button-up`](#knob-button-up) for the release.
+
+**Action Rings.** VolumeMaster Pro users can put your action in an Action Ring: a wheel of actions that opens on a knob press, where turning picks a slot and a second press runs it. Picking your action sends `knob-button-down` followed straight away by `knob-button-up` with `holdMs: 0`, both with `"source": "ring"`, so an action that works on a button press works in a ring with no extra code. Actions with `kind: "knob"` can't be put in a ring.
 
 #### `knob-button-up`
 
@@ -198,7 +201,7 @@ Sent when the button is released, to the same actions as `knob-button-down`.
 }
 ```
 
-`holdMs` is how long the button was held, in milliseconds, so you can tell a tap from a hold. To act only on one or the other, ignore `knob-button-down` and decide on release (e.g. `holdMs < 500` is a tap).
+`holdMs` is how long the button was held, in milliseconds, so you can tell a tap from a hold. To act only on one or the other, ignore `knob-button-down` and decide on release (e.g. `holdMs < 500` is a tap). A pick from an Action Ring always counts as a tap (`holdMs: 0`, `"source": "ring"`).
 
 ---
 

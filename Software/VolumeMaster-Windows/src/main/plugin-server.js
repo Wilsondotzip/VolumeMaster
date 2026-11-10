@@ -286,6 +286,16 @@ function dispatchKnobButtonUpEvent(deviceId, index, holdMs, config) {
   sendToPluginActions(buttonPluginKeys(config, index), (actionId) => ({ type: 'knob-button-up', deviceId, index, holdMs, actionId }));
 }
 
+/**
+ * A plugin action picked from an Action Ring (the backend's PLUGIN_TRIGGER line).
+ * Sent as a quick tap, down then up with holdMs 0, so plugins that handle
+ * button actions need nothing new; `source: 'ring'` tells them apart if wanted.
+ */
+function dispatchPluginTrigger(deviceId, index, actionKey) {
+  sendToPluginActions([actionKey], (actionId) => ({ type: 'knob-button-down', deviceId, index, actionId, source: 'ring' }));
+  sendToPluginActions([actionKey], (actionId) => ({ type: 'knob-button-up', deviceId, index, holdMs: 0, actionId, source: 'ring' }));
+}
+
 function getConnectedPlugins() {
   const seen = new Map();
   for (const record of clients.values()) {
@@ -328,6 +338,7 @@ module.exports = {
   dispatchKnobEvent,
   dispatchKnobButtonDownEvent,
   dispatchKnobButtonUpEvent,
+  dispatchPluginTrigger,
   getConnectedPlugins,
   getPluginLabel,
   getPluginServerStatus,

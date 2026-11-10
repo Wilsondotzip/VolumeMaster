@@ -5,7 +5,7 @@ const platform = require('./platform');
 const { setTrayImageNormal, setTrayImageCrashed } = require('./tray');
 const deviceManager = require('./device-manager');
 const { handleVolumeChange } = require('./notification-window');
-const { dispatchKnobEvent, dispatchKnobButtonDownEvent, dispatchKnobButtonUpEvent } = require('./plugin-server');
+const { dispatchKnobEvent, dispatchKnobButtonDownEvent, dispatchKnobButtonUpEvent, dispatchPluginTrigger } = require('./plugin-server');
 const { loadConfig } = require('./config-store');
 const { executeSettingsButtonActions } = require('./button-settings-actions');
 const { handleSelectorEvent, clearDeviceSelectors } = require('./selector-service');
@@ -135,6 +135,15 @@ function startBackend(deviceId, deviceDir) {
             // Malformed line — ignore
           }
           handleSelectorEvent(deviceId, trimmed.slice('SELECTOR_'.length, colon), payload);
+        }
+      } else if (trimmed.startsWith('PLUGIN_TRIGGER:')) {
+        // PLUGIN_TRIGGER:<knob>:<pluginId:actionId>, a plugin slot picked from an Action Ring
+        const rest = trimmed.slice('PLUGIN_TRIGGER:'.length);
+        const colon = rest.indexOf(':');
+        const index = parseInt(rest.slice(0, colon), 10);
+        const actionKey = rest.slice(colon + 1);
+        if (colon !== -1 && !Number.isNaN(index) && actionKey.includes(':')) {
+          dispatchPluginTrigger(deviceId, index, actionKey);
         }
       } else if (trimmed.startsWith('OUTPUT_CHANGED:')) {
         sendStatusToDevice(deviceId, 'info', `Output switched to ${trimmed.slice('OUTPUT_CHANGED:'.length)}`);
