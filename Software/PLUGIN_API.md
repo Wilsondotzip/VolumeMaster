@@ -51,9 +51,13 @@ Register your plugin and its actions. Send this right after connecting.
 
 | Field      | Description                                                                                                              |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `pluginId` | Unique string identifier for your plugin. Use something specific to avoid clashes (e.g. `obs-controller`, not `plugin`). |
+| `pluginId` | Unique string identifier for your plugin. Use something specific to avoid clashes (e.g. `obs-controller`, not `plugin`). Can't contain `:`. |
 | `name`     | Display name shown in VolumeMaster's UI.                                                                                 |
 | `actions`  | List of actions users can assign to knobs. Each needs a unique `id` and a short `label`.                                 |
+
+VolumeMaster replies with [`registered`](#registered), or [`error`](#error) if the registration was rejected.
+
+Sending `register` again on the same connection replaces your plugin's actions, so a plugin whose actions change (e.g. a new OBS scene was added) can just re-register.
 
 Each action may optionally set `kind` to `"knob"` or `"button"` to restrict where users can assign it — a `"knob"` action can only be dragged onto a knob's turn (volume) targets, a `"button"` action only onto a knob's button-press target (VolumeMaster Pro devices only, whose knobs are push-button rotary encoders). Omit `kind` (or leave it unset) for an action that should be assignable to both. See [`knob-button`](#knob-button) below for the event a button-assigned action receives.
 
@@ -64,6 +68,24 @@ After registering, your actions appear as draggable cards in the **Plugins** tab
 ---
 
 ### VolumeMaster → Plugin
+
+#### `registered`
+
+Reply to a successful `register`.
+
+```json
+{ "type": "registered", "pluginId": "my-plugin", "actions": ["action-one", "action-two"] }
+```
+
+`actions` lists the action ids that were accepted. If some were dropped (each needs an `id` and a `label`), the reply also has `skipped` (how many) and a `message`.
+
+#### `error`
+
+Sent when a message is rejected — invalid JSON, an unknown `type`, or a `register` with a missing or invalid `pluginId`.
+
+```json
+{ "type": "error", "message": "register: pluginId can't contain ':'." }
+```
 
 #### `knob`
 

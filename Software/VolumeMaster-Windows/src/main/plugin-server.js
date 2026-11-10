@@ -35,6 +35,51 @@ function safeSend(socket, data) {
   }
 }
 
+function handleRegister(socket, msg) {
+  const { pluginId, name, actions, config: configSchema } = msg;
+  if (typeof pluginId !== 'string' || !pluginId) {
+    safeSend(socket, { type: 'error', message: 'register: pluginId must be a non-empty string.' });
+    return;
+  }
+  // Assignments are stored as 'pluginId:actionId' and split on the first colon.
+  if (pluginId.includes(':')) {
+    safeSend(socket, { type: 'error', message: "register: pluginId can't contain ':'." });
+    return;
+  }
+
+  const rawActions = Array.isArray(actions) ? actions : [];
+  const record = {
+    pluginId,
+    name: String(name || pluginId),
+    // kind: 'knob' | 'button' restricts where the action can be mapped; omitted/anything else means both.
+    // group: optional free-text label to cluster this plugin's own actions in the UI.
+    actions: rawActions.filter(a => a?.id && a?.label).map(a => ({
+      id: String(a.id),
+      label: String(a.label),
+      kind: a.kind === 'knob' || a.kind === 'button' ? a.kind : undefined,
+      group: typeof a.group === 'string' && a.group.trim() ? a.group.trim() : undefined,
+    })),
+  };
+  clients.set(socket, record);
+
+  const skipped = rawActions.length - record.actions.length;
+  safeSend(socket, {
+    type: 'registered',
+    pluginId,
+    actions: record.actions.map((a) => a.id),
+    ...(skipped > 0 && { skipped, message: `${skipped} action(s) skipped: each needs an id and a label.` }),
+  });
+
+  const schema = Array.isArray(configSchema) ? configSchema.filter(f => f?.key && f?.type) : [];
+  if (schema.length > 0) {
+    savePluginRegistration(pluginId, record.name, schema);
+    const { values } = getPluginConfig(pluginId);
+    safeSend(socket, { type: 'config', values: values || {} });
+  }
+
+  broadcastPluginUpdate();
+}
+
 function startPluginServer() {
   if (wss) return;
 
@@ -72,37 +117,14 @@ function startPluginServer() {
       try {
         msg = JSON.parse(raw.toString());
       } catch {
+        safeSend(socket, { type: 'error', message: 'Message is not valid JSON.' });
         return;
       }
 
-      if (msg.type === 'register') {
-        const { pluginId, name, actions, config: configSchema } = msg;
-        if (!pluginId || typeof pluginId !== 'string') return;
-        const id = String(pluginId);
-        const displayName = String(name || pluginId);
-        clients.set(socket, {
-          pluginId: id,
-          name: displayName,
-          // kind: 'knob' | 'button' restricts where the action can be mapped; omitted/anything else means both.
-          // group: optional free-text label to cluster this plugin's own actions in the UI.
-          actions: Array.isArray(actions)
-            ? actions.filter(a => a?.id && a?.label).map(a => ({
-                id: a.id,
-                label: a.label,
-                kind: a.kind === 'knob' || a.kind === 'button' ? a.kind : undefined,
-                group: typeof a.group === 'string' && a.group.trim() ? a.group.trim() : undefined,
-              }))
-            : [],
-        });
-
-        const schema = Array.isArray(configSchema) ? configSchema.filter(f => f?.key && f?.type) : [];
-        if (schema.length > 0) {
-          savePluginRegistration(id, displayName, schema);
-          const { values } = getPluginConfig(id);
-          safeSend(socket, { type: 'config', values: values || {} });
-        }
-
-        broadcastPluginUpdate();
+      if (msg?.type === 'register') {
+        handleRegister(socket, msg);
+      } else {
+        safeSend(socket, { type: 'error', message: `Unknown message type: ${msg?.type}` });
       }
     });
 
