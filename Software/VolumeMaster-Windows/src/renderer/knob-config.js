@@ -401,43 +401,79 @@ function buildShortcutString(e) {
   return parts.join('+');
 }
 
-/** Wires an input up as a press-to-record hotkey field instead of free text entry. */
+/**
+ * Wires up the shortcut box. Two modes:
+ *  - record (default): click the box and press the combo. Every key is captured,
+ *    Esc and Tab included, so recording ends by clicking away rather than by Esc.
+ *  - type: plain text, for combos Windows handles before the app ever sees them
+ *    (Win+L, Alt+Tab, Print Screen, ...). Uses the backend's key names, e.g.
+ *    "ctrl+shift+esc"; it's sent as written.
+ */
 function makeShortcutRecorderInput(input, initialValue) {
   let capturedKeys = initialValue || '';
-  input.readOnly = true;
+  let typing = false;
+  let recording = false;
   input.value = capturedKeys;
+
+  const ACTIVE_CLASSES = ['border-indigo-400', 'ring-1', 'ring-indigo-400'];
+
+  // Esc on a <dialog> closes it; while recording, Esc is a key to record instead.
+  function onDialogCancel(e) {
+    if (recording) e.preventDefault();
+  }
 
   function onKeyDown(e) {
     e.preventDefault();
     e.stopPropagation();
-
-    if (e.key === 'Escape' && !e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
-      input.blur();
-      return;
-    }
     if (SHORTCUT_MODIFIER_KEYS.has(e.key)) {
       input.value = describeHeldModifiers(e) || 'Press a key…';
       return;
     }
-
     capturedKeys = buildShortcutString(e);
     input.value = capturedKeys;
     input.blur();
   }
 
+  function setMode(nextTyping) {
+    typing = nextTyping;
+    input.readOnly = !typing;
+    input.classList.toggle('cursor-pointer', !typing);
+    input.classList.toggle('caret-transparent', !typing);
+    input.placeholder = typing ? 'e.g. ctrl+shift+esc' : 'Click, then press a key combo…';
+    input.value = capturedKeys;
+  }
+
   input.addEventListener('focus', () => {
-    input.classList.add('border-indigo-400', 'ring-1', 'ring-indigo-400');
+    input.classList.add(...ACTIVE_CLASSES);
+    if (typing) return;
+    recording = true;
     input.value = 'Press a key combo…';
     input.addEventListener('keydown', onKeyDown);
+    input.closest('dialog')?.addEventListener('cancel', onDialogCancel);
   });
   input.addEventListener('blur', () => {
-    input.classList.remove('border-indigo-400', 'ring-1', 'ring-indigo-400');
+    input.classList.remove(...ACTIVE_CLASSES);
+    if (typing) {
+      capturedKeys = input.value.trim().replace(/\s*\+\s*/g, '+');
+      input.value = capturedKeys;
+      return;
+    }
+    recording = false;
     input.removeEventListener('keydown', onKeyDown);
+    input.closest('dialog')?.removeEventListener('cancel', onDialogCancel);
     input.value = capturedKeys;
   });
 
+  setMode(false);
+
   return {
-    getValue: () => capturedKeys,
+    getValue: () => (typing ? input.value.trim().replace(/\s*\+\s*/g, '+') : capturedKeys),
+    isTyping: () => typing,
+    toggleMode: () => {
+      if (typing) capturedKeys = input.value.trim().replace(/\s*\+\s*/g, '+');
+      setMode(!typing);
+      if (typing) input.focus();
+    },
     clear: () => {
       capturedKeys = '';
       input.value = '';
@@ -471,11 +507,15 @@ function buildBuiltinActionFields(entry, fields) {
     const input = document.createElement('input');
     input.id = 'knobConfigActionInput';
     input.type = 'text';
-    input.placeholder = 'Click, then press a key combo…';
     input.className =
-      'flex-1 px-2 py-1.5 text-sm bg-slate-700 border border-slate-600 rounded text-gray-200 placeholder-slate-500 focus:outline-none cursor-pointer caret-transparent';
+      'flex-1 min-w-0 px-2 py-1.5 text-sm bg-slate-700 border border-slate-600 rounded text-gray-200 placeholder-slate-500 focus:outline-none';
 
     const recorder = makeShortcutRecorderInput(input, entry.params.keys || '');
+
+    const modeBtn = document.createElement('button');
+    modeBtn.type = 'button';
+    modeBtn.className =
+      'px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 text-gray-300 rounded transition font-medium shrink-0';
 
     const clearBtn = document.createElement('button');
     clearBtn.type = 'button';
@@ -484,13 +524,26 @@ function buildBuiltinActionFields(entry, fields) {
       'px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 text-gray-300 rounded transition font-medium shrink-0';
     clearBtn.onclick = () => recorder.clear();
 
-    row.append(input, clearBtn);
+    row.append(input, modeBtn, clearBtn);
     wrapper.append(label, row);
 
     const hint = document.createElement('p');
     hint.className = 'text-xs text-slate-500';
-    hint.textContent = 'Press Esc to cancel while recording.';
     wrapper.appendChild(hint);
+
+    const paintMode = () => {
+      const typing = recorder.isTyping();
+      modeBtn.textContent = typing ? 'Record' : 'Type';
+      modeBtn.title = typing ? 'Record the combo by pressing it' : 'Type the combo instead';
+      hint.textContent = typing
+        ? 'Key names joined with +, e.g. ctrl+shift+esc, windows+l, alt+tab, print screen.'
+        : 'Click the box and press the combo. Esc and Tab are recorded too; click away to stop.';
+    };
+    modeBtn.onclick = () => {
+      recorder.toggleMode();
+      paintMode();
+    };
+    paintMode();
 
     getValue = () => ({ keys: recorder.getValue() });
   } else if (entry.type === 'open_program') {
