@@ -206,52 +206,6 @@ function createPluginTile({ pluginId, name, subtitle, inUse, offline = false, on
   return card;
 }
 
-/** Draggable action tile. Mapped actions get a cyan edge and say where; others show any knob/button restriction. */
-function createPluginActionCard(pluginId, action, uses) {
-  const dragName = pluginDragName(pluginId, action.id);
-
-  const card = document.createElement('div');
-  card.className = `${TILE} cursor-move hover:bg-cyan-700 hover:border-cyan-500 ${uses.length ? 'border-cyan-600' : 'border-slate-600'}`;
-  card.setAttribute('draggable', 'true');
-  card.title = uses.length ? `${action.label}\nOn ${uses.map(usageText).join(', ')}` : action.label;
-
-  const iconEl = document.createElement('div');
-  iconEl.className = TILE_ICON;
-  iconEl.textContent = '🔌';
-  const labelEl = document.createElement('div');
-  labelEl.className = TILE_TITLE;
-  labelEl.textContent = action.label;
-
-  const subEl = document.createElement('div');
-  if (uses.length) {
-    subEl.className = `${TILE_SUB} text-cyan-300`;
-    subEl.textContent = `On ${usageText(uses[0])}${uses.length > 1 ? ` +${uses.length - 1}` : ''}`;
-  } else if (action.kind === 'knob' || action.kind === 'button') {
-    subEl.className = `${TILE_SUB} text-amber-300`;
-    subEl.textContent = action.kind === 'knob' ? 'Knob only' : 'Button only';
-  } else {
-    subEl.className = TILE_SUB;
-    subEl.textContent = ' '; // keeps labels aligned across tiles
-  }
-
-  card.append(iconEl, labelEl, subEl);
-
-  card.addEventListener('dragstart', (e) => {
-    state.mappingDragActive = true;
-    state.mappingDragPayload = { name: dragName };
-    e.dataTransfer.clearData();
-    e.dataTransfer.setData('text/plain', dragName);
-    e.dataTransfer.effectAllowed = 'copy';
-    card.style.opacity = '0.5';
-  });
-  card.addEventListener('dragend', () => {
-    state.mappingDragActive = false;
-    card.style.opacity = '1';
-  });
-
-  return card;
-}
-
 /** Full-width breadcrumb row: ‹  Plugins › Home Assistant › Lights — every part but the last is clickable. */
 function createPageHeader(crumbs) {
   const header = document.createElement('div');
@@ -352,10 +306,112 @@ function renderPluginCards(list, usage) {
   }
 }
 
+// Knob: a gauge arc with a pointer. Button: a ring with a pressed centre.
+const KNOB_GLYPH = 'M5.6 18.4A9 9 0 1 1 18.4 18.4M12 13l3.5-3.5';
+const BUTTON_GLYPH = 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6';
+
+/**
+ * Draggable action card: wide and short, so names get the room squares didn't
+ * have. The icon carries the plugin's colour and shows whether the action is
+ * for a knob turn or a button press; mapped actions get a cyan edge and say where.
+ */
+function createPluginActionCard(pluginId, action, uses, displayLabel = action.label) {
+  const dragName = pluginDragName(pluginId, action.id);
+  const offline = !state.pluginActions.some((p) => p.pluginId === pluginId);
+  const hue = pluginHue(pluginId);
+
+  const card = document.createElement('div');
+  card.className =
+    'flex items-center gap-2.5 h-14 px-2.5 rounded-lg border bg-slate-700 cursor-move transition group ' +
+    `hover:bg-cyan-700 hover:border-cyan-500 ${uses.length ? 'border-cyan-600' : 'border-slate-600'}`;
+  card.setAttribute('draggable', 'true');
+  card.title = uses.length ? `${action.label}\nOn ${uses.map(usageText).join(', ')}` : action.label;
+
+  const iconEl = document.createElement('div');
+  iconEl.className = 'w-8 h-8 rounded-md flex items-center justify-center shrink-0 text-white transition';
+  iconEl.style.background = offline ? '#475569' : `hsl(${hue} 55% 42% / 0.85)`;
+  iconEl.appendChild(svgIcon(action.kind === 'button' ? BUTTON_GLYPH : KNOB_GLYPH, 16));
+
+  const textWrap = document.createElement('div');
+  textWrap.className = 'flex flex-col min-w-0 flex-1';
+  const labelEl = document.createElement('div');
+  labelEl.className = 'text-xs font-medium leading-tight text-indigo-200 group-hover:text-white break-words line-clamp-2';
+  labelEl.textContent = displayLabel;
+  textWrap.appendChild(labelEl);
+
+  const subEl = document.createElement('div');
+  subEl.className = 'text-[10px] truncate mt-0.5';
+  if (uses.length) {
+    subEl.classList.add('text-cyan-300');
+    subEl.textContent = `On ${uses.map(usageText).join(', ')}`;
+  } else if (action.kind === 'knob' || action.kind === 'button') {
+    subEl.classList.add('text-slate-400');
+    subEl.textContent = action.kind === 'knob' ? 'Knob only' : 'Button only';
+  }
+  if (subEl.textContent) textWrap.appendChild(subEl);
+
+  card.append(iconEl, textWrap);
+
+  card.addEventListener('dragstart', (e) => {
+    state.mappingDragActive = true;
+    state.mappingDragPayload = { name: dragName };
+    e.dataTransfer.clearData();
+    e.dataTransfer.setData('text/plain', dragName);
+    e.dataTransfer.effectAllowed = 'copy';
+    card.style.opacity = '0.5';
+  });
+  card.addEventListener('dragend', () => {
+    state.mappingDragActive = false;
+    card.style.opacity = '1';
+  });
+
+  return card;
+}
+
+/**
+ * A full-width grid inside the page grid: 'tiles' for square plugin/group
+ * tiles, 'actions' for the wider action cards.
+ */
+function createSection(kind) {
+  const section = document.createElement('div');
+  section.className =
+    kind === 'tiles'
+      ? 'col-span-full grid grid-cols-[repeat(auto-fill,6.25rem)] gap-2'
+      : 'col-span-full grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-2';
+  return section;
+}
+
+/**
+ * "Light: Desk", "Light: Hall" → "Desk", "Hall" when every action in the
+ * group repeats the same "Something: " prefix (the group already says it).
+ */
+function stripSharedPrefix(actions) {
+  const prefixOf = (label) => /^([^:]{1,24}):\s+\S/.exec(label)?.[1];
+  const first = prefixOf(actions[0]?.label || '');
+  if (!first || actions.length < 2 || !actions.every((a) => prefixOf(a.label) === first)) {
+    return (action) => action.label;
+  }
+  return (action) => action.label.slice(first.length + 1).trim();
+}
+
+function appendActionCards(list, pluginId, actions, usage, display = (a) => a.label) {
+  if (!actions.length) return;
+  const section = createSection('actions');
+  for (const action of actions) {
+    section.appendChild(createPluginActionCard(
+      pluginId,
+      action,
+      usage.get(pluginActionKey(pluginId, action.id)) || [],
+      display(action),
+    ));
+  }
+  list.appendChild(section);
+}
+
 function renderPluginPage(list, plugin, usage) {
   list.appendChild(createPageHeader([ROOT_CRUMB, { label: plugin.name }]));
 
-  // Ungrouped actions first, then a card per group (in first-seen order).
+  // Ungrouped actions first, then a tile per group (in first-seen order).
   const ungrouped = [];
   const groups = new Map();
   for (const action of plugin.actions) {
@@ -370,19 +426,21 @@ function renderPluginPage(list, plugin, usage) {
   if (!plugin.actions.length) {
     list.appendChild(createNote('This plugin has no actions right now.'));
   }
-  for (const action of ungrouped) {
-    list.appendChild(createPluginActionCard(plugin.pluginId, action, usage.get(pluginActionKey(plugin.pluginId, action.id)) || []));
-  }
-  for (const [groupName, actions] of groups) {
-    const inUse = countInUse(usage, plugin.pluginId, actions.map((a) => a.id));
-    list.appendChild(createNavCard({
-      icon: '📁',
-      title: groupName,
-      subtitle: plural(actions.length, 'action'),
-      inUse,
-      stacked: true,
-      onOpen: () => openPage(plugin.pluginId, groupName),
-    }));
+  appendActionCards(list, plugin.pluginId, ungrouped, usage);
+
+  if (groups.size) {
+    const section = createSection('tiles');
+    for (const [groupName, actions] of groups) {
+      section.appendChild(createNavCard({
+        icon: '📁',
+        title: groupName,
+        subtitle: plural(actions.length, 'action'),
+        inUse: countInUse(usage, plugin.pluginId, actions.map((a) => a.id)),
+        stacked: true,
+        onOpen: () => openPage(plugin.pluginId, groupName),
+      }));
+    }
+    list.appendChild(section);
   }
 }
 
@@ -392,17 +450,14 @@ function renderGroupPage(list, plugin, groupName, usage) {
     { label: plugin.name, onClick: () => openPage(plugin.pluginId) },
     { label: groupName },
   ]));
-  for (const action of plugin.actions.filter((a) => a.group === groupName)) {
-    list.appendChild(createPluginActionCard(plugin.pluginId, action, usage.get(pluginActionKey(plugin.pluginId, action.id)) || []));
-  }
+  const actions = plugin.actions.filter((a) => a.group === groupName);
+  appendActionCards(list, plugin.pluginId, actions, usage, stripSharedPrefix(actions));
 }
 
 function renderOfflinePage(list, pluginId, actionIds, usage) {
   list.appendChild(createPageHeader([ROOT_CRUMB, { label: pluginId }]));
   list.appendChild(createNote("This plugin isn't connected. Showing only the actions that are mapped."));
-  for (const actionId of actionIds) {
-    list.appendChild(createPluginActionCard(pluginId, { id: actionId, label: actionId }, usage.get(pluginActionKey(pluginId, actionId)) || []));
-  }
+  appendActionCards(list, pluginId, actionIds.map((id) => ({ id, label: id })), usage);
 }
 
 let backButtonBound = false;

@@ -300,6 +300,9 @@
   .mx-auto {
     margin-inline: auto;
   }
+  .mt-0\.5 {
+    margin-top: calc(var(--spacing) * 0.5);
+  }
   .mt-1 {
     margin-top: var(--spacing);
   }
@@ -378,6 +381,9 @@
   }
   .h-10 {
     height: calc(var(--spacing) * 10);
+  }
+  .h-14 {
+    height: calc(var(--spacing) * 14);
   }
   .h-full {
     height: 100%;
@@ -471,6 +477,9 @@
   .grid-cols-\[repeat\(auto-fill\,6\.25rem\)\] {
     grid-template-columns: repeat(auto-fill,6.25rem);
   }
+  .grid-cols-\[repeat\(auto-fill\,minmax\(13rem\,1fr\)\)\] {
+    grid-template-columns: repeat(auto-fill,minmax(13rem,1fr));
+  }
   .flex-col {
     flex-direction: column;
   }
@@ -509,6 +518,9 @@
   }
   .gap-2 {
     gap: calc(var(--spacing) * 2);
+  }
+  .gap-2\.5 {
+    gap: calc(var(--spacing) * 2.5);
   }
   .gap-3 {
     gap: calc(var(--spacing) * 3);
@@ -719,6 +731,9 @@
   }
   .px-2 {
     padding-inline: calc(var(--spacing) * 2);
+  }
+  .px-2\.5 {
+    padding-inline: calc(var(--spacing) * 2.5);
   }
   .px-3 {
     padding-inline: calc(var(--spacing) * 3);
