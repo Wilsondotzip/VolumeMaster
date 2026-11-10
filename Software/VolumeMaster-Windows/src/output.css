@@ -400,6 +400,9 @@
   .max-h-48 {
     max-height: calc(var(--spacing) * 48);
   }
+  .max-h-56 {
+    max-height: calc(var(--spacing) * 56);
+  }
   .min-h-0 {
     min-height: 0px;
   }
@@ -415,6 +418,9 @@
   .w-4 {
     width: calc(var(--spacing) * 4);
   }
+  .w-5 {
+    width: calc(var(--spacing) * 5);
+  }
   .w-6 {
     width: calc(var(--spacing) * 6);
   }
@@ -429,6 +435,9 @@
   }
   .w-96 {
     width: calc(var(--spacing) * 96);
+  }
+  .w-\[15rem\] {
+    width: 15rem;
   }
   .w-full {
     width: 100%;
@@ -519,6 +528,9 @@
   .justify-end {
     justify-content: flex-end;
   }
+  .gap-0\.5 {
+    gap: calc(var(--spacing) * 0.5);
+  }
   .gap-1 {
     gap: var(--spacing);
   }
@@ -536,6 +548,9 @@
   }
   .gap-4 {
     gap: calc(var(--spacing) * 4);
+  }
+  .gap-5 {
+    gap: calc(var(--spacing) * 5);
   }
   .gap-6 {
     gap: calc(var(--spacing) * 6);
@@ -630,6 +645,12 @@
   .border-indigo-400 {
     border-color: var(--color-indigo-400);
   }
+  .border-indigo-500\/60 {
+    border-color: color-mix(in srgb, oklch(58.5% 0.233 277.117) 60%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      border-color: color-mix(in oklab, var(--color-indigo-500) 60%, transparent);
+    }
+  }
   .border-purple-600 {
     border-color: var(--color-purple-600);
   }
@@ -689,6 +710,12 @@
   }
   .bg-indigo-600 {
     background-color: var(--color-indigo-600);
+  }
+  .bg-indigo-600\/30 {
+    background-color: color-mix(in srgb, oklch(51.1% 0.262 276.966) 30%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--color-indigo-600) 30%, transparent);
+    }
   }
   .bg-indigo-900 {
     background-color: var(--color-indigo-900);
@@ -798,6 +825,9 @@
   .pt-1 {
     padding-top: var(--spacing);
   }
+  .pt-1\.5 {
+    padding-top: calc(var(--spacing) * 1.5);
+  }
   .pt-3 {
     padding-top: calc(var(--spacing) * 3);
   }
@@ -807,6 +837,9 @@
   .pr-10 {
     padding-right: calc(var(--spacing) * 10);
   }
+  .pb-0\.5 {
+    padding-bottom: calc(var(--spacing) * 0.5);
+  }
   .pb-2 {
     padding-bottom: calc(var(--spacing) * 2);
   }
@@ -815,6 +848,9 @@
   }
   .text-left {
     text-align: left;
+  }
+  .text-right {
+    text-align: right;
   }
   .font-mono {
     font-family: var(--font-mono);
@@ -1019,6 +1055,12 @@
   .ring-indigo-400 {
     --tw-ring-color: var(--color-indigo-400);
   }
+  .ring-indigo-400\/70 {
+    --tw-ring-color: color-mix(in srgb, oklch(67.3% 0.182 276.935) 70%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      --tw-ring-color: color-mix(in oklab, var(--color-indigo-400) 70%, transparent);
+    }
+  }
   .outline {
     outline-style: var(--tw-outline-style);
     outline-width: 1px;
@@ -1121,6 +1163,14 @@
     .hover\:bg-indigo-600:hover {
       background-color: var(--color-indigo-600);
     }
+    .hover\:bg-indigo-600\/40:hover {
+      background-color: color-mix(in srgb, oklch(51.1% 0.262 276.966) 40%, transparent);
+    }
+    @supports (color: color-mix(in lab, red, red)) {
+      .hover\:bg-indigo-600\/40:hover {
+        background-color: color-mix(in oklab, var(--color-indigo-600) 40%, transparent);
+      }
+    }
     .hover\:bg-indigo-700:hover {
       background-color: var(--color-indigo-700);
     }
@@ -1152,6 +1202,14 @@
     }
     .hover\:bg-slate-700:hover {
       background-color: var(--color-slate-700);
+    }
+    .hover\:bg-slate-700\/60:hover {
+      background-color: color-mix(in srgb, oklch(37.2% 0.044 257.287) 60%, transparent);
+    }
+    @supports (color: color-mix(in lab, red, red)) {
+      .hover\:bg-slate-700\/60:hover {
+        background-color: color-mix(in oklab, var(--color-slate-700) 60%, transparent);
+      }
     }
     .hover\:bg-slate-800:hover {
       background-color: var(--color-slate-800);
@@ -1185,6 +1243,15 @@
   .focus\:outline-none:focus {
     --tw-outline-style: none;
     outline-style: none;
+  }
+  .disabled\:pointer-events-none:disabled {
+    pointer-events: none;
+  }
+  .disabled\:opacity-30:disabled {
+    opacity: 30%;
+  }
+  .disabled\:opacity-40:disabled {
+    opacity: 40%;
   }
 }
 .range-slider {

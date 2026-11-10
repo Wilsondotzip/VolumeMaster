@@ -17,7 +17,46 @@ export const BUILTIN_ACTION_TYPES = [
   { type: 'switch_preset', label: 'Switch Preset', icon: '🗂️', description: 'Next, previous or chosen', configurable: true, buttonOnly: true },
   { type: 'encoder_mode', label: 'Knob Mode', icon: '🔄', description: 'Absolute or increment', configurable: true, buttonOnly: true },
   { type: 'switch_output', label: 'Switch Output', icon: '🔈', description: 'Change audio output', configurable: true, buttonOnly: true },
+  { type: 'action_ring', label: 'Action Ring', icon: '⭕', description: 'Wheel of actions to pick from', configurable: true, buttonOnly: true },
 ];
+
+// --- Action Ring slots ---------------------------------------------------------
+//
+// An Action Ring (type 'action_ring') opens a wheel of slots on press; turning
+// moves round it and a second press runs the slot. params: { title, slots }.
+// A slot is a built-in action ({ id, kind: 'builtin', type, params }) or a plugin
+// action ({ id, kind: 'plugin', key }), plus the label / detail / icon the wheel
+// shows, saved alongside it since the backend (which opens the wheel) has no UI metadata.
+
+export const RING_MAX_SLOTS = 24; // one per detent of a full turn on the Pro
+
+// Built-ins that can go in a slot: the ones the backend runs itself. Switch Preset
+// and Knob Mode are run by Electron on a real button press, and rings don't nest.
+export const RING_SLOT_TYPES = ['media_control', 'keyboard_shortcut', 'open_program', 'mute', 'switch_output'];
+
+/** { label, detail, icon } for a slot, as shown on the wheel and in the editor. */
+export function ringSlotDisplay(slot, plugins = state.pluginActions) {
+  if (slot.kind === 'plugin') {
+    const colonIdx = slot.key.indexOf(':');
+    const pluginId = slot.key.slice(0, colonIdx);
+    const actionId = slot.key.slice(colonIdx + 1);
+    const plugin = plugins.find((p) => p.pluginId === pluginId);
+    const action = plugin?.actions.find((a) => a.id === actionId);
+    return {
+      label: action?.label || slot.label || actionId,
+      detail: plugin?.name || slot.detail || pluginId,
+      icon: '🔌',
+    };
+  }
+  const meta = getBuiltinTypeMeta(slot.type);
+  // Parameterless actions read best by name; the rest by what they're set to.
+  const described = slot.type === 'mute' ? '' : describeBuiltinAction(slot);
+  return {
+    label: described || meta?.label || slot.type,
+    detail: described ? meta?.label || '' : '',
+    icon: meta?.icon || '•',
+  };
+}
 
 const PRESET_MODE_LABELS = { next: 'Next preset', previous: 'Previous preset', selector: 'Choose with knob' };
 const ENCODER_MODE_LABELS = { toggle: 'Toggle', absolute: 'Set Absolute', increment: 'Set Increment' };
@@ -73,6 +112,12 @@ export function describeBuiltinAction(entry) {
     return path ? path.split(/[\\/]/).pop() : 'Click to choose program';
   }
   if (entry.type === 'mute') return "Mutes this knob's targets";
+  if (entry.type === 'action_ring') {
+    const count = entry.params?.slots?.length || 0;
+    if (!count) return 'Click to add actions';
+    const title = entry.params?.title ? `${entry.params.title} — ` : '';
+    return `${title}${count} action${count === 1 ? '' : 's'}`;
+  }
   if (entry.type === 'media_control') {
     const command = MEDIA_COMMANDS.find(([value]) => value === entry.params?.command) || MEDIA_COMMANDS[0];
     return command[1];

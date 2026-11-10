@@ -5,6 +5,11 @@ Mappings[knob].ButtonActions / TurnLeftActions / TurnRightActions hold entries
 entries run here: plugin entries are dispatched by Electron (on the BUTTON:
 stdout line), and 'switch_preset' / 'encoder_mode' are executed by Electron's
 main process (it owns presets) — their effect reaches us as a config reload.
+
+'action_ring' opens a radial knob selector (selector.py, style 'ring') over its
+params['slots']; confirming runs the chosen slot. Built-in slots run here like
+any other action; plugin slots are handed to Electron as
+PLUGIN_TRIGGER:<knob>:<pluginId:actionId>, since only Electron talks to plugins.
 """
 import subprocess
 
@@ -62,6 +67,7 @@ class ActionRunner:
         self._button_actions = {}  # knob index -> [entry]
         self._turn_actions = {}    # knob index -> {'left': [entry], 'right': [entry]}
         self._mute_state = {}      # knob index -> bool, toggled by the 'mute' action
+        self._ring_positions = {}  # action ring id -> last slot picked, where it reopens
 
     def load(self, config):
         self._button_actions = {}
@@ -98,6 +104,8 @@ class ActionRunner:
                     send_media_key(params.get('command'))
                 elif action_type == 'switch_output':
                     self._switch_output(index, entry.get('id'), params)
+                elif action_type == 'action_ring':
+                    self._open_action_ring(index, entry.get('id'), params)
             except Exception as e:
                 print(f"Failed to execute {failure_label} {entry}: {e}")
 
@@ -113,6 +121,37 @@ class ActionRunner:
         for index, muted in list(self._mute_state.items()):
             if muted:
                 self._backend.apply_mute(index, True, reapply=True)
+
+    def _open_action_ring(self, index, ring_id, params):
+        slots = [s for s in (params.get('slots') or []) if isinstance(s, dict) and s.get('id')]
+        if not slots:
+            print('Action ring has no actions yet', flush=True)
+            return
+        items = [{
+            'id': s['id'],
+            'label': s.get('label') or s.get('type') or s.get('key') or '?',
+            'detail': s.get('detail') or '',
+            'icon': s.get('icon') or '•',
+        } for s in slots]
+        by_id = {s['id']: s for s in slots}
+        start = self._ring_positions.get(ring_id, 0) % len(slots)
+
+        def on_select(item):
+            self._ring_positions[ring_id] = next((i for i, s in enumerate(slots) if s['id'] == item['id']), 0)
+            self._run_ring_slot(index, by_id.get(item['id']))
+
+        self._backend.selectors.open(index, params.get('title') or 'Action Ring', items, start,
+                                     on_select=on_select, style='ring')
+
+    def _run_ring_slot(self, index, slot):
+        if not slot:
+            return
+        if slot.get('kind') == 'plugin':
+            key = slot.get('key')
+            if isinstance(key, str) and ':' in key:
+                print(f'PLUGIN_TRIGGER:{index}:{key}', flush=True)
+        elif slot.get('type') != 'action_ring':  # rings don't nest
+            self._run(index, [slot], 'action ring slot')
 
     def _apply_output(self, device_id, name, include_communications):
         output_devices.set_default_output(device_id, include_communications)

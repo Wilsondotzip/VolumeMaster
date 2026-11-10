@@ -10,6 +10,7 @@ import {
   defaultBuiltinParams,
   MEDIA_COMMANDS,
 } from './builtin-actions.js';
+import { buildActionRingFields } from './action-ring-editor.js';
 
 const ENCODER_MODE_DEFAULT = 'absolute';
 const ENCODER_MODE_OPTIONS = [['absolute', 'Absolute'], ['increment', 'Increment']];
@@ -32,6 +33,12 @@ export function getEncoderStep(knobId) {
   return Number.isInteger(step) && step >= ENCODER_STEP_MIN && step <= ENCODER_STEP_MAX ? step : ENCODER_STEP_DEFAULT;
 }
 
+/** The knob dialog is narrow by default; the Action Ring editor needs room for its preview. */
+function setKnobModalWide(wide) {
+  const card = document.getElementById('knobConfigModal')?.firstElementChild;
+  if (card) card.style.width = wide ? '46rem' : '';
+}
+
 export function createKnobConfigButton(knobId) {
   const btn = document.createElement('button');
   btn.type = 'button';
@@ -49,6 +56,7 @@ function openKnobConfigModal(knobId) {
   const modal = document.getElementById('knobConfigModal');
   if (!modal) return;
   document.getElementById('knobConfigModalTitle').textContent = `Configure Knob ${knobId}`;
+  setKnobModalWide(false);
 
   const fields = document.getElementById('knobConfigFields');
   fields.innerHTML = '';
@@ -622,6 +630,8 @@ function buildBuiltinActionFields(entry, fields) {
       modeSelect.value === 'specific'
         ? { mode: 'specific', name: presetSelect.value }
         : { mode: modeSelect.value };
+  } else if (entry.type === 'action_ring') {
+    getValue = buildActionRingFields(entry, wrapper, buildBuiltinActionFields);
   } else if (entry.type === 'media_control') {
     const commandSelect = createSelectField(wrapper, 'Control', MEDIA_COMMANDS, entry.params.command || 'play_pause');
     const hint = document.createElement('p');
@@ -798,6 +808,7 @@ function openButtonActionConfigModal(knobId, entry, sub) {
 
   const fields = document.getElementById('knobConfigFields');
   fields.innerHTML = '';
+  setKnobModalWide(entry.type === 'action_ring');
 
   const getValue = buildBuiltinActionFields(entry, fields);
 
@@ -973,6 +984,7 @@ function openTurnActionConfigModal(knobId, direction, entry, sub) {
 
   const fields = document.getElementById('knobConfigFields');
   fields.innerHTML = '';
+  setKnobModalWide(entry.type === 'action_ring');
 
   const getValue = buildBuiltinActionFields(entry, fields);
 
