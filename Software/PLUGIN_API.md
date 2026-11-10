@@ -54,6 +54,7 @@ Register your plugin and its actions. Send this right after connecting.
 | `pluginId` | Unique string identifier for your plugin. Use something specific to avoid clashes (e.g. `obs-controller`, not `plugin`). Can't contain `:`. |
 | `name`     | Display name shown in VolumeMaster's UI.                                                                                 |
 | `actions`  | List of actions users can assign to knobs. Each needs a unique `id` and a short `label`.                                 |
+| `config`   | Optional. Settings fields for your plugin, shown under **Settings → Managed Plugins**. See [Plugin settings](#plugin-settings). |
 
 VolumeMaster replies with [`registered`](#registered), or [`error`](#error) if the registration was rejected.
 
@@ -64,6 +65,37 @@ Each action may optionally set `kind` to `"knob"` or `"button"` to restrict wher
 Each action may also optionally set `group` to a free-text label. Actions sharing the same `group` are clustered together under that heading in VolumeMaster's UI, so a plugin with many actions (e.g. a smart-home or streaming controller) can organize them instead of dumping everything in one flat list. Actions with no `group` are shown ungrouped, above any named groups. This is purely cosmetic — it has no effect on how actions are matched or dispatched.
 
 After registering, your actions appear as draggable cards in the **Plugins** tab inside VolumeMaster, organized under a collapsible section for your plugin (and sub-grouped if you used `group`). Users drag them onto knobs just like apps.
+
+#### Plugin settings
+
+Pass a `config` array in `register` to give your plugin a settings form (host, port, password, ...). VolumeMaster stores the values and sends them to your plugin in a [`config`](#config) message.
+
+```json
+{
+  "type": "register",
+  "pluginId": "obs-controller",
+  "name": "OBS Controller",
+  "actions": [ ... ],
+  "config": [
+    { "key": "host",        "type": "text",     "label": "Host", "default": "localhost" },
+    { "key": "port",        "type": "number",   "label": "Port", "default": 4455 },
+    { "key": "password",    "type": "password", "label": "Password" },
+    { "key": "autoConnect", "type": "boolean",  "label": "Connect on startup", "default": true },
+    { "key": "mode",        "type": "select",   "label": "Mode", "options": ["scenes", { "value": "audio", "label": "Audio only" }] }
+  ]
+}
+```
+
+| Field         | Description                                                                                                |
+| ------------- | ---------------------------------------------------------------------------------------------------------- |
+| `key`         | Required. Name of the value in the `config` message.                                                       |
+| `type`        | Required. `text`, `number`, `password`, `boolean` or `select`.                                             |
+| `label`       | Shown next to the field.                                                                                   |
+| `default`     | Shown in the form until the user saves a value. It isn't sent to your plugin — apply your own default when a key is missing. |
+| `placeholder` | Optional hint text for `text`, `number` and `password` fields.                                             |
+| `options`     | `select` only. Strings, or `{ "value", "label" }` objects.                                                 |
+
+Users open the form with the **Configure** button next to your plugin in **Settings → Managed Plugins**. That button only appears when your plugin was added there and your `pluginId` matches its executable's filename — `obs-controller.exe` should register as `obs-controller`.
 
 ---
 
@@ -86,6 +118,16 @@ Sent when a message is rejected — invalid JSON, an unknown `type`, or a `regis
 ```json
 { "type": "error", "message": "register: pluginId can't contain ':'." }
 ```
+
+#### `config`
+
+Your plugin's saved settings. Sent after `register` if you included a `config` schema, and again whenever the user saves the settings form.
+
+```json
+{ "type": "config", "values": { "host": "localhost", "port": 4455, "password": "hunter2", "autoConnect": true } }
+```
+
+`values` only contains keys the user has saved. `number` fields arrive as numbers, `boolean` fields as `true`/`false`, and everything else as strings.
 
 #### `knob`
 
