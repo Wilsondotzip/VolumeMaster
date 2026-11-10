@@ -626,9 +626,6 @@
   .border-cyan-600 {
     border-color: var(--color-cyan-600);
   }
-  .border-gray-300 {
-    border-color: var(--color-gray-300);
-  }
   .border-indigo-400 {
     border-color: var(--color-indigo-400);
   }
@@ -904,9 +901,6 @@
   .tracking-wider {
     --tw-tracking: var(--tracking-wider);
     letter-spacing: var(--tracking-wider);
-  }
-  .text-wrap {
-    text-wrap: wrap;
   }
   .break-words {
     overflow-wrap: break-word;

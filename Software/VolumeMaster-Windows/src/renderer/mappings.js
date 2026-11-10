@@ -307,7 +307,7 @@ function createButtonRow(knobId) {
 function createVolumeCard(knobId, iconText, labelTest) {
   const card = document.createElement('div');
   card.className =
-    'flex items-center gap-3 mb-3 p-3 rounded border border-slate-700 bg-slate-800 hover:bg-red-900/30 hover:border-red-500 cursor-pointer transition overflow-hidden';
+    'flex shrink-0 items-center gap-3 mb-3 p-3 rounded border border-slate-700 bg-slate-800 hover:bg-red-900/30 hover:border-red-500 cursor-pointer transition overflow-hidden';
   card.setAttribute('data-appname', 'master');
 
   const icon = document.createElement('div');
@@ -564,7 +564,7 @@ function createAppCard(app, knobId) {
   const display = getProcessDisplayInfo(app);
   const card = document.createElement('div');
   card.className =
-    'flex items-center gap-4 mb-3 p-3 rounded border border-gray-300 hover:bg-red-900/30 hover:border-red-500 cursor-pointer transition overflow-hidden';
+    'flex shrink-0 items-center gap-3 mb-3 p-3 rounded border border-slate-700 bg-slate-800 hover:bg-red-900/30 hover:border-red-500 cursor-pointer transition overflow-hidden';
   card.setAttribute('data-appname', app);
 
   const icon = document.createElement('img');
@@ -578,7 +578,7 @@ function createAppCard(app, knobId) {
 
   const label = document.createElement('div');
   label.textContent = display.title || sanitizeAppName(app);
-  label.className = 'text-lg font-medium break-words';
+  label.className = 'text-sm font-semibold text-slate-100 break-words';
 
   const subtitle = document.createElement('div');
   subtitle.textContent = display.subtitle || app;
@@ -614,7 +614,7 @@ function createCategoryCard(catId, knobId) {
   const dragName = `${CATEGORY_PREFIX}${catId}`;
   const card = document.createElement('div');
   card.className =
-    'flex items-center gap-3 mb-3 p-3 rounded border border-slate-700 bg-slate-800 hover:bg-red-900/30 hover:border-red-500 cursor-pointer transition overflow-hidden';
+    'flex shrink-0 items-center gap-3 mb-3 p-3 rounded border border-slate-700 bg-slate-800 hover:bg-red-900/30 hover:border-red-500 cursor-pointer transition overflow-hidden';
   card.setAttribute('data-appname', dragName);
 
   const icon = document.createElement('div');
@@ -821,7 +821,7 @@ function createPluginActionCard(actionKey, knobId) {
   const dragName = `${PLUGIN_PREFIX}${actionKey}`;
   const card = document.createElement('div');
   card.className =
-    'flex items-center gap-3 mb-3 p-3 rounded border border-cyan-600 bg-cyan-900 bg-opacity-30 hover:bg-red-900 hover:bg-opacity-30 hover:border-red-500 cursor-pointer transition overflow-hidden';
+    'flex shrink-0 items-center gap-3 mb-3 p-3 rounded border border-cyan-600 bg-cyan-900 bg-opacity-30 hover:bg-red-900 hover:bg-opacity-30 hover:border-red-500 cursor-pointer transition overflow-hidden';
   card.setAttribute('data-appname', dragName);
 
   const icon = document.createElement('div');
@@ -964,18 +964,24 @@ async function removeAppFromKnob(knobId, appName) {
 function createInputDeviceCard(name, knobId) {
   const card = document.createElement('div');
   card.className =
-    'flex items-center gap-4 mb-3 p-3 rounded border border-gray-300 hover:bg-red-900/30 hover:border-red-500 cursor-pointer transition overflow-hidden';
+    'flex shrink-0 items-center gap-3 mb-3 p-3 rounded border border-slate-700 bg-slate-800 hover:bg-red-900/30 hover:border-red-500 cursor-pointer transition overflow-hidden';
   card.setAttribute('data-appname', name);
 
   const icon = document.createElement('div');
-  icon.className = 'w-10 h-10 rounded bg-slate-600 flex items-center justify-center text-xl';
+  icon.className = 'w-10 h-10 rounded bg-slate-700 flex items-center justify-center text-xl shrink-0';
   icon.textContent = '🎤';
 
+  const textCol = document.createElement('div');
+  textCol.className = 'flex flex-col min-w-0';
   const label = document.createElement('div');
   label.textContent = name;
-  label.className = 'text-lg font-medium shrink capitalize text-wrap';
+  label.className = 'text-sm font-semibold text-slate-100 capitalize break-words';
+  const sub = document.createElement('div');
+  sub.textContent = 'Input device';
+  sub.className = 'text-xs text-slate-500';
+  textCol.append(label, sub);
 
-  card.append(icon, label);
+  card.append(icon, textCol);
 
   card.onclick = async () => {
     await removeAppFromKnob(knobId, name);
@@ -989,7 +995,7 @@ function createVMCard(vmId, label, knobId) {
   const dragName = `vm:${vmId}`;
   const card = document.createElement('div');
   card.className =
-    'flex items-center gap-3 mb-3 p-3 rounded border border-purple-600 bg-purple-900 bg-opacity-30 hover:bg-red-900 hover:bg-opacity-30 hover:border-red-500 cursor-pointer transition overflow-hidden';
+    'flex shrink-0 items-center gap-3 mb-3 p-3 rounded border border-purple-600 bg-purple-900 bg-opacity-30 hover:bg-red-900 hover:bg-opacity-30 hover:border-red-500 cursor-pointer transition overflow-hidden';
   card.setAttribute('data-appname', dragName);
 
   const icon = document.createElement('div');
