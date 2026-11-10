@@ -20,6 +20,68 @@
         overflow: hidden;
       }
 
+      /* Folder tabs. The selected tab shares the page panel's fill and border
+         and has no bottom edge, so tab and page read as one shape; small
+         inverted curves (::before / ::after) round the joins into the panel's
+         top edge. Unselected tabs sit flat behind. */
+      :root {
+        --page-panel: #141d31;
+        --page-border: #334155;
+      }
+      .folder-tabs {
+        display: flex;
+        align-items: flex-end;
+        gap: 4px;
+      }
+      .folder-tab {
+        position: relative;
+        padding: 8px 18px 9px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #64748b;
+        border: 1px solid transparent;
+        border-bottom: 0;
+        border-radius: 10px 10px 0 0;
+        margin-bottom: -1px; /* covers the panel's top border under the tab */
+        cursor: pointer;
+        transition: color 0.15s ease, background 0.15s ease;
+      }
+      .folder-tab:hover { color: #cbd5e1; background: rgba(30, 41, 59, 0.45); }
+      .folder-tab[aria-selected='true'] {
+        z-index: 1;
+        color: #f1f5f9;
+        background: var(--page-panel);
+        border-color: var(--page-border);
+      }
+      .folder-tab[aria-selected='true']::before,
+      .folder-tab[aria-selected='true']::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        width: 10px;
+        height: 10px;
+      }
+      .folder-tab[aria-selected='true']::after {
+        right: -10px;
+        background: radial-gradient(circle at 100% 0, transparent 9px, var(--page-border) 9px,
+          var(--page-border) 10px, var(--page-panel) 10.5px);
+      }
+      .folder-tab[aria-selected='true']::before {
+        left: -10px;
+        background: radial-gradient(circle at 0 0, transparent 9px, var(--page-border) 9px,
+          var(--page-border) 10px, var(--page-panel) 10.5px);
+      }
+      /* The first tab sits flush on the panel's square top-left corner */
+      .folder-tab:first-child[aria-selected='true']::before { display: none; }
+
+      /* The page under the tabs; top-left is square where the first tab joins */
+      #pagePanel {
+        background: var(--page-panel);
+        border: 1px solid var(--page-border);
+        border-radius: 0 12px 12px 12px;
+        padding: 12px;
+      }
+
       /* Custom title bar (Windows). The bar is the drag handle for the window;
          its buttons opt out so they stay clickable. Buttons match Windows'
          own size (46×32) and the close button's red. */
@@ -31,7 +93,7 @@
         height: 32px;
         margin: 0 -1rem 0.5rem;
         flex-shrink: 0;
-        border-bottom: 1px solid #1e293b;
+        background: #0b1120;
         -webkit-app-region: drag;
         user-select: none;
       }
@@ -185,10 +247,13 @@
         <svg viewBox="0 0 10 10"><path d="M0.5 0.5l9 9M9.5 0.5l-9 9" stroke="currentColor" stroke-width="1" /></svg>
       </button>
     </div>
-    <!-- Device Header -->
-    <div
-      class="flex items-center gap-2 px-1 pt-1 pb-2 shrink-0 border-b border-slate-700 mb-2"
-    >
+    <!-- Header: folder tabs on the left, sitting on the page panel; device on the right -->
+    <div class="flex items-end gap-4 shrink-0">
+      <div class="folder-tabs" role="tablist">
+        <button id="tabMappings" class="tab-button folder-tab" role="tab" aria-selected="true">Knob Mappings</button>
+        <button id="tabSettings" class="tab-button folder-tab" role="tab" aria-selected="false">Settings</button>
+      </div>
+    <div class="flex items-center justify-end gap-2 flex-1 min-w-0 pb-2 pr-1">
       <span
         class="text-xs text-slate-500 uppercase tracking-wider font-semibold"
         >Device</span
@@ -222,26 +287,10 @@
         ✕
       </button>
     </div>
-
-    <!-- Tabs -->
-    <div
-      class="flex justify-center mb-4 gap-6 border-b border-slate-700 shrink-0"
-    >
-      <button
-        id="tabMappings"
-        class="tab-button pb-2 text-indigo-400 border-b-2 border-indigo-400 font-semibold text-sm"
-      >
-        Knob Mappings
-      </button>
-      <button
-        id="tabSettings"
-        class="tab-button pb-2 text-slate-500 hover:text-indigo-400 text-sm"
-      >
-        Settings
-      </button>
     </div>
 
-    <!-- Mappings Tab -->
+    <!-- Page panel: both pages live in here, joined to the selected folder tab -->
+    <div id="pagePanel" class="flex flex-col min-h-0 grow">
     <!-- Mappings Tab -->
     <div id="tabContentMappings" class="flex flex-col min-h-0 grow">
       <!-- Sub Tabs + Panels: vertical menu on the left, content fills the rest -->
@@ -635,6 +684,8 @@
         </p>
       </div>
     </div>
+    </div>
+    <!-- /Page panel -->
 
     <!-- Plugin config modal -->
     <dialog id="pluginConfigModal">

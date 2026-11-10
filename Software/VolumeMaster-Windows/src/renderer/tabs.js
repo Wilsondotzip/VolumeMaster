@@ -9,17 +9,13 @@ export function setupTabs() {
     tabSettings: document.getElementById('tabSettings'),
   };
 
+  // Look comes from .seg-tab[aria-selected] in renderer.html
   Object.entries(buttons).forEach(([id, btn]) => {
-    btn.classList.add('cursor-pointer', 'text-gray-400', 'hover:text-indigo-400', 'transition');
-
     btn.addEventListener('click', () => {
       Object.entries(tabs).forEach(([tabId, content]) => {
         const isActive = tabId === id;
         content.classList.toggle('hidden', !isActive);
-        buttons[tabId].classList.toggle('border-b-2', isActive);
-        buttons[tabId].classList.toggle('border-indigo-400', isActive);
-        buttons[tabId].classList.toggle('text-indigo-400', isActive);
-        buttons[tabId].classList.toggle('text-gray-400', !isActive);
+        buttons[tabId].setAttribute('aria-selected', String(isActive));
       });
     });
   });
