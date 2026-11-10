@@ -291,25 +291,16 @@ function createButtonRow(knobId) {
   const row = document.createElement('div');
   row.className = 'flex gap-2 mb-3';
 
-  const masterBtn = document.createElement('button');
-  const apps = state.config.Mappings[knobId]?.ProcessNames || [];
-  masterBtn.textContent = 'Master Volume';
-  masterBtn.setAttribute('data-action', 'add-master');
-  masterBtn.type = 'button';
-  masterBtn.className =
-    'flex-1 py-2 px-3 text-sm font-medium rounded transition bg-indigo-600 hover:bg-indigo-700 text-white';
-  if (apps.includes('master')) masterBtn.style.display = 'none';
-  masterBtn.onclick = () => addMasterVolume(knobId);
-
+  // Master Volume is dragged in from the Categories tab; this row just adds a program by path.
   const browseBtn = document.createElement('button');
   browseBtn.type = 'button';
-  browseBtn.title = 'Add custom executable';
+  browseBtn.title = 'Pick a program (.exe) to control with this knob';
   browseBtn.className =
-    'py-2 px-3 text-sm font-medium rounded transition bg-slate-700 hover:bg-slate-600 text-slate-300 shrink-0';
-  browseBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`;
+    'flex-1 flex items-center justify-center gap-2 py-2 px-3 text-sm font-medium rounded transition bg-slate-700 hover:bg-slate-600 text-slate-300';
+  browseBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><span>Add program…</span>`;
   browseBtn.onclick = () => addCustomExe(knobId);
 
-  row.append(masterBtn, browseBtn);
+  row.append(browseBtn);
   return row;
 }
 
@@ -391,11 +382,6 @@ async function addMasterVolume(knobId) {
     if (!knobSection) {
       console.warn(`[addMasterVolume] No section found for knob ${knobId}`);
       return;
-    }
-
-    const button = knobSection.querySelector('[data-action="add-master"]');
-    if (button) {
-      button.style.display = 'none';
     }
 
     const cardHost = getKnobCardHost(knobSection);
@@ -695,8 +681,9 @@ async function handleDrop(event, knobId) {
     const isCategory = isCategoryItem(droppedApp);
     const isPlugin = isPluginItem(droppedApp);
 
+    // Master Volume comes from its card in the Categories tab
     if (droppedApp === 'master') {
-      console.warn(`[handleDrop] Cannot drop 'master' - use Add Master Volume button`);
+      await addMasterVolume(knobId);
       return;
     }
 
@@ -953,13 +940,6 @@ async function removeAppFromKnob(knobId, appName) {
     const card = searchRoot.querySelector(`[data-appname="${CSS.escape(appName)}"]`);
     if (card) {
       card.remove();
-    }
-
-    if (appName === 'master') {
-      const button = knobSection.querySelector('[data-action="add-master"]');
-      if (button) {
-        button.style.display = 'block';
-      }
     }
 
     if (!mappingHasAnyTargets(mapping)) {

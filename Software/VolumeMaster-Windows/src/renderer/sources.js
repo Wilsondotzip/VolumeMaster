@@ -165,8 +165,13 @@ export function renderCategoryList() {
   if (!list) return;
   while (list.firstChild) list.removeChild(list.firstChild);
 
-  CATEGORIES.forEach(({ id, icon, label, description, more }) => {
-    const dragName = `${CATEGORY_PREFIX}${id}`;
+  // Master Volume sits first: it's stored as the 'master' app (not a category),
+  // so its card drags that name and handleDrop routes it to addMasterVolume.
+  const cards = [
+    { dragName: 'master', icon: '🔊', label: 'Master Volume', description: 'Everything on the output' },
+    ...CATEGORIES.map((c) => ({ ...c, dragName: `${CATEGORY_PREFIX}${c.id}` })),
+  ];
+  cards.forEach(({ dragName, icon, label, description, more }) => {
     const card = document.createElement('div');
     card.className =
       'flex items-center gap-2.5 h-14 px-2.5 bg-slate-700 border border-slate-600 rounded-lg cursor-move hover:bg-emerald-700 hover:border-emerald-500 transition group';
