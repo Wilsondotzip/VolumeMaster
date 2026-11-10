@@ -25,3 +25,6 @@ npm-debug.log*
 # Plugins live in their own repos
 Software/plugins/
 Software/plugin-example.exe
+
+# Firmware images are not kept in git
+Firmware/*.bin

@@ -1,5 +1,8 @@
 """App categories a knob can be mapped to instead of individual apps."""
 
+# Follows the foreground window instead of a fixed set of apps (see focus.py).
+FOCUSED = 'Focused'
+
 CATEGORIES = {
     'Games': {
         'path_fragments': [

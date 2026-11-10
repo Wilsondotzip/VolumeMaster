@@ -3,6 +3,7 @@ export const CATEGORIES = [
   { id: 'Browser', icon: '🌐', label: 'Browser',  description: 'Chrome, Firefox, Edge & more' },
   { id: 'Chat',    icon: '💬', label: 'Chat',     description: 'Discord, Slack, Teams & more' },
   { id: 'Media',   icon: '🎵', label: 'Media',    description: 'Spotify, VLC' },
+  { id: 'Focused', icon: '🎯', label: 'Focused App', description: 'Whatever window is in front' },
 ];
 
 export const CATEGORY_PREFIX = 'category:';

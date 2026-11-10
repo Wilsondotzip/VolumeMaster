@@ -57,7 +57,7 @@ function getOrCreateWindow(cb) {
   notifWin.webContents.once('did-finish-load', () => cb(notifWin));
 }
 
-const CATEGORY_ICONS = { Games: '🎮', Browser: '🌐', Chat: '💬', Media: '🎵' };
+const CATEGORY_ICONS = { Games: '🎮', Browser: '🌐', Chat: '💬', Media: '🎵', Focused: '🎯' };
 
 function getKnobName(config, index) {
   const mapping = config.Mappings?.[index] ?? config.Mappings?.[String(index)];

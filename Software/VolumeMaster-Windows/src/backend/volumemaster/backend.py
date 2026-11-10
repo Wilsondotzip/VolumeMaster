@@ -112,17 +112,19 @@ class Backend:
 
     def reapply_volumes(self):
         for index, value in list(self.volumes.items()):
-            self.apply_volume(index, value)
+            self.apply_volume(index, value, reapply=True)
 
-    def apply_volume(self, index, value):
+    def apply_volume(self, index, value, reapply=False):
         mapping = self.mappings.get(index, {})
-        self.audio.set_volume(mapping, round(value / 100, 2))
+        # On a reapply, skip the 'Focused' target: whatever app is in front now
+        # isn't necessarily the one the knob was last turned for.
+        self.audio.set_volume(mapping, round(value / 100, 2), include_focused=not reapply)
         if self.voicemeeter and 'vm' in mapping:
             self.voicemeeter.set_gain(mapping['vm'], value)
 
-    def apply_mute(self, index, state):
+    def apply_mute(self, index, state, reapply=False):
         mapping = self.mappings.get(index, {})
-        self.audio.set_mute(mapping, state)
+        self.audio.set_mute(mapping, state, include_focused=not reapply)
         if self.voicemeeter and 'vm' in mapping:
             self.voicemeeter.set_mute(mapping['vm'], state)
 

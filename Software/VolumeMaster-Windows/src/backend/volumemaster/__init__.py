@@ -3,7 +3,8 @@
 Layout:
     backend.py           Backend: the serial read loop, with hooks per device model
     audio.py             AudioController: app sessions, master volume, mics
-    categories.py        App categories (Games / Browser / Chat / Media)
+    categories.py        App categories (Games / Browser / Chat / Media / Focused)
+    focus.py             The foreground window's app, for the Focused category
     config.py            config.yaml loading, mapping parsing, file watcher
     serial_link.py       Opening the device's COM port
     voicemeeter_link.py  VoiceMeeter gain / mute / button control

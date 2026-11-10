@@ -90,7 +90,7 @@ class ActionRunner:
         output appear, which start out unmuted."""
         for index, muted in list(self._mute_state.items()):
             if muted:
-                self._backend.apply_mute(index, True)
+                self._backend.apply_mute(index, True, reapply=True)
 
     def _apply_output(self, device_id, name, include_communications):
         output_devices.set_default_output(device_id, include_communications)

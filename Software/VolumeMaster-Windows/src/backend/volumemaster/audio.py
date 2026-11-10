@@ -7,7 +7,8 @@ applies a volume or mute to all of them. VoiceMeeter targets are separate
 from pycaw.pycaw import AudioUtilities, AudioSession, IAudioSessionControl2, DEVICE_STATE
 from pycaw.constants import EDataFlow
 
-from .categories import matches_category
+from .categories import FOCUSED, matches_category
+from .focus import foreground_exe_name
 
 
 def get_all_output_sessions():
@@ -166,11 +167,17 @@ class AudioController:
                 print(f"Could not open mic device '{device.FriendlyName}': {e}")
 
     def _category_sessions(self, cat_name):
+        if cat_name == FOCUSED:
+            exe_name = foreground_exe_name()
+            for key, vol_interface in list(self.session_cache.items()):
+                if exe_name and key[1] == exe_name:
+                    yield key, vol_interface
+            return
         for key, vol_interface in list(self.session_cache.items()):
             if matches_category(key[1], self.session_paths.get(key, ''), cat_name):
                 yield key, vol_interface
 
-    def set_volume(self, mapping, volume_scalar):
+    def set_volume(self, mapping, volume_scalar, include_focused=True):
         for name in mapping.get('apps', []):
             if name == 'master' and self.master:
                 try:
@@ -198,13 +205,15 @@ class AudioController:
                 print(f"Mic not found in cache: '{mic_name}' — will retry on next refresh")
 
         for cat_name in mapping.get('categories', []):
+            if cat_name == FOCUSED and not include_focused:
+                continue
             for key, vol_interface in self._category_sessions(cat_name):
                 try:
                     vol_interface.SetMasterVolume(volume_scalar, None)
                 except Exception:
                     self.session_cache.pop(key, None)
 
-    def set_mute(self, mapping, state):
+    def set_mute(self, mapping, state, include_focused=True):
         for name in mapping.get('apps', []):
             if name == 'master':
                 if self.master:
@@ -230,6 +239,8 @@ class AudioController:
                     print(f"Failed to mute mic '{mic_name}': {e}")
 
         for cat_name in mapping.get('categories', []):
+            if cat_name == FOCUSED and not include_focused:
+                continue
             for key, vol_interface in self._category_sessions(cat_name):
                 try:
                     vol_interface.SetMute(state, None)
