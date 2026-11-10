@@ -428,57 +428,29 @@
       </div>
 
       <!-- Presets Bar -->
-      <div id="presetsBar" class="flex items-center gap-2 mt-2 mb-3 shrink-0">
-        <!-- Normal state -->
-        <select
-          id="presetSelect"
-          class="flex-1 p-2.5 text-sm border border-slate-700 rounded bg-slate-800 text-gray-300 focus:outline-indigo-400 focus:ring-1 focus:ring-indigo-400"
-        >
-          <option value="">— No Preset —</option>
-        </select>
+      <!-- Preset selector: compact trigger + menu with the presets and New / Save / Delete
+           buttons (renderer/presets.js). The menu is 12px round with 1px border + 6px
+           padding, so its rows and buttons are 12 - 7 = 5px. -->
+      <div id="presetsBar" class="relative flex items-center mt-2 mb-3 shrink-0">
         <button
-          id="newPresetBtn"
-          class="px-3 py-2.5 text-sm bg-slate-700 hover:bg-slate-600 text-white rounded transition font-medium"
+          id="presetTrigger"
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded="false"
+          class="flex items-center gap-2 h-9 pl-3 pr-2 max-w-xs rounded-lg border border-slate-700 bg-slate-800 hover:border-slate-500 text-sm text-slate-200 transition"
         >
-          + New
+          <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Preset</span>
+          <span id="presetTriggerName" class="font-medium truncate">None</span>
+          <svg class="shrink-0 text-slate-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>
         </button>
-        <button
-          id="savePresetBtn"
-          class="px-3 py-2.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded transition font-medium"
+        <div
+          id="presetMenu"
+          role="menu"
+          class="hidden absolute left-0 top-full mt-1.5 z-30 w-72 p-1.5 rounded-xl border border-slate-700 bg-slate-900 shadow-2xl"
         >
-          Save
-        </button>
-        <button
-          id="deletePresetBtn"
-          class="px-3 py-2.5 text-sm bg-slate-700 hover:bg-red-700 text-white rounded transition font-medium"
-        >
-          Delete
-        </button>
-      </div>
-
-      <!-- Preset Name Input (shown when creating a new preset) -->
-      <div
-        id="presetNameRow"
-        class="hidden flex items-center gap-2 mb-3 shrink-0"
-      >
-        <input
-          id="presetNameInput"
-          type="text"
-          placeholder="Preset name..."
-          class="flex-1 p-1.5 text-sm border border-slate-700 rounded bg-slate-800 text-gray-300 placeholder-slate-500 focus:outline-indigo-400 focus:ring-1 focus:ring-indigo-400"
-        />
-        <button
-          id="confirmPresetBtn"
-          class="px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded transition font-medium"
-        >
-          Create
-        </button>
-        <button
-          id="cancelPresetBtn"
-          class="px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 text-white rounded transition font-medium"
-        >
-          Cancel
-        </button>
+          <div id="presetList" class="custom-scroll flex flex-col gap-0.5 max-h-60 overflow-y-auto"></div>
+          <div id="presetFooter" class="flex items-center gap-1.5 mt-1.5 pt-1.5 border-t border-slate-800"></div>
+        </div>
       </div>
 
       <!-- Knobs (always visible) -->
