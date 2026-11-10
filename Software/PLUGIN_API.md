@@ -21,6 +21,8 @@ On connect, VolumeMaster immediately sends a welcome message:
 
 `version` is the VolumeMaster app version (from its `package.json`).
 
+> **Browsers can't connect.** Connections that send an `Origin` header are refused (HTTP 401). Browsers always send one, so web pages can't reach the API. Native WebSocket clients (Python `websockets`, Node `ws`, .NET `ClientWebSocket`) don't send one by default — don't set it yourself.
+
 ---
 
 ## Protocol

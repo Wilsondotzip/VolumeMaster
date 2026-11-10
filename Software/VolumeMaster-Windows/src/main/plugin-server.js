@@ -38,7 +38,15 @@ function safeSend(socket, data) {
 function startPluginServer() {
   if (wss) return;
 
-  wss = new WebSocketServer({ host: '127.0.0.1', port: PLUGIN_PORT });
+  wss = new WebSocketServer({
+    host: '127.0.0.1',
+    port: PLUGIN_PORT,
+    // Browsers always send an Origin header on WebSocket connections; native
+    // plugins don't. Without this, any web page open in the user's browser
+    // could connect, register as an installed plugin, and be sent its saved
+    // config (passwords included).
+    verifyClient: (info) => !info.origin,
+  });
 
   wss.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
