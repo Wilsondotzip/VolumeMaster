@@ -9,18 +9,37 @@ export function setupTabs() {
     tabSettings: document.getElementById('tabSettings'),
   };
 
-  // Look comes from .seg-tab[aria-selected] in renderer.html
-  Object.entries(buttons).forEach(([id, btn]) => {
-    btn.addEventListener('click', () => {
-      Object.entries(tabs).forEach(([tabId, content]) => {
-        const isActive = tabId === id;
-        content.classList.toggle('hidden', !isActive);
-        buttons[tabId].setAttribute('aria-selected', String(isActive));
-      });
-    });
-  });
+  // Look comes from .folder-tab[aria-selected] in renderer.html. Switching
+  // slides the new page in from the side of the tab that was clicked (tabs
+  // further right come in from the right), unless reduced motion is on.
+  const order = Object.keys(buttons);
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let current = null;
 
-  buttons.tabMappings.click();
+  function show(id) {
+    if (id === current) return;
+    const direction = current === null ? 0 : Math.sign(order.indexOf(id) - order.indexOf(current));
+    current = id;
+
+    Object.entries(tabs).forEach(([tabId, content]) => {
+      const isActive = tabId === id;
+      content.classList.toggle('hidden', !isActive);
+      buttons[tabId].setAttribute('aria-selected', String(isActive));
+    });
+
+    if (direction !== 0 && !reduceMotion.matches) {
+      tabs[id].animate(
+        [
+          { opacity: 0, transform: `translateX(${direction * 28}px)` },
+          { opacity: 1, transform: 'translateX(0)' },
+        ],
+        { duration: 220, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' },
+      );
+    }
+  }
+
+  Object.entries(buttons).forEach(([id, btn]) => btn.addEventListener('click', () => show(id)));
+  show('tabMappings'); // first paint: no animation
 }
 
 const SUB_TAB_CONTENT_IDS = {

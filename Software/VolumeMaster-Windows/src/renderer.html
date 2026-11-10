@@ -44,7 +44,7 @@
         border-radius: 10px 10px 0 0;
         margin-bottom: -1px; /* covers the panel's top border under the tab */
         cursor: pointer;
-        transition: color 0.15s ease, background 0.15s ease;
+        transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
       }
       .folder-tab:hover { color: #cbd5e1; background: rgba(30, 41, 59, 0.45); }
       .folder-tab[aria-selected='true'] {
@@ -53,26 +53,31 @@
         background: var(--page-panel);
         border-color: var(--page-border);
       }
-      .folder-tab[aria-selected='true']::before,
-      .folder-tab[aria-selected='true']::after {
+      .folder-tab::before,
+      .folder-tab::after {
         content: '';
         position: absolute;
         bottom: 0;
         width: 10px;
         height: 10px;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        pointer-events: none;
       }
-      .folder-tab[aria-selected='true']::after {
+      .folder-tab[aria-selected='true']::before,
+      .folder-tab[aria-selected='true']::after { opacity: 1; }
+      .folder-tab::after {
         right: -10px;
         background: radial-gradient(circle at 100% 0, transparent 9px, var(--page-border) 9px,
           var(--page-border) 10px, var(--page-panel) 10.5px);
       }
-      .folder-tab[aria-selected='true']::before {
+      .folder-tab::before {
         left: -10px;
         background: radial-gradient(circle at 0 0, transparent 9px, var(--page-border) 9px,
           var(--page-border) 10px, var(--page-panel) 10.5px);
       }
       /* The first tab sits flush on the panel's square top-left corner */
-      .folder-tab:first-child[aria-selected='true']::before { display: none; }
+      .folder-tab:first-child::before { display: none; }
 
       /* The page under the tabs; top-left is square where the first tab joins */
       #pagePanel {
