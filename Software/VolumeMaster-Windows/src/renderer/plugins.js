@@ -74,7 +74,6 @@ function svgIcon(d, size = 14) {
   return svg;
 }
 
-const CHEVRON_RIGHT = 'M9 6l6 6-6 6';
 const CHEVRON_LEFT = 'M15 6l-6 6 6 6';
 
 function knobName(knobId) {
@@ -109,89 +108,133 @@ function countInUse(usage, pluginId, actionIds) {
   return actionIds.filter((id) => usage.has(pluginActionKey(pluginId, id))).length;
 }
 
-function describe(actionCount, inUse, offline = false) {
-  const parts = [];
-  if (offline) parts.push('Offline');
-  else parts.push(`${actionCount} action${actionCount === 1 ? '' : 's'}`);
-  if (inUse > 0) parts.push(`${inUse} in use`);
-  return parts.join(' · ');
+// Square tiles in a grid: the panel is wide and short, so a list shows only a
+// couple of rows while a grid fits a whole group at a glance.
+const TILE =
+  'relative size-[6.25rem] p-1.5 flex flex-col items-center justify-center gap-1 rounded-lg border bg-slate-700 transition group text-center';
+const TILE_ICON = 'text-[1.6rem] leading-none mb-0.5';
+const TILE_TITLE = 'text-xs font-medium leading-tight text-indigo-200 group-hover:text-white w-full break-words line-clamp-2';
+const TILE_SUB = 'text-[10px] truncate w-full';
+
+function plural(n, word) {
+  return `${n} ${word}${n === 1 ? '' : 's'}`;
 }
 
-/** A card that opens a page (a plugin or a group): not draggable, chevron on the right. */
-function createNavCard({ icon, title, subtitle, offline = false, onOpen }) {
+/** Corner badge: how many of a plugin's or group's actions are mapped. */
+function createInUseBadge(count) {
+  const badge = document.createElement('span');
+  badge.className =
+    'absolute top-1 right-1 px-1.5 leading-4 rounded-full bg-cyan-700 text-white text-[10px] font-semibold';
+  badge.textContent = String(count);
+  badge.title = `${count} in use`;
+  return badge;
+}
+
+/** A tile that opens a page (a plugin or a group). Groups get a stacked edge, like a folder of cards. */
+function createNavCard({ icon, title, subtitle, inUse = 0, offline = false, stacked = false, onOpen }) {
   const card = document.createElement('button');
   card.type = 'button';
-  card.className =
-    'flex items-center gap-3 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg cursor-pointer hover:bg-slate-600 hover:border-cyan-500 transition group text-left w-full';
+  card.className = `${TILE} border-slate-600 cursor-pointer hover:bg-slate-600 hover:border-cyan-500`;
+  if (stacked) card.classList.add('shadow-[3px_3px_0_-1px_#334155,3px_3px_0_0_#475569]');
   if (offline) card.classList.add('opacity-60');
+  card.title = title;
 
   const iconEl = document.createElement('div');
-  iconEl.className =
-    'w-8 h-8 rounded-md bg-slate-600 group-hover:bg-cyan-700 flex items-center justify-center text-lg shrink-0 transition';
+  iconEl.className = TILE_ICON;
   iconEl.textContent = icon;
-
-  const textWrap = document.createElement('div');
-  textWrap.className = 'flex flex-col min-w-0 flex-1';
   const titleEl = document.createElement('div');
-  titleEl.className = 'text-sm text-indigo-200 group-hover:text-white truncate transition font-medium';
+  titleEl.className = TILE_TITLE;
   titleEl.textContent = title;
   const subEl = document.createElement('div');
-  subEl.className = 'text-xs text-slate-400 truncate';
+  subEl.className = `${TILE_SUB} text-slate-400`;
   subEl.textContent = subtitle;
-  textWrap.append(titleEl, subEl);
 
-  const chevron = svgIcon(CHEVRON_RIGHT);
-  chevron.classList.add('text-slate-500', 'group-hover:text-white', 'transition');
-
-  card.append(iconEl, textWrap, chevron);
+  card.append(iconEl, titleEl, subEl);
+  if (inUse > 0) card.appendChild(createInUseBadge(inUse));
   card.onclick = onOpen;
   return card;
 }
 
-function createBadge(text, classes) {
-  const badge = document.createElement('span');
-  badge.className = `shrink-0 text-[10px] font-semibold uppercase tracking-wide rounded px-1.5 py-0.5 border ${classes}`;
-  badge.textContent = text;
-  return badge;
+/** A stable hue (0–359) per plugin, so each one keeps its colour everywhere. */
+function pluginHue(pluginId) {
+  let hash = 0;
+  for (const ch of pluginId) hash = (hash * 31 + ch.codePointAt(0)) >>> 0;
+  return hash % 360;
 }
 
-/** Draggable action card, with where it's already mapped. */
+/** "Home Assistant" → "HA", "discord-volume" → "DV", "Spotify" → "SP". */
+function pluginInitials(name) {
+  const words = name.split(/[\s\-_.]+/).filter(Boolean);
+  if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
+  return (words[0] || '?').slice(0, 2).toUpperCase();
+}
+
+/** Plugin tile: coloured monogram with a connected/offline dot, tinted to match. */
+function createPluginTile({ pluginId, name, subtitle, inUse, offline = false, onOpen }) {
+  const hue = pluginHue(pluginId);
+
+  const card = document.createElement('button');
+  card.type = 'button';
+  card.className = `${TILE} border-slate-600 cursor-pointer hover:bg-slate-600 hover:border-cyan-500 hover:-translate-y-0.5`;
+  card.style.backgroundImage = `linear-gradient(to bottom, hsl(${hue} 70% 50% / ${offline ? 0.06 : 0.16}), transparent 65%)`;
+  card.title = offline ? `${name} (not connected)` : name;
+
+  const avatar = document.createElement('div');
+  avatar.className =
+    'relative w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold text-white tracking-wide shadow-md mb-0.5 transition group-hover:scale-105';
+  avatar.style.background = offline
+    ? 'linear-gradient(135deg, #64748b, #475569)'
+    : `linear-gradient(135deg, hsl(${hue} 65% 52%), hsl(${(hue + 35) % 360} 60% 38%))`;
+  avatar.textContent = pluginInitials(name);
+
+  const dot = document.createElement('span');
+  dot.className = `absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-slate-700 ${offline ? 'bg-slate-400' : 'bg-emerald-400'}`;
+  dot.title = offline ? 'Not connected' : 'Connected';
+  avatar.appendChild(dot);
+
+  const titleEl = document.createElement('div');
+  titleEl.className = TILE_TITLE;
+  if (offline) titleEl.classList.replace('text-indigo-200', 'text-slate-400');
+  titleEl.textContent = name;
+  const subEl = document.createElement('div');
+  subEl.className = `${TILE_SUB} ${offline ? 'text-slate-500' : 'text-slate-400'}`;
+  subEl.textContent = subtitle;
+
+  card.append(avatar, titleEl, subEl);
+  if (inUse > 0) card.appendChild(createInUseBadge(inUse));
+  card.onclick = onOpen;
+  return card;
+}
+
+/** Draggable action tile. Mapped actions get a cyan edge and say where; others show any knob/button restriction. */
 function createPluginActionCard(pluginId, action, uses) {
   const dragName = pluginDragName(pluginId, action.id);
 
   const card = document.createElement('div');
-  card.className =
-    'flex items-center gap-3 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg cursor-move hover:bg-cyan-700 hover:border-cyan-500 transition group';
+  card.className = `${TILE} cursor-move hover:bg-cyan-700 hover:border-cyan-500 ${uses.length ? 'border-cyan-600' : 'border-slate-600'}`;
   card.setAttribute('draggable', 'true');
+  card.title = uses.length ? `${action.label}\nOn ${uses.map(usageText).join(', ')}` : action.label;
 
   const iconEl = document.createElement('div');
-  iconEl.className =
-    'w-8 h-8 rounded-md bg-slate-600 group-hover:bg-cyan-600 flex items-center justify-center text-lg shrink-0 transition';
+  iconEl.className = TILE_ICON;
   iconEl.textContent = '🔌';
-
-  const textWrap = document.createElement('div');
-  textWrap.className = 'flex flex-col min-w-0 flex-1';
   const labelEl = document.createElement('div');
-  labelEl.className = 'text-sm text-indigo-200 group-hover:text-white truncate transition font-medium';
+  labelEl.className = TILE_TITLE;
   labelEl.textContent = action.label;
-  textWrap.appendChild(labelEl);
 
-  if (uses.length > 0) {
-    const usedEl = document.createElement('div');
-    usedEl.className = 'text-xs text-cyan-300 truncate';
-    usedEl.textContent = `On ${uses.map(usageText).join(', ')}`;
-    usedEl.title = usedEl.textContent;
-    textWrap.appendChild(usedEl);
+  const subEl = document.createElement('div');
+  if (uses.length) {
+    subEl.className = `${TILE_SUB} text-cyan-300`;
+    subEl.textContent = `On ${usageText(uses[0])}${uses.length > 1 ? ` +${uses.length - 1}` : ''}`;
+  } else if (action.kind === 'knob' || action.kind === 'button') {
+    subEl.className = `${TILE_SUB} text-amber-300`;
+    subEl.textContent = action.kind === 'knob' ? 'Knob only' : 'Button only';
+  } else {
+    subEl.className = TILE_SUB;
+    subEl.textContent = ' '; // keeps labels aligned across tiles
   }
 
-  card.append(iconEl, textWrap);
-
-  if (action.kind === 'knob' || action.kind === 'button') {
-    card.appendChild(createBadge(
-      action.kind === 'knob' ? 'Knob only' : 'Button only',
-      'text-amber-300 bg-amber-900 bg-opacity-40 border-amber-700',
-    ));
-  }
+  card.append(iconEl, labelEl, subEl);
 
   card.addEventListener('dragstart', (e) => {
     state.mappingDragActive = true;
@@ -209,39 +252,45 @@ function createPluginActionCard(pluginId, action, uses) {
   return card;
 }
 
-/** Back button + title for a plugin or group page. */
-function createPageHeader({ title, crumb, onBack }) {
+/** Full-width breadcrumb row: ‹  Plugins › Home Assistant › Lights — every part but the last is clickable. */
+function createPageHeader(crumbs) {
   const header = document.createElement('div');
-  header.className = 'flex items-center gap-2 pb-2 mb-1 border-b border-slate-700';
+  header.className = 'col-span-full flex items-center gap-1 text-xs min-w-0';
 
   const back = document.createElement('button');
   back.type = 'button';
   back.title = 'Back';
   back.className =
-    'w-7 h-7 rounded-md flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-700 transition shrink-0';
-  back.appendChild(svgIcon(CHEVRON_LEFT, 16));
-  back.onclick = onBack;
+    'w-6 h-6 rounded-md flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-700 transition shrink-0';
+  back.appendChild(svgIcon(CHEVRON_LEFT, 14));
+  back.onclick = goBack;
+  header.appendChild(back);
 
-  const textWrap = document.createElement('div');
-  textWrap.className = 'flex flex-col min-w-0';
-  if (crumb) {
-    const crumbEl = document.createElement('div');
-    crumbEl.className = 'text-[10px] uppercase tracking-wide text-slate-500 truncate';
-    crumbEl.textContent = crumb;
-    textWrap.appendChild(crumbEl);
-  }
-  const titleEl = document.createElement('div');
-  titleEl.className = 'text-sm font-semibold text-slate-200 truncate';
-  titleEl.textContent = title;
-  textWrap.appendChild(titleEl);
-
-  header.append(back, textWrap);
+  crumbs.forEach(({ label, onClick }, i) => {
+    if (i > 0) {
+      const sep = document.createElement('span');
+      sep.className = 'text-slate-600';
+      sep.textContent = '›';
+      header.appendChild(sep);
+    }
+    const last = i === crumbs.length - 1;
+    const el = document.createElement(last ? 'span' : 'button');
+    el.textContent = label;
+    if (last) {
+      el.className = 'font-semibold text-slate-200 truncate';
+    } else {
+      el.type = 'button';
+      el.className = 'text-slate-400 hover:text-white transition shrink-0';
+      el.onclick = onClick;
+    }
+    header.appendChild(el);
+  });
   return header;
 }
 
 function createNote(text) {
   const msg = document.createElement('p');
-  msg.className = 'text-xs text-slate-500 italic px-1 pt-1';
+  msg.className = 'col-span-full text-xs text-slate-500 italic px-1';
   msg.textContent = text;
   return msg;
 }
@@ -272,6 +321,8 @@ function goBack() {
   else openPage(null, null);
 }
 
+const ROOT_CRUMB = { label: 'Plugins', onClick: () => openPage(null) };
+
 function renderPluginCards(list, usage) {
   const offline = offlinePlugins(usage);
   if (!state.pluginActions.length && !offline.size) {
@@ -281,18 +332,20 @@ function renderPluginCards(list, usage) {
 
   for (const plugin of state.pluginActions) {
     const inUse = countInUse(usage, plugin.pluginId, plugin.actions.map((a) => a.id));
-    list.appendChild(createNavCard({
-      icon: '🔌',
-      title: plugin.name,
-      subtitle: describe(plugin.actions.length, inUse),
+    list.appendChild(createPluginTile({
+      pluginId: plugin.pluginId,
+      name: plugin.name,
+      subtitle: plural(plugin.actions.length, 'action'),
+      inUse,
       onOpen: () => openPage(plugin.pluginId),
     }));
   }
   for (const [pluginId, actionIds] of offline) {
-    list.appendChild(createNavCard({
-      icon: '🔌',
-      title: pluginId,
-      subtitle: describe(actionIds.length, actionIds.length, true),
+    list.appendChild(createPluginTile({
+      pluginId,
+      name: pluginId,
+      subtitle: 'Offline',
+      inUse: actionIds.length,
       offline: true,
       onOpen: () => openPage(pluginId),
     }));
@@ -300,7 +353,7 @@ function renderPluginCards(list, usage) {
 }
 
 function renderPluginPage(list, plugin, usage) {
-  list.appendChild(createPageHeader({ title: plugin.name, onBack: goBack }));
+  list.appendChild(createPageHeader([ROOT_CRUMB, { label: plugin.name }]));
 
   // Ungrouped actions first, then a card per group (in first-seen order).
   const ungrouped = [];
@@ -325,21 +378,27 @@ function renderPluginPage(list, plugin, usage) {
     list.appendChild(createNavCard({
       icon: '📁',
       title: groupName,
-      subtitle: describe(actions.length, inUse),
+      subtitle: plural(actions.length, 'action'),
+      inUse,
+      stacked: true,
       onOpen: () => openPage(plugin.pluginId, groupName),
     }));
   }
 }
 
 function renderGroupPage(list, plugin, groupName, usage) {
-  list.appendChild(createPageHeader({ title: groupName, crumb: plugin.name, onBack: goBack }));
+  list.appendChild(createPageHeader([
+    ROOT_CRUMB,
+    { label: plugin.name, onClick: () => openPage(plugin.pluginId) },
+    { label: groupName },
+  ]));
   for (const action of plugin.actions.filter((a) => a.group === groupName)) {
     list.appendChild(createPluginActionCard(plugin.pluginId, action, usage.get(pluginActionKey(plugin.pluginId, action.id)) || []));
   }
 }
 
 function renderOfflinePage(list, pluginId, actionIds, usage) {
-  list.appendChild(createPageHeader({ title: pluginId, onBack: goBack }));
+  list.appendChild(createPageHeader([ROOT_CRUMB, { label: pluginId }]));
   list.appendChild(createNote("This plugin isn't connected. Showing only the actions that are mapped."));
   for (const actionId of actionIds) {
     list.appendChild(createPluginActionCard(pluginId, { id: actionId, label: actionId }, usage.get(pluginActionKey(pluginId, actionId)) || []));
