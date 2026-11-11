@@ -1,6 +1,24 @@
 const path = require('path');
 const { BrowserWindow } = require('electron');
 const { resolvePopupDisplay } = require('./app-settings');
+const { getAppIcon } = require('./icon-service');
+
+// Items with an iconPath (Open Program slots) show that file's icon. Lookups are
+// disk-cached by icon-service, so only a program's first appearance can be
+// slow; past this wait the popup opens with the emoji, and the icon (cached by
+// then) shows next time.
+const ICON_WAIT_MS = 150;
+
+function withFileIcons(items) {
+  return Promise.all(items.map(async (item) => {
+    if (typeof item?.iconPath !== 'string' || !item.iconPath) return item;
+    const image = await Promise.race([
+      getAppIcon(item.iconPath).catch(() => null),
+      new Promise((resolve) => setTimeout(() => resolve(null), ICON_WAIT_MS)),
+    ]);
+    return image ? { ...item, iconImage: image } : item;
+  }));
+}
 
 // Knob-selector popups (see backend/volumemaster/pro/selector.py for the state machine).
 // Purely views: they render whatever the backend opened and follow its
@@ -116,13 +134,13 @@ async function showSelector(state) {
   }
 
   const { win, ready } = getWindow(style);
-  await ready;
+  const [items] = await Promise.all([withFileIcons(state.items), ready]);
   if (currentSession !== state.session || win.isDestroyed()) return; // superseded while loading
 
   // Follow the mouse, the main display or a chosen monitor (Settings → Knob Popups)
   const { workArea } = resolvePopupDisplay();
   win.setBounds(STYLES[style].bounds(state.items.length, workArea));
-  send(style, 'selector-open', { ...state, style, ...STYLES[style].extra });
+  send(style, 'selector-open', { ...state, items, style, ...STYLES[style].extra });
   win.showInactive();
 }
 

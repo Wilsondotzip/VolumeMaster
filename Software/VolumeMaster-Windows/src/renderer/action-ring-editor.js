@@ -33,6 +33,25 @@ function pickablePluginActions() {
     .filter(({ actions }) => actions.length);
 }
 
+/**
+ * The program's own icon for an Open Program slot (data URL), or null while it
+ * loads / if there isn't one — callers show the emoji then. Cached per path;
+ * `onLoad` runs once a new icon arrives so the caller can redraw.
+ */
+const programIcons = new Map(); // path -> data URL | null
+function programIcon(slot, onLoad) {
+  const path = slot.kind === 'builtin' && slot.type === 'open_program' ? slot.params?.path : '';
+  if (!path) return null;
+  if (programIcons.has(path)) return programIcons.get(path);
+  programIcons.set(path, null);
+  window.api.getAppIcon(path).then((src) => {
+    if (!src) return;
+    programIcons.set(path, src);
+    onLoad?.();
+  }).catch(() => {});
+  return null;
+}
+
 // --- Wheel preview ---------------------------------------------------------------
 
 function svgEl(tag, attrs) {
@@ -42,7 +61,7 @@ function svgEl(tag, attrs) {
 }
 
 /** Same geometry as ring.html, scaled down: slot 0 at 12 o'clock, clockwise. */
-function drawPreview(svg, slots, selected, title) {
+function drawPreview(svg, slots, selected, title, onIconLoad) {
   svg.textContent = '';
   const c = PREVIEW_SIZE / 2;
   const rOut = 112;
@@ -82,12 +101,18 @@ function drawPreview(svg, slots, selected, title) {
       stroke: active ? '#a5b4fc' : '#475569',
     }));
     const [ix, iy] = point((rOut + rIn) / 2, i * step);
-    const icon = svgEl('text', {
-      x: ix, y: iy, 'text-anchor': 'middle', 'dominant-baseline': 'central',
-      'font-size': n <= 8 ? 18 : n <= 16 ? 13 : 10,
-    });
-    icon.textContent = ringSlotDisplay(slot).icon;
-    svg.appendChild(icon);
+    const fontSize = n <= 8 ? 18 : n <= 16 ? 13 : 10;
+    const image = programIcon(slot, onIconLoad);
+    if (image) {
+      const s = Math.round(fontSize * 1.15);
+      svg.appendChild(svgEl('image', { href: image, x: ix - s / 2, y: iy - s / 2, width: s, height: s }));
+    } else {
+      const icon = svgEl('text', {
+        x: ix, y: iy, 'text-anchor': 'middle', 'dominant-baseline': 'central', 'font-size': fontSize,
+      });
+      icon.textContent = ringSlotDisplay(slot).icon;
+      svg.appendChild(icon);
+    }
   });
 
   const label = svgEl('text', {
@@ -141,7 +166,7 @@ export function buildActionRingFields(entry, fields, buildSlotFields) {
   titleInput.placeholder = 'Action Ring';
   titleInput.value = entry.params?.title || '';
   titleInput.className = INPUT_CLASS;
-  titleInput.oninput = () => drawPreview(svg, slots, selected, titleInput.value);
+  titleInput.oninput = () => drawPreview(svg, slots, selected, titleInput.value, redrawIcons);
   titleWrap.append(titleLabel, titleInput);
 
   const listHeader = document.createElement('div');
@@ -203,6 +228,13 @@ export function buildActionRingFields(entry, fields, buildSlotFields) {
     render();
   }
 
+  // A program icon finished loading: redraw the list and wheel (not the slot's
+  // fields, which may be mid-edit)
+  function redrawIcons() {
+    renderList();
+    drawPreview(svg, slots, selected, titleInput.value, redrawIcons);
+  }
+
   function renderList() {
     list.textContent = '';
     if (!slots.length) {
@@ -224,8 +256,17 @@ export function buildActionRingFields(entry, fields, buildSlotFields) {
       num.className = 'w-5 text-right text-[10px] text-slate-500 tabular-nums shrink-0';
       num.textContent = String(i + 1);
       const iconEl = document.createElement('span');
-      iconEl.className = 'w-5 text-center shrink-0';
-      iconEl.textContent = icon;
+      iconEl.className = 'w-5 flex justify-center shrink-0';
+      const image = programIcon(slot, redrawIcons);
+      if (image) {
+        const img = document.createElement('img');
+        img.src = image;
+        img.alt = '';
+        img.className = 'w-4 h-4';
+        iconEl.appendChild(img);
+      } else {
+        iconEl.textContent = icon;
+      }
       const text = document.createElement('div');
       text.className = 'flex flex-col min-w-0 flex-1';
       const labelEl = document.createElement('span');
@@ -362,7 +403,7 @@ export function buildActionRingFields(entry, fields, buildSlotFields) {
     const refresh = () => {
       commit();
       renderList();
-      drawPreview(svg, slots, selected, titleInput.value);
+      drawPreview(svg, slots, selected, titleInput.value, redrawIcons);
     };
     container.addEventListener('change', refresh);
     container.addEventListener('focusout', refresh);
@@ -375,7 +416,7 @@ export function buildActionRingFields(entry, fields, buildSlotFields) {
     renderList();
     renderPicker();
     renderSlotFields();
-    drawPreview(svg, slots, selected, titleInput.value);
+    drawPreview(svg, slots, selected, titleInput.value, redrawIcons);
   }
 
   addBtn.onclick = () => {

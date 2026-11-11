@@ -132,6 +132,9 @@ class ActionRunner:
             'label': s.get('label') or s.get('type') or s.get('key') or '?',
             'detail': s.get('detail') or '',
             'icon': s.get('icon') or '•',
+            # The popup (Electron) swaps the emoji for the program's own icon
+            **({'iconPath': (s.get('params') or {}).get('path')}
+               if s.get('type') == 'open_program' and (s.get('params') or {}).get('path') else {}),
         } for s in slots]
         by_id = {s['id']: s for s in slots}
         start = self._ring_positions.get(ring_id, 0) % len(slots)

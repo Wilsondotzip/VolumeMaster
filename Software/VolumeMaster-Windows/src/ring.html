@@ -82,6 +82,7 @@
         text-overflow: ellipsis;
       }
       #icon { font-size: 34px; line-height: 1; margin: 2px 0; }
+      #icon img { width: 36px; height: 36px; display: block; }
       #label {
         color: #f1f5f9;
         font-size: 17px;
@@ -207,8 +208,16 @@
           slotEls.push(slot);
 
           const [ix, iy] = point((R_OUT + R_IN) / 2, i * step);
-          const icon = el('text', { class: 'slot-icon', x: ix, y: iy, 'font-size': iconSize });
-          icon.textContent = item.icon || '•';
+          let icon;
+          if (item.iconImage) {
+            // A program's own icon (Open Program): a little larger than the emoji
+            // font size, which draws smaller than its nominal size
+            const s = Math.round(iconSize * 1.15);
+            icon = el('image', { class: 'slot-icon', href: item.iconImage, x: ix - s / 2, y: iy - s / 2, width: s, height: s });
+          } else {
+            icon = el('text', { class: 'slot-icon', x: ix, y: iy, 'font-size': iconSize });
+            icon.textContent = item.icon || '•';
+          }
           svg.appendChild(icon);
           iconEls.push(icon);
         });
@@ -227,7 +236,15 @@
         rimActive.setAttribute('d', arcPath(R_RIM, index * step - half, index * step + half));
 
         const item = items[index] || {};
-        iconEl.textContent = item.icon || '';
+        iconEl.textContent = '';
+        if (item.iconImage) {
+          const img = document.createElement('img');
+          img.src = item.iconImage;
+          img.alt = '';
+          iconEl.appendChild(img);
+        } else {
+          iconEl.textContent = item.icon || '';
+        }
         labelEl.textContent = item.label || '';
         detailEl.textContent = item.detail || '';
         positionEl.textContent = n > 1 ? `${index + 1} / ${n}` : '';

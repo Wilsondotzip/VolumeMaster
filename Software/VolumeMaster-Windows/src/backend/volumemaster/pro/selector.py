@@ -73,7 +73,8 @@ class SelectorManager:
 
     def open(self, knob, title, items, index=0, on_select=None, source='backend', key=None,
              timeout=STALE_TIMEOUT, style='list'):
-        """items: [{'id': str, 'label': str, 'detail'?: str, 'icon'?: str}].
+        """items: [{'id': str, 'label': str, 'detail'?: str, 'icon'?: str, 'iconPath'?: str}].
+        iconPath: a file whose icon the popup shows in place of `icon`.
         on_select(item) runs on confirm (backend-sourced selectors only).
         timeout: seconds before an untouched selector goes stale (see STALE_TIMEOUT).
         style: 'list' or 'ring' (see STYLES).
