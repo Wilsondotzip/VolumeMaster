@@ -3,8 +3,10 @@
 Serial protocol (on top of the standard backend's):
     +@<knob> / -@<knob>        one encoder tick right / left. Accumulated into a
                                volume in EncoderMode 'absolute', or run as turn
-                               actions in 'increment'. A bare '<value>@<knob>' is
-                               still accepted as a legacy / manual-test path.
+                               actions in 'increment'. With EncoderAcceleration on,
+                               fast spins scale the step up (acceleration.py).
+                               A bare '<value>@<knob>' is still accepted as a
+                               legacy / manual-test path.
     BTN_DOWN:<knob>            button pressed: runs the knob's button actions and
                                is forwarded to Electron as BUTTON:<knob> (plugin
                                actions, held state in the UI).
@@ -19,6 +21,7 @@ import json
 from ..backend import Backend
 from ..config import mapping_items
 from . import output_devices
+from .acceleration import EncoderAccelerator
 from .actions import ActionRunner
 from .selector import SelectorManager
 
@@ -47,16 +50,21 @@ class ProBackend(Backend):
         self.actions = ActionRunner(self)
         self.encoder_modes = {}      # knob index -> 'absolute' | 'increment'
         self.encoder_steps = {}      # knob index -> volume % per tick ('absolute')
+        self.encoder_accel = set()   # knob indexes with EncoderAcceleration on ('absolute')
+        self.accelerator = EncoderAccelerator()
         self.encoder_positions = {}  # knob index -> software-accumulated 0-100 volume ('absolute')
         super().__init__()
 
     def on_config_loaded(self, config):
         self.encoder_modes = {}
         self.encoder_steps = {}
+        self.encoder_accel = set()
         for index, val in mapping_items(config):
             mode = val.get('EncoderMode')
             self.encoder_modes[index] = mode if mode in ENCODER_MODES else 'absolute'
             self.encoder_steps[index] = parse_encoder_step(val.get('EncoderStep'))
+            if val.get('EncoderAcceleration') is True:
+                self.encoder_accel.add(index)
         self.actions.load(config)
 
     def handle_command(self, cmd):
@@ -120,8 +128,11 @@ class ProBackend(Backend):
         elif self.encoder_modes.get(index, 'absolute') == 'increment':
             self.actions.run_turn(index, 'right' if step > 0 else 'left')
         else:
+            amount = self.encoder_steps.get(index, ENCODER_STEP)
+            if index in self.encoder_accel:
+                amount = self.accelerator.step(index, step, amount, ENCODER_STEP_RANGE[1])
             position = self.encoder_positions.get(index, 50)
-            position = max(0, min(100, position + step * self.encoder_steps.get(index, ENCODER_STEP)))
+            position = max(0, min(100, position + step * amount))
             self.encoder_positions[index] = position
             self.volume_cache.append((index, position))
 

@@ -22,7 +22,7 @@ from .voicemeeter_link import VoiceMeeter
 
 AUDIO_REFRESH_SECONDS = 2   # how often app sessions / devices are re-enumerated
 SYNC_DELAY_SECONDS = 2.5    # after connecting, so the device has fully initialised
-UPDATE_INTERVAL = 0.00001   # minimum spacing between volume-cache flushes
+MAX_PARTIAL_LINE = 1024     # bytes without a newline before the partial line is discarded
 
 
 class Backend:
@@ -42,6 +42,7 @@ class Backend:
         self.ser = None
         self.volumes = {}              # knob index -> last applied value (dedupes repeats)
         self.volume_cache = deque()    # (knob index, value) waiting to be applied
+        self._serial_buffer = bytearray()  # bytes of a line still arriving
         self._reconnect_serial = False  # set when the configured COM port changes
 
     # --- hooks for device models -------------------------------------------
@@ -128,6 +129,28 @@ class Backend:
         if self.voicemeeter and 'vm' in mapping:
             self.voicemeeter.set_mute(mapping['vm'], state)
 
+    def _read_serial_lines(self):
+        """Every complete line received so far; a partial line waits for the rest.
+
+        Waits up to 0.1s for data when idle (so the periodic work in run() still
+        happens with no traffic), not at all while volumes are waiting to be
+        applied. A fast-turning knob sends lines faster than one per pass, and
+        readline() with no wait hands back whatever has arrived — half a line
+        ('+@' now, '1' next pass), and both halves were dropped as malformed.
+        """
+        timeout = 0 if self.volume_cache else 0.1
+        if self.ser.timeout != timeout:
+            self.ser.timeout = timeout
+        data = self.ser.read(max(1, self.ser.in_waiting))
+        if not data:
+            return []
+        self._serial_buffer += data
+        *lines, rest = self._serial_buffer.split(b'\n')
+        # A runaway line with no newline (noise, wrong baud rate) can't grow forever
+        self._serial_buffer = bytearray(rest if len(rest) <= MAX_PARTIAL_LINE else b'')
+        decoded = (line.decode(errors='replace').strip() for line in lines)
+        return [line for line in decoded if line]
+
     def _close_serial(self):
         self.on_serial_closed()
         try:
@@ -135,10 +158,16 @@ class Backend:
         except Exception:
             pass
         self.ser = None
+        self._serial_buffer.clear()
 
     def _flush_volumes(self):
+        # Only each knob's latest value matters — when several ticks were read in
+        # one pass, applying the in-between values would just slow things down.
+        latest = {}
         while self.volume_cache:
             index, val = self.volume_cache.popleft()
+            latest[index] = val
+        for index, val in latest.items():
             if index not in self.volumes or self.volumes[index] != val:
                 self.volumes[index] = val
                 self.apply_volume(index, val)
@@ -147,7 +176,6 @@ class Backend:
     # --- main loop -----------------------------------------------------------
 
     def run(self):
-        last_update_time = 0
         last_refresh = time.monotonic()
         sync_needed = False
         sync_time_target = 0
@@ -158,8 +186,6 @@ class Backend:
 
         try:
             while True:
-                now = time.monotonic()
-
                 if watcher.consume_change():
                     self.reload_config()
 
@@ -201,24 +227,17 @@ class Backend:
                         pass
 
                 try:
-                    # Don't block while volumes are waiting to be applied; otherwise a
-                    # 0.1s timeout keeps readline from blocking forever, so the
-                    # periodic work below still runs with no serial traffic.
-                    timeout = 0 if self.volume_cache else 0.1
-                    if self.ser.timeout != timeout:
-                        self.ser.timeout = timeout
-                    line = self.ser.readline().decode().strip()
+                    lines = self._read_serial_lines()
                 except Exception:
                     print('ERROR:COM_PORT:Device disconnected from serial port.', flush=True)
                     self._close_serial()
                     continue
 
-                if line:
+                for line in lines:
                     self.handle_line(line)
 
-                if now - last_update_time >= UPDATE_INTERVAL and self.volume_cache:
+                if self.volume_cache:
                     self._flush_volumes()
-                    last_update_time = now
 
                 if time.monotonic() - last_refresh > AUDIO_REFRESH_SECONDS:
                     last_refresh = time.monotonic()

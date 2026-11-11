@@ -28,6 +28,13 @@ export function getEncoderMode(knobId) {
   return state.config.Mappings[knobId]?.EncoderMode || ENCODER_MODE_DEFAULT;
 }
 
+/** Fast spins scale the step up to 4x (backend: pro/acceleration.py). Off unless turned on. */
+const ENCODER_ACCEL_MAX = 4;
+
+export function getEncoderAcceleration(knobId) {
+  return state.config.Mappings[knobId]?.EncoderAcceleration === true;
+}
+
 export function getEncoderStep(knobId) {
   const step = Number(state.config.Mappings[knobId]?.EncoderStep);
   return Number.isInteger(step) && step >= ENCODER_STEP_MIN && step <= ENCODER_STEP_MAX ? step : ENCODER_STEP_DEFAULT;
@@ -113,14 +120,42 @@ function openKnobConfigModal(knobId) {
     const fill = (stepSlider.value - ENCODER_STEP_MIN) / (ENCODER_STEP_MAX - ENCODER_STEP_MIN);
     stepSlider.style.setProperty('--fill', `${fill * 100}%`);
   };
-  stepSlider.oninput = showStep;
-  showStep();
-
   const stepHint = document.createElement('p');
   stepHint.className = 'text-xs text-slate-500';
   stepHint.textContent = `How much the volume changes for each click of the knob. Default ${ENCODER_STEP_DEFAULT}%.`;
 
-  stepWrapper.append(stepHeader, stepSlider, stepHint);
+  // Acceleration: same section, since it scales the step above
+  const accelLabel = document.createElement('label');
+  accelLabel.className = 'flex items-center gap-3 mt-2 cursor-pointer select-none';
+  const accelCheckbox = document.createElement('input');
+  accelCheckbox.type = 'checkbox';
+  accelCheckbox.id = 'knobConfigEncoderAccel';
+  accelCheckbox.className = 'w-4 h-4 accent-indigo-500';
+  accelCheckbox.checked = getEncoderAcceleration(knobId);
+  const accelText = document.createElement('span');
+  accelText.className = 'text-sm text-gray-300';
+  accelText.textContent = 'Speed up when turned fast';
+  accelLabel.append(accelCheckbox, accelText);
+
+  const accelHint = document.createElement('p');
+  accelHint.className = 'text-xs text-slate-500';
+  const showAccel = () => {
+    const base = Number(stepSlider.value);
+    const top = Math.min(ENCODER_STEP_MAX, base * ENCODER_ACCEL_MAX);
+    accelHint.textContent = accelCheckbox.checked
+      ? `Slow turns: ${base}% per click. Fast spins: up to ${top}%.`
+      : 'Every click changes the volume by the same amount.';
+  };
+  accelCheckbox.onchange = showAccel;
+
+  stepSlider.oninput = () => {
+    showStep();
+    showAccel();
+  };
+  showStep();
+  showAccel();
+
+  stepWrapper.append(stepHeader, stepSlider, stepHint, accelLabel, accelHint);
   fields.appendChild(stepWrapper);
 
   const syncStepVisibility = () => stepWrapper.classList.toggle('hidden', select.value !== 'absolute');
@@ -133,6 +168,7 @@ function openKnobConfigModal(knobId) {
       const modeChanged = select.value !== getEncoderMode(knobId);
       mapping.EncoderMode = select.value;
       mapping.EncoderStep = Number(stepSlider.value);
+      mapping.EncoderAcceleration = accelCheckbox.checked;
       await saveConfigAndSync();
       window._autoSaveActivePreset?.();
       // Turn Action sections only render in increment mode — re-render this
