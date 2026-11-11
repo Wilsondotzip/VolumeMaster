@@ -1223,6 +1223,9 @@
     .group-hover\:bg-white:is(:where(.group):hover *) {
       background-color: var(--color-white);
     }
+    .group-hover\:text-indigo-100:is(:where(.group):hover *) {
+      color: var(--color-indigo-100);
+    }
     .group-hover\:text-white:is(:where(.group):hover *) {
       color: var(--color-white);
     }

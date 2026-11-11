@@ -370,7 +370,7 @@
           <div id="subContentDevices" class="hidden flex flex-col h-full min-h-0">
             <div
               id="inputDeviceList"
-              class="custom-scroll flex flex-col gap-2 overflow-y-auto h-full pt-1"
+              class="custom-scroll grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-2 content-start overflow-y-auto h-full pt-1"
             ></div>
           </div>
 
@@ -445,8 +445,12 @@
             aria-expanded="false"
             class="flex items-center gap-2 h-8 pl-3 pr-2 max-w-xs rounded-lg border border-slate-700 bg-slate-800 hover:border-slate-500 text-sm text-slate-200 transition"
           >
-            <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Preset</span>
-            <span id="presetTriggerName" class="font-medium truncate">None</span>
+            <!-- Label and name share a text baseline (centring their boxes left the
+                 small caps visibly off the name's line); the chevron stays centred -->
+            <span class="flex items-baseline gap-2 min-w-0">
+              <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Preset</span>
+              <span id="presetTriggerName" class="font-medium truncate">None</span>
+            </span>
             <svg class="shrink-0 text-slate-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>
           </button>
           <div

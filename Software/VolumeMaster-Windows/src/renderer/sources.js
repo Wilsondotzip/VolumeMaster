@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { sanitizeAppName } from './utils.js';
+import { sanitizeAppName, parseInputDeviceName } from './utils.js';
 import { VM_CHANNELS } from './voicemeeter.js';
 import { CATEGORIES, CATEGORY_PREFIX } from './categories.js';
 
@@ -218,25 +218,46 @@ export function renderInputDeviceList() {
   const list = document.getElementById('inputDeviceList');
   if (!list) return;
   while (list.firstChild) list.removeChild(list.firstChild);
-  if (!state.inputDevices || !state.inputDevices.length) return;
+  if (!state.inputDevices || !state.inputDevices.length) {
+    const empty = document.createElement('p');
+    empty.className = 'col-span-full text-xs text-slate-500 italic';
+    empty.textContent = 'No microphones or other inputs found.';
+    list.appendChild(empty);
+    return;
+  }
 
+  // Same cards as Categories: hardware name, then the input type, or which
+  // knobs already use it (refreshed after every save, see config-sync.js)
   state.inputDevices.forEach((name, index) => {
+    const { title, type } = parseInputDeviceName(name);
+    const usedOn = Object.entries(state.config.Mappings || {})
+      .filter(([, mapping]) => mapping?.MicNames?.includes(name))
+      .map(([knobId, mapping]) => mapping.Name?.trim() || `Knob ${knobId}`);
+
     const card = document.createElement('div');
     card.id = `input-device-${index}`;
     card.className =
-      'flex items-center gap-3 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg cursor-move hover:bg-indigo-600 hover:border-indigo-500 transition group';
+      'flex items-center gap-2.5 h-14 px-2.5 bg-slate-700 border rounded-lg cursor-move hover:bg-indigo-600 hover:border-indigo-500 transition group ' +
+      (usedOn.length ? 'border-indigo-500/60' : 'border-slate-600');
     card.setAttribute('draggable', 'true');
+    card.title = usedOn.length ? `${name}\nOn ${usedOn.join(', ')}` : name;
 
     const icon = document.createElement('div');
     icon.className =
       'w-8 h-8 rounded-md bg-slate-600 group-hover:bg-indigo-500 flex items-center justify-center text-lg shrink-0 transition';
     icon.textContent = '🎤';
 
+    const textWrap = document.createElement('div');
+    textWrap.className = 'flex flex-col min-w-0';
     const label = document.createElement('div');
-    label.className = 'text-sm text-indigo-200 group-hover:text-white truncate transition';
-    label.textContent = name;
+    label.className = 'text-sm text-indigo-200 group-hover:text-white truncate transition font-medium';
+    label.textContent = title;
+    const sub = document.createElement('div');
+    sub.className = `text-xs truncate ${usedOn.length ? 'text-indigo-300 group-hover:text-indigo-100' : 'text-slate-400'}`;
+    sub.textContent = usedOn.length ? `${type} · On ${usedOn.join(', ')}` : type;
+    textWrap.append(label, sub);
 
-    card.append(icon, label);
+    card.append(icon, textWrap);
 
     card.addEventListener('dragstart', (e) => {
       state.mappingDragActive = true;

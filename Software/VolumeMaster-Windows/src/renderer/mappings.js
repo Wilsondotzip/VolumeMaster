@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { saveConfigAndSync } from './config-sync.js';
-import { getProcessDisplayInfo, sanitizeAppName } from './utils.js';
+import { getProcessDisplayInfo, sanitizeAppName, parseInputDeviceName } from './utils.js';
 import { getVMLabel, isVMItem, vmItemId } from './voicemeeter.js';
 import { isCategoryItem, categoryId, getCategoryMeta, CATEGORY_PREFIX } from './categories.js';
 import {
@@ -974,11 +974,13 @@ function createInputDeviceCard(name, knobId) {
 
   const textCol = document.createElement('div');
   textCol.className = 'flex flex-col min-w-0';
+  const { title, type } = parseInputDeviceName(name);
+  card.title = name;
   const label = document.createElement('div');
-  label.textContent = name;
-  label.className = 'text-sm font-semibold text-slate-100 capitalize break-words';
+  label.textContent = title;
+  label.className = 'text-sm font-semibold text-slate-100 break-words';
   const sub = document.createElement('div');
-  sub.textContent = 'Input device';
+  sub.textContent = type;
   sub.className = 'text-xs text-slate-500';
   textCol.append(label, sub);
 
