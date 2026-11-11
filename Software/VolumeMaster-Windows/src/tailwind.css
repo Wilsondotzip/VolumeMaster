@@ -4,6 +4,50 @@
 @source "./renderer.js";
 @source "./**/*.js";
 
+/* Checkbox matching the dark theme and the range slider below (Chromium's own
+   is a white box, and accent-color only tints it once checked). */
+.check {
+  appearance: none;
+  display: grid;
+  place-content: center;
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  margin: 0;
+  border-radius: 4px;
+  border: 1px solid var(--color-slate-500);
+  background: var(--color-slate-900);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.check:hover {
+  border-color: var(--color-indigo-400);
+}
+.check:checked {
+  background: var(--color-indigo-500);
+  border-color: var(--color-indigo-500);
+}
+.check:checked:hover {
+  background: var(--color-indigo-400);
+  border-color: var(--color-indigo-400);
+}
+.check::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  background: white;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.5l2.2 2.2L9.5 3.8' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  transform: scale(0);
+  transition: transform 0.12s ease;
+}
+.check:checked::after {
+  transform: scale(1);
+}
+.check:focus-visible {
+  outline: 2px solid var(--color-indigo-400);
+  outline-offset: 2px;
+}
+
 /* Range slider matching the dark theme. Set --fill (e.g. "20%") from JS for
    the filled part of the track; Chromium has no native styling for it. */
 .range-slider {

@@ -13,7 +13,11 @@ import {
 import { buildActionRingFields } from './action-ring-editor.js';
 
 const ENCODER_MODE_DEFAULT = 'absolute';
-const ENCODER_MODE_OPTIONS = [['absolute', 'Absolute'], ['increment', 'Increment']];
+// Shown as Volume / Actions: what turning the knob does. Values are the config's EncoderMode.
+const ENCODER_MODE_OPTIONS = [
+  ['absolute', 'Volume', "Turning changes the volume of this knob's apps."],
+  ['increment', 'Actions', 'Turning runs the Left and Right actions on the knob card.'],
+];
 
 // Volume change per encoder click in Absolute mode. Same range the backend clamps to.
 const ENCODER_STEP_DEFAULT = 2;
@@ -29,8 +33,6 @@ export function getEncoderMode(knobId) {
 }
 
 /** Fast spins scale the step up to 4x (backend: pro/acceleration.py). Off unless turned on. */
-const ENCODER_ACCEL_MAX = 4;
-
 export function getEncoderAcceleration(knobId) {
   return state.config.Mappings[knobId]?.EncoderAcceleration === true;
 }
@@ -57,50 +59,90 @@ export function createKnobConfigButton(knobId) {
   return btn;
 }
 
+const SECTION_LABEL = 'text-[11px] font-semibold uppercase tracking-wider text-slate-500';
+
+/** Two-option switch (role=radiogroup). Calls onChange(value) when the choice changes. */
+function createSegmented(options, value, onChange) {
+  // Track: 8px radius, 1px border + 4px padding, so the segments get 8 - 5 = 3px
+  const track = document.createElement('div');
+  track.setAttribute('role', 'radiogroup');
+  track.className = 'grid grid-cols-2 gap-1 p-1 rounded-lg border border-slate-700 bg-slate-900/60';
+
+  const buttons = options.map(([optValue, label]) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.setAttribute('role', 'radio');
+    btn.textContent = label;
+    btn.onclick = () => select(optValue);
+    track.appendChild(btn);
+    return [optValue, btn];
+  });
+
+  function select(next) {
+    for (const [optValue, btn] of buttons) {
+      const on = optValue === next;
+      btn.setAttribute('aria-checked', String(on));
+      btn.className = `h-8 rounded-[3px] text-sm font-medium transition ${
+        on ? 'bg-indigo-500/20 text-white ring-1 ring-inset ring-indigo-400/50' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+      }`;
+    }
+    if (next !== value) {
+      value = next;
+      onChange(next);
+    }
+  }
+  select(value);
+  return track;
+}
+
 // Pro knobs can be switched between absolute and incremental encoder reporting;
 // the backend sends the corresponding mode command to the device on change.
 function openKnobConfigModal(knobId) {
   const modal = document.getElementById('knobConfigModal');
   if (!modal) return;
-  document.getElementById('knobConfigModalTitle').textContent = `Configure Knob ${knobId}`;
   setKnobModalWide(false);
+
+  // Title: the knob's name, with "Knob N" beside it when it has a custom one
+  const title = document.getElementById('knobConfigModalTitle');
+  const customName = state.config.Mappings[knobId]?.Name?.trim();
+  title.textContent = customName || `Knob ${knobId}`;
+  if (customName) {
+    const sub = document.createElement('span');
+    sub.className = 'ml-2 font-normal text-slate-500';
+    sub.textContent = `Knob ${knobId}`;
+    title.appendChild(sub);
+  }
 
   const fields = document.getElementById('knobConfigFields');
   fields.innerHTML = '';
 
-  const wrapper = document.createElement('div');
-  wrapper.className = 'flex flex-col gap-1';
+  // --- Turning: what the knob does ---
+  let mode = getEncoderMode(knobId);
+  const modeSection = document.createElement('div');
+  modeSection.className = 'flex flex-col gap-2';
+  const modeLabel = document.createElement('div');
+  modeLabel.className = SECTION_LABEL;
+  modeLabel.textContent = 'Turning mode';
+  const modeHint = document.createElement('p');
+  modeHint.className = 'text-xs text-slate-500';
+  const modeSwitch = createSegmented(ENCODER_MODE_OPTIONS, mode, (next) => {
+    mode = next;
+    syncMode();
+  });
+  modeSection.append(modeLabel, modeSwitch, modeHint);
+  fields.appendChild(modeSection);
 
-  const label = document.createElement('label');
-  label.className = 'text-xs text-gray-400';
-  label.textContent = 'Encoder Mode';
-  label.htmlFor = 'knobConfigEncoderMode';
+  // --- Volume settings (Volume mode only) ---
+  const volumePanel = document.createElement('div');
+  volumePanel.className = 'rounded-lg border border-slate-700 bg-slate-900/40 divide-y divide-slate-700/70';
 
-  const select = document.createElement('select');
-  select.id = 'knobConfigEncoderMode';
-  select.className =
-    'w-full px-2 py-1.5 text-sm bg-slate-700 border border-slate-600 rounded text-gray-200 focus:outline-none focus:border-indigo-500';
-  for (const [value, optLabel] of ENCODER_MODE_OPTIONS) {
-    const option = document.createElement('option');
-    option.value = value;
-    option.textContent = optLabel;
-    select.appendChild(option);
-  }
-  select.value = getEncoderMode(knobId);
-
-  wrapper.append(label, select);
-  fields.appendChild(wrapper);
-
-  // Volume per click: only meaningful in Absolute mode (Increment runs the
-  // knob's turn actions instead of changing volume), so it hides otherwise.
-  const stepWrapper = document.createElement('div');
-  stepWrapper.className = 'flex flex-col gap-1';
-
-  // Label on the left, live value on the right, slider underneath.
+  // Volume per click: label + live value, slider, range underneath
+  const stepRow = document.createElement('div');
+  stepRow.className = 'px-3 pt-3 pb-2.5';
   const stepHeader = document.createElement('div');
   stepHeader.className = 'flex items-baseline justify-between';
   const stepLabel = document.createElement('label');
-  stepLabel.className = 'text-xs text-gray-400';
+  stepLabel.className = 'text-sm text-slate-200';
   stepLabel.textContent = 'Volume per click';
   stepLabel.htmlFor = 'knobConfigEncoderStep';
   const stepValue = document.createElement('span');
@@ -114,59 +156,47 @@ function openKnobConfigModal(knobId) {
   stepSlider.max = String(ENCODER_STEP_MAX);
   stepSlider.step = '1';
   stepSlider.value = String(getEncoderStep(knobId));
-  stepSlider.className = 'range-slider w-full my-1.5'; // styled in tailwind.css
+  stepSlider.className = 'range-slider w-full mt-3 mb-1.5'; // styled in tailwind.css
   const showStep = () => {
     stepValue.textContent = `${stepSlider.value}%`;
     const fill = (stepSlider.value - ENCODER_STEP_MIN) / (ENCODER_STEP_MAX - ENCODER_STEP_MIN);
     stepSlider.style.setProperty('--fill', `${fill * 100}%`);
   };
-  const stepHint = document.createElement('p');
-  stepHint.className = 'text-xs text-slate-500';
-  stepHint.textContent = `How much the volume changes for each click of the knob. Default ${ENCODER_STEP_DEFAULT}%.`;
+  stepSlider.oninput = showStep;
+  showStep();
 
-  // Acceleration: same section, since it scales the step above
-  const accelLabel = document.createElement('label');
-  accelLabel.className = 'flex items-center gap-3 mt-2 cursor-pointer select-none';
+  const stepScale = document.createElement('div');
+  stepScale.className = 'flex justify-between text-[11px] text-slate-500 tabular-nums';
+  stepScale.innerHTML = `<span>${ENCODER_STEP_MIN}%</span><span>${ENCODER_STEP_MAX}%</span>`;
+  stepRow.append(stepHeader, stepSlider, stepScale);
+
+  // Acceleration: fast spins scale the step up (backend: pro/acceleration.py)
+  const accelRow = document.createElement('label');
+  accelRow.className = 'flex items-center justify-between gap-3 px-3 py-2.5 cursor-pointer select-none';
+  const accelText = document.createElement('span');
+  accelText.className = 'text-sm text-slate-200';
+  accelText.textContent = 'Acceleration';
   const accelCheckbox = document.createElement('input');
   accelCheckbox.type = 'checkbox';
   accelCheckbox.id = 'knobConfigEncoderAccel';
-  accelCheckbox.className = 'w-4 h-4 accent-indigo-500';
+  accelCheckbox.className = 'check'; // styled in tailwind.css
   accelCheckbox.checked = getEncoderAcceleration(knobId);
-  const accelText = document.createElement('span');
-  accelText.className = 'text-sm text-gray-300';
-  accelText.textContent = 'Speed up when turned fast';
-  accelLabel.append(accelCheckbox, accelText);
+  accelRow.append(accelText, accelCheckbox);
 
-  const accelHint = document.createElement('p');
-  accelHint.className = 'text-xs text-slate-500';
-  const showAccel = () => {
-    const base = Number(stepSlider.value);
-    const top = Math.min(ENCODER_STEP_MAX, base * ENCODER_ACCEL_MAX);
-    accelHint.textContent = accelCheckbox.checked
-      ? `Slow turns: ${base}% per click. Fast spins: up to ${top}%.`
-      : 'Every click changes the volume by the same amount.';
-  };
-  accelCheckbox.onchange = showAccel;
+  volumePanel.append(stepRow, accelRow);
+  fields.appendChild(volumePanel);
 
-  stepSlider.oninput = () => {
-    showStep();
-    showAccel();
-  };
-  showStep();
-  showAccel();
-
-  stepWrapper.append(stepHeader, stepSlider, stepHint, accelLabel, accelHint);
-  fields.appendChild(stepWrapper);
-
-  const syncStepVisibility = () => stepWrapper.classList.toggle('hidden', select.value !== 'absolute');
-  select.onchange = syncStepVisibility;
-  syncStepVisibility();
+  function syncMode() {
+    modeHint.textContent = ENCODER_MODE_OPTIONS.find(([value]) => value === mode)?.[2] ?? '';
+    volumePanel.classList.toggle('hidden', mode !== 'absolute');
+  }
+  syncMode();
 
   document.getElementById('knobConfigSaveBtn').onclick = async () => {
     const mapping = state.config.Mappings[knobId];
     if (mapping) {
-      const modeChanged = select.value !== getEncoderMode(knobId);
-      mapping.EncoderMode = select.value;
+      const modeChanged = mode !== getEncoderMode(knobId);
+      mapping.EncoderMode = mode;
       mapping.EncoderStep = Number(stepSlider.value);
       mapping.EncoderAcceleration = accelCheckbox.checked;
       await saveConfigAndSync();
