@@ -1385,6 +1385,72 @@
     opacity: 40%;
   }
 }
+.drag-ghost {
+  position: fixed;
+  top: -200px;
+  left: -1000px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 260px;
+  padding: 5px 12px 5px 5px;
+  border-radius: 10px;
+  border: 1px solid var(--color-indigo-400);
+  background: var(--color-indigo-600);
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.drag-ghost-icon {
+  display: grid;
+  place-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  background: rgb(255 255 255 / 0.16);
+  font-size: 14px;
+  line-height: 1;
+}
+.drag-ghost-icon img, .drag-ghost-icon svg {
+  width: 16px;
+  height: 16px;
+}
+.drag-ghost-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+[data-knob-card-host] {
+  border-radius: 6px;
+  outline: 1px dashed transparent;
+  outline-offset: 4px;
+  transition: outline-color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease;
+}
+[data-button-action-host], [data-turn-action-host] {
+  transition: border-color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease;
+}
+body.drag-to-knob [data-knob-card-host] {
+  outline: 1px dashed rgb(129 140 248 / 0.55);
+  outline-offset: 4px;
+}
+body.drag-to-button [data-button-action-host], body.drag-to-turn [data-turn-action-host] {
+  border-color: rgb(129 140 248 / 0.6);
+  background-color: rgb(99 102 241 / 0.06);
+}
+body.drag-active:not(.drag-to-knob) [data-knob-card-host], body.drag-active:not(.drag-to-button) [data-button-action-host], body.drag-active:not(.drag-to-turn) [data-turn-action-host] {
+  opacity: 0.35;
+}
+body.drag-active [data-knob-card-host].drop-hover {
+  outline: 2px solid var(--color-indigo-400);
+  background-color: rgb(99 102 241 / 0.12);
+}
+body.drag-active [data-button-action-host].drop-hover, body.drag-active [data-turn-action-host].drop-hover {
+  border-style: solid;
+  border-color: var(--color-indigo-400);
+  background-color: rgb(99 102 241 / 0.18);
+}
 .check {
   appearance: none;
   display: grid;

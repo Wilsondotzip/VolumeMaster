@@ -1,6 +1,7 @@
 import { state } from './state.js';
 import { saveConfigAndSync } from './config-sync.js';
 import { getProcessDisplayInfo, sanitizeAppName, parseInputDeviceName } from './utils.js';
+import { setDropHover, clearDropHover, confirmDrop } from './drag-feedback.js';
 import { getVMLabel, isVMItem, vmItemId } from './voicemeeter.js';
 import { isCategoryItem, categoryId, getCategoryMeta, CATEGORY_PREFIX } from './categories.js';
 import {
@@ -66,14 +67,21 @@ export function setButtonHeld(index, pressed) {
   cap.classList.toggle('button-held', pressed);
 }
 
-/** Knob section given a highlight during drag; cleared on drop / dragend / leaving knobs area. */
-let dragHighlightSection = null;
-
+/** Highlighting during a drag lives in drag-feedback.js (.drop-hover on the zone under the pointer). */
 function clearDragHighlight() {
-  if (dragHighlightSection) {
-    dragHighlightSection.style.backgroundColor = '';
-    dragHighlightSection = null;
-  }
+  clearDropHover();
+}
+
+/**
+ * The zone a drop at `target` lands in: the Press / Left / Right action zone
+ * under the pointer, else the knob's card list (anywhere else in its column).
+ */
+function dropZoneFor(target, section) {
+  return (
+    target.closest?.('[data-button-action-host]') ||
+    target.closest?.('[data-turn-action-host]') ||
+    getKnobCardHost(section)
+  );
 }
 
 function knobDragTypesOk(dt) {
@@ -122,11 +130,7 @@ function onKnobsDragOverCapture(e) {
 
   const section = e.target.closest?.('section[id^="knob-section-"]');
   if (section && container.contains(section)) {
-    if (dragHighlightSection !== section) {
-      clearDragHighlight();
-      dragHighlightSection = section;
-      section.style.backgroundColor = 'rgba(99, 102, 241, 0.1)';
-    }
+    setDropHover(dropZoneFor(e.target, section));
   } else {
     clearDragHighlight();
   }
@@ -157,6 +161,7 @@ function onKnobsDropCapture(e) {
 
   if (!section || !container.contains(section)) return;
 
+  confirmDrop(dropZoneFor(e.target, section));
   const knobId = section.id.replace('knob-section-', '');
   if (isButtonAction) {
     handleButtonActionDrop(e, knobId);

@@ -2,6 +2,7 @@ import { state } from './state.js';
 import { cloneConfig } from './config-sync.js';
 import { setupTabs, setupSubTabs } from './tabs.js';
 import { setupTitleBar } from './titlebar.js';
+import { setupDragFeedback } from './drag-feedback.js';
 import { refreshComPortListPreservingSelection, setupComPortListeners } from './com-port.js';
 import { loadAutoStartState, setupAutoStartListener } from './autostart.js';
 import { setupSettingsListeners, applyVoiceMeeterUiFromMain, applyDeviceModelUiFromMain, applyInitialBackendStatus, applyNotificationSettings, applyPopupDisplaySettings, applyPluginSettingsInfo, applyManagedPluginsInfo, setupManagedPluginsListeners } from './settings.js';
@@ -73,6 +74,7 @@ async function bootstrapFromConfig() {
 
 function init() {
   setupTitleBar();
+  setupDragFeedback();
   window.api.onVolumeUpdate(({ index, value }) => updateKnobVolume(index, value));
   window.api.onButtonPress(({ index, pressed }) => setButtonHeld(index, pressed));
   window.api.onWindowHidden(() => { state.iconCache.clear(); });
