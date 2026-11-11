@@ -28,10 +28,11 @@ import {
 const knobVolumes = {};
 
 // Knobs stay side-by-side in one row for both Standard and Pro.
+// Knobs sit side by side inside the Knobs section (renderer.html #knobsPanel):
+// no card of their own, just dividers between the columns.
 const KNOBS_CONTAINER_CLASS =
-  'custom-scroll flex min-h-0 w-full flex-row flex-nowrap gap-3 overflow-x-auto overflow-y-hidden pb-2 mt-3 mb-3 grow items-stretch';
-const KNOB_SECTION_CLASS =
-  'bg-slate-800 rounded-lg shadow p-3 flex min-h-0 min-w-0 flex-1 flex-col border border-slate-700';
+  'custom-scroll flex min-h-0 w-full flex-row flex-nowrap overflow-x-auto overflow-y-hidden grow items-stretch divide-x divide-slate-700/70';
+const KNOB_SECTION_CLASS = 'p-3 flex min-h-0 min-w-0 flex-1 flex-col';
 
 function getKnobArcPath(value) {
   if (value <= 0) return '';

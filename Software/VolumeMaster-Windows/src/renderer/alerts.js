@@ -1,40 +1,6 @@
-const ALERT_GAP_PX = 8;
-
-/**
- * Keeps the (fixed, bottom-right) toasts clear of the full-width Run/Stop
- * button: while it's on screen they sit just above it, otherwise they fall
- * back to the stylesheet's corner position.
- */
-function positionAlertContainer() {
-  const container = document.getElementById('alertContainer');
-  const runBtn = document.getElementById('saveAndRunBtn');
-  if (!container) return;
-  const visible = runBtn && runBtn.offsetParent !== null; // null while its tab is hidden
-  container.style.bottom = visible
-    ? `${window.innerHeight - runBtn.getBoundingClientRect().top + ALERT_GAP_PX}px`
-    : '';
-}
-
-let positionTrackingStarted = false;
-
-function startPositionTracking() {
-  if (positionTrackingStarted) return;
-  positionTrackingStarted = true;
-  window.addEventListener('resize', positionAlertContainer);
-  // The button moves when an error banner appears/disappears (the Mappings
-  // tab shrinks) and when switching tabs — follow it while toasts are up.
-  const observer = new ResizeObserver(positionAlertContainer);
-  for (const id of ['tabContentMappings', 'errorBanners']) {
-    const el = document.getElementById(id);
-    if (el) observer.observe(el);
-  }
-}
-
 export function showAlert(type, message) {
   const alertContainer = document.getElementById('alertContainer');
   if (!alertContainer) return;
-  startPositionTracking();
-  positionAlertContainer();
 
   const colorStyles = {
     success: { bg: 'rgba(20, 83, 45, 0.8)', border: '#15803d', text: '#bbf7d0' },
