@@ -9,11 +9,10 @@ const {
   getBackendProcess,
   requestAudioSessions,
   requestOutputDevices,
-  setOutputDevice,
 } = require('./backend-process');
 const deviceManager = require('./device-manager');
-const { getConnectedPlugins, getPluginLabel, getPluginServerStatus, sendConfigToPlugin, PLUGIN_PORT } = require('./plugin-server');
-const { getPluginConfig, savePluginValues, getConfigurablePlugins } = require('./plugin-config-store');
+const { getConnectedPlugins, getPluginServerStatus, sendConfigToPlugin, PLUGIN_PORT } = require('./plugin-server');
+const { savePluginValues, getConfigurablePlugins } = require('./plugin-config-store');
 const { getManagedPlugins, addManagedPlugin, removeManagedPlugin } = require('./plugin-process-manager');
 const { listDisplays, getPopupDisplaySetting, setPopupDisplaySetting } = require('./app-settings');
 
@@ -250,11 +249,6 @@ function registerIpcHandlers() {
     }
   });
 
-  ipcMain.handle('set-output-device', (event, outputId) => {
-    const { deviceId } = getDeviceContext(event);
-    return setOutputDevice(deviceId, outputId);
-  });
-
   ipcMain.handle('get-last-preset', (event) => {
     const { deviceDir } = getDeviceContext(event);
     return loadConfig(deviceDir).lastPreset || null;
@@ -330,10 +324,8 @@ function registerIpcHandlers() {
 
   ipcMain.handle('get-connected-plugins', () => getConnectedPlugins());
   ipcMain.handle('get-plugin-server-port', () => PLUGIN_PORT);
-  ipcMain.handle('get-plugin-action-label', (_, actionKey) => getPluginLabel(actionKey));
   ipcMain.handle('get-plugin-server-status', () => getPluginServerStatus());
   ipcMain.handle('get-configurable-plugins', () => getConfigurablePlugins());
-  ipcMain.handle('get-plugin-config', (_, pluginId) => getPluginConfig(pluginId));
   ipcMain.handle('save-plugin-config', (_, pluginId, values) => {
     savePluginValues(pluginId, values);
     sendConfigToPlugin(pluginId, values);

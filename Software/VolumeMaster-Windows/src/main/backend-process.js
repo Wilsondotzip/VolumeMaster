@@ -293,11 +293,6 @@ function sendBackendCommand(deviceId, line) {
   }
 }
 
-function setOutputDevice(deviceId, outputId) {
-  if (typeof outputId !== 'string' || !outputId) return false;
-  return sendBackendCommand(deviceId, `SET_OUTPUT:${outputId}`);
-}
-
 module.exports = {
   startBackend,
   killBackend,
@@ -305,6 +300,5 @@ module.exports = {
   getBackendProcess,
   requestAudioSessions,
   requestOutputDevices,
-  setOutputDevice,
   sendBackendCommand,
 };

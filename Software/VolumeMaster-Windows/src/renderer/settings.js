@@ -289,37 +289,6 @@ function openPluginConfigModal(pluginId, name, schema, values) {
   modal.showModal();
 }
 
-function renderConfigurablePlugin({ pluginId, name, schema, values }) {
-  const row = document.createElement('div');
-  row.className = 'flex items-center gap-2 p-2 bg-slate-700 rounded border border-slate-600';
-
-  const label = document.createElement('span');
-  label.className = 'text-sm text-gray-300 flex-1';
-  label.textContent = name;
-
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.textContent = 'Configure';
-  btn.className = 'text-xs px-2 py-1 bg-slate-600 hover:bg-indigo-600 text-gray-300 hover:text-white rounded transition shrink-0';
-  btn.onclick = () => openPluginConfigModal(pluginId, name, schema, values);
-
-  row.append(label, btn);
-  return row;
-}
-
-export async function applyConfigurablePluginsInfo() {
-  const list = document.getElementById('configurablePluginList');
-  if (!list) return;
-  while (list.firstChild) list.removeChild(list.firstChild);
-  const plugins = await window.api.getConfigurablePlugins();
-  if (!plugins || plugins.length === 0) {
-    const empty = document.getElementById('noConfigurablePlugins');
-    if (empty) list.appendChild(empty);
-    return;
-  }
-  for (const plugin of plugins) list.appendChild(renderConfigurablePlugin(plugin));
-}
-
 export async function applyInitialBackendStatus() {
   const running = await window.api.getBackendStatus();
   const btn = document.getElementById('saveAndRunBtn');

@@ -79,8 +79,6 @@ function setTrayImageCrashed() {
 module.exports = {
   createTray,
   updateTrayMenu,
-  getTray: () => tray,
   setTrayImageNormal,
   setTrayImageCrashed,
-  iconPathNormal,
 };

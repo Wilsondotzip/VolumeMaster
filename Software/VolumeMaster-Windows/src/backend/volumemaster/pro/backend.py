@@ -71,12 +71,6 @@ class ProBackend(Backend):
                 print(f'Failed to list output devices: {e}', flush=True)
                 payload = {'devices': [], 'default': None}
             print(f'OUTPUTS:{json.dumps(payload)}', flush=True)
-        elif cmd.startswith('SET_OUTPUT:'):
-            try:
-                output_devices.set_default_output(cmd[len('SET_OUTPUT:'):])
-                self.refresh_master()
-            except Exception as e:
-                print(f'Failed to set output device: {e}', flush=True)
         elif cmd.startswith('OPEN_SELECTOR:'):
             self.selectors.open_from_command(cmd[len('OPEN_SELECTOR:'):])
         elif cmd == 'CLOSE_SELECTOR':

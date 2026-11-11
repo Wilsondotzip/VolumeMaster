@@ -12,7 +12,6 @@ contextBridge.exposeInMainWorld('api', {
   listProcesses: () => ipcRenderer.invoke('list-processes'),
   listAudioSessions: () => ipcRenderer.invoke('list-audio-sessions'),
   listOutputDevices: () => ipcRenderer.invoke('list-output-devices'),
-  setOutputDevice: (outputId) => ipcRenderer.invoke('set-output-device', outputId),
   listSerialPorts: () => ipcRenderer.invoke('list-serial-ports'),
   getComPort: () => ipcRenderer.invoke('get-com-port'),
   setComPort: (port) => ipcRenderer.invoke('set-com-port', port),
@@ -63,7 +62,6 @@ contextBridge.exposeInMainWorld('api', {
 
   getConnectedPlugins: () => ipcRenderer.invoke('get-connected-plugins'),
   getPluginServerPort: () => ipcRenderer.invoke('get-plugin-server-port'),
-  getPluginActionLabel: (key) => ipcRenderer.invoke('get-plugin-action-label', key),
   getPluginServerStatus: () => ipcRenderer.invoke('get-plugin-server-status'),
   onPluginActionsUpdated: (cb) => ipcRenderer.on('plugin-actions-updated', (_, plugins) => cb(plugins)),
 
@@ -72,7 +70,6 @@ contextBridge.exposeInMainWorld('api', {
   removeManagedPlugin: (id) => ipcRenderer.invoke('remove-managed-plugin', id),
 
   getConfigurablePlugins: () => ipcRenderer.invoke('get-configurable-plugins'),
-  getPluginConfig: (pluginId) => ipcRenderer.invoke('get-plugin-config', pluginId),
   savePluginConfig: (pluginId, values) => ipcRenderer.invoke('save-plugin-config', pluginId, values),
 });
 

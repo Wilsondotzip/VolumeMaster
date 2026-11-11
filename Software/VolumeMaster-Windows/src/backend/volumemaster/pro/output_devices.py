@@ -1,5 +1,5 @@
 # Default output (render) device switching — the 'switch_output' button action
-# (actions.py) and the LIST_OUTPUTS / SET_OUTPUT stdin commands (backend.py).
+# (actions.py) and the LIST_OUTPUTS stdin command (backend.py).
 #
 # Kept self-contained (no backend state) so it could later move out into a
 # standalone plugin once the plugin API supports what the selector needs.

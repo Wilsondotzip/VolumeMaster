@@ -115,5 +115,4 @@ module.exports = {
   saveConfig,
   onConfigSaved,
   cloneConfigSnapshot,
-  DEFAULT_CONFIG_PATH,
 };

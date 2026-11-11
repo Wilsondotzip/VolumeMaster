@@ -318,20 +318,6 @@ function sendConfigToPlugin(pluginId, values) {
   }
 }
 
-function getPluginLabel(actionKey) {
-  if (!actionKey || typeof actionKey !== 'string') return actionKey;
-  const parts = splitActionKey(actionKey);
-  if (!parts) return actionKey;
-
-  for (const record of clients.values()) {
-    if (record.pluginId === parts.pluginId) {
-      const action = record.actions.find((a) => a.id === parts.actionId);
-      if (action) return action.label;
-    }
-  }
-  return null;
-}
-
 module.exports = {
   startPluginServer,
   stopPluginServer,
@@ -340,7 +326,6 @@ module.exports = {
   dispatchKnobButtonUpEvent,
   dispatchPluginTrigger,
   getConnectedPlugins,
-  getPluginLabel,
   getPluginServerStatus,
   sendConfigToPlugin,
   PLUGIN_PORT,
