@@ -73,7 +73,7 @@
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.3.3",
-    "electron": "^37.2.0",
+    "electron": "^45.3.0",
     "electron-builder": "^26.8.1",
     "electron-reloader": "^1.2.3",
     "tailwindcss": "^4.3.3"
