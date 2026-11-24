@@ -235,8 +235,33 @@ export function buildActionRingFields(entry, fields, buildSlotFields) {
     drawPreview(svg, slots, selected, titleInput.value, redrawIcons);
   }
 
+  // Per-row elements, so one row can be refreshed without rebuilding the list
+  let rowParts = []; // [{ iconEl, labelEl, detailEl }]
+
+  function paintRow(i) {
+    const parts = rowParts[i];
+    const slot = slots[i];
+    if (!parts || !slot) return;
+    const { label, detail, icon } = ringSlotDisplay(slot);
+    parts.iconEl.textContent = '';
+    const image = programIcon(slot, redrawIcons);
+    if (image) {
+      const img = document.createElement('img');
+      img.src = image;
+      img.alt = '';
+      img.className = 'w-4 h-4';
+      parts.iconEl.appendChild(img);
+    } else {
+      parts.iconEl.textContent = icon;
+    }
+    parts.labelEl.textContent = label;
+    parts.detailEl.textContent = detail || '';
+    parts.detailEl.classList.toggle('hidden', !detail);
+  }
+
   function renderList() {
     list.textContent = '';
+    rowParts = [];
     if (!slots.length) {
       const empty = document.createElement('p');
       empty.className = 'text-xs text-slate-500 italic px-2 py-1.5';
@@ -245,7 +270,6 @@ export function buildActionRingFields(entry, fields, buildSlotFields) {
       return;
     }
     slots.forEach((slot, i) => {
-      const { label, detail, icon } = ringSlotDisplay(slot);
       const row = document.createElement('div');
       row.className =
         'flex items-center gap-2 px-1.5 py-1 rounded-[3px] cursor-pointer transition ' +
@@ -257,28 +281,14 @@ export function buildActionRingFields(entry, fields, buildSlotFields) {
       num.textContent = String(i + 1);
       const iconEl = document.createElement('span');
       iconEl.className = 'w-5 flex justify-center shrink-0';
-      const image = programIcon(slot, redrawIcons);
-      if (image) {
-        const img = document.createElement('img');
-        img.src = image;
-        img.alt = '';
-        img.className = 'w-4 h-4';
-        iconEl.appendChild(img);
-      } else {
-        iconEl.textContent = icon;
-      }
       const text = document.createElement('div');
       text.className = 'flex flex-col min-w-0 flex-1';
       const labelEl = document.createElement('span');
       labelEl.className = 'text-xs font-semibold text-slate-200 truncate';
-      labelEl.textContent = label;
-      text.appendChild(labelEl);
-      if (detail) {
-        const detailEl = document.createElement('span');
-        detailEl.className = 'text-[10px] text-slate-500 truncate';
-        detailEl.textContent = detail;
-        text.appendChild(detailEl);
-      }
+      const detailEl = document.createElement('span');
+      detailEl.className = 'text-[10px] text-slate-500 truncate';
+      text.append(labelEl, detailEl);
+      rowParts[i] = { iconEl, labelEl, detailEl };
 
       const controls = document.createElement('div');
       controls.className = 'flex shrink-0';
@@ -303,6 +313,7 @@ export function buildActionRingFields(entry, fields, buildSlotFields) {
 
       row.append(num, iconEl, text, controls);
       list.appendChild(row);
+      paintRow(i);
     });
   }
 
@@ -399,10 +410,14 @@ export function buildActionRingFields(entry, fields, buildSlotFields) {
     commitSelected = buildSlotFields(slot, container);
     // Keep the list and preview in step as the slot's settings change.
     // 'change' covers selects and typed text; 'focusout' covers the shortcut
-    // recorder, which sets its value from code (no change event).
+    // recorder, which sets its value from code (no change event). Only the edited
+    // row is repainted: rebuilding the list here (focusout fires on mousedown)
+    // would swallow the click the user is making on another row or its buttons.
+    const index = selected;
     const refresh = () => {
+      if (selected !== index) return;
       commit();
-      renderList();
+      paintRow(index);
       drawPreview(svg, slots, selected, titleInput.value, redrawIcons);
     };
     container.addEventListener('change', refresh);

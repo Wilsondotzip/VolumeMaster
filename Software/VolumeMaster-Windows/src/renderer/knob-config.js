@@ -868,7 +868,11 @@ function openButtonActionConfigModal(knobId, entry, sub) {
   // `entry` may go stale by save-time — saveConfigAndSync() replaces state.config
   // wholesale with a fresh clone from the main process, so any object reference
   // held from before that round-trip no longer belongs to the live config tree.
+  // The same goes for the card's own `entry`: it was captured when the card was
+  // rendered, so after an earlier save it holds stale params. Build the form from
+  // the live entry, or re-opening would show (and re-save) the old values.
   const uid = buttonActionUid(entry);
+  entry = getButtonActions(knobId).find((e) => buttonActionUid(e) === uid) || entry;
   const meta = getBuiltinTypeMeta(entry.type);
   document.getElementById('knobConfigModalTitle').textContent = `Configure ${meta?.label ?? entry.type}`;
 
@@ -1045,6 +1049,8 @@ function openTurnActionConfigModal(knobId, direction, entry, sub) {
   const modal = document.getElementById('knobConfigModal');
   if (!modal) return;
   const uid = entry.id;
+  // Use the live entry, not the card's (possibly stale) copy; see openButtonActionConfigModal.
+  entry = getTurnActions(knobId, direction).find((e) => e.id === uid) || entry;
   const meta = getBuiltinTypeMeta(entry.type);
   document.getElementById('knobConfigModalTitle').textContent = `Configure ${meta?.label ?? entry.type}`;
 
