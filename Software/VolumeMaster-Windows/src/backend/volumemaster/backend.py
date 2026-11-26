@@ -102,14 +102,50 @@ class Backend:
         # device) or the default output changed: give it the knobs' current
         # volumes. Re-applied from memory rather than by asking the device to
         # re-send (SYNC), since encoder devices have no absolute positions to send.
+        master_before = self.audio.master_id
         if self.audio.refresh(self.mappings):
-            self.reapply_volumes()
+            self._on_audio_changed(master_before)
 
-    def refresh_master(self):
-        """Call after switching the default output device, so the master knob's
-        volume carries over to the new device straight away."""
+    def refresh_master(self, carry_volume=False):
+        """Call after switching the default output device, so master knobs pick
+        up the new device's volume straight away — or, with `carry_volume`, so
+        the knob's current volume is applied to the new device instead."""
+        master_before = self.audio.master_id
         if self.audio.refresh_master():
-            self.reapply_volumes()
+            self._on_audio_changed(master_before, carry_volume)
+
+    def _on_audio_changed(self, master_before, carry_volume=False):
+        if self.audio.master is not None and self.audio.master_id != master_before:
+            if carry_volume:
+                self.carry_master_volume()
+            else:
+                self.adopt_master_volume()
+        self.reapply_volumes()
+
+    def carry_master_volume(self):
+        """The default output changed: apply master knobs' current volume to it."""
+        for index, mapping in self.mappings.items():
+            if 'master' in mapping.get('apps', []) and index in self.volumes:
+                self.audio.set_volume({'apps': ['master']}, round(self.volumes[index] / 100, 2))
+
+    def adopt_master_volume(self):
+        """The default output changed (or was found at startup). Each output
+        device keeps its own volume, so rather than pushing the knob's level onto
+        the new device, master knobs take on the device's level: the next turn
+        carries on from there."""
+        level = self.audio.master_level()
+        if level is None:
+            return
+        for index, mapping in self.mappings.items():
+            if 'master' in mapping.get('apps', []):
+                self.volumes[index] = level
+                self.on_volume_adopted(index, level)
+                # UI only: no popup and no plugin knob event, as nothing was turned
+                print(f'VOLUME_SYNC:{index}:{level}', flush=True)
+
+    def on_volume_adopted(self, index, value):
+        """Hook: knob `index` now stands at `value` without being turned."""
+        pass
 
     def reapply_volumes(self):
         for index, value in list(self.volumes.items()):
@@ -118,8 +154,12 @@ class Backend:
     def apply_volume(self, index, value, reapply=False):
         mapping = self.mappings.get(index, {})
         # On a reapply, skip the 'Focused' target: whatever app is in front now
-        # isn't necessarily the one the knob was last turned for.
-        self.audio.set_volume(mapping, round(value / 100, 2), include_focused=not reapply)
+        # isn't necessarily the one the knob was last turned for. Skip master too:
+        # its endpoint doesn't come and go like app sessions, and a new default
+        # device keeps its own volume (adopt_master_volume).
+        self.audio.set_volume(
+            mapping, round(value / 100, 2), include_focused=not reapply, include_master=not reapply
+        )
         if self.voicemeeter and 'vm' in mapping:
             self.voicemeeter.set_gain(mapping['vm'], value)
 

@@ -156,24 +156,29 @@ class ActionRunner:
         elif slot.get('type') != 'action_ring':  # rings don't nest
             self._run(index, [slot], 'action ring slot')
 
-    def _apply_output(self, device_id, name, include_communications):
+    def _apply_output(self, device_id, name, include_communications, carry_volume):
         output_devices.set_default_output(device_id, include_communications)
-        self._backend.refresh_master()
+        self._backend.refresh_master(carry_volume)
         print(f'OUTPUT_CHANGED:{name}', flush=True)
 
     def _switch_output(self, index, action_id, params):
         include_communications = params.get('communications', True) is not False
+        # carryVolume: put the master knob's volume on the new output, instead of
+        # the knob picking up the volume that output already had (the default)
+        carry_volume = params.get('carryVolume') is True
 
         if params.get('mode', 'toggle') == 'selector':
             items, current = output_devices.selector_items(params.get('devices'))
             if not self._backend.selectors.open(
                 index, 'Output Device', items, current,
-                on_select=lambda item: self._apply_output(item['id'], item['label'], include_communications),
+                on_select=lambda item: self._apply_output(
+                    item['id'], item['label'], include_communications, carry_volume
+                ),
             ):
                 print('No output devices available to choose from', flush=True)
             return
 
         name = output_devices.toggle_output(action_id, params.get('device'), include_communications)
         if name:
-            self._backend.refresh_master()
+            self._backend.refresh_master(carry_volume)
             print(f'OUTPUT_CHANGED:{name}', flush=True)

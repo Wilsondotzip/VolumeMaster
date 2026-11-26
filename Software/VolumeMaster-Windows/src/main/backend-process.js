@@ -147,6 +147,16 @@ function startBackend(deviceId, deviceDir) {
         }
       } else if (trimmed.startsWith('OUTPUT_CHANGED:')) {
         sendStatusToDevice(deviceId, 'info', `Output switched to ${trimmed.slice('OUTPUT_CHANGED:'.length)}`);
+      } else if (trimmed.startsWith('VOLUME_SYNC:')) {
+        // A knob's level changed without it being turned (e.g. the master knob
+        // picking up a new output device's volume): update the UI only.
+        const parts = trimmed.split(':');
+        if (parts.length === 3) {
+          const index = parseInt(parts[1], 10);
+          const value = parseInt(parts[2], 10);
+          const win = deviceManager.getWindowForDevice(deviceId);
+          if (win) win.webContents.send('volume-update', { index, value });
+        }
       } else if (trimmed.startsWith('VOLUME:')) {
         const parts = trimmed.split(':');
         if (parts.length === 3) {

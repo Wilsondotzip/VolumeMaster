@@ -130,6 +130,15 @@ class AudioController:
             self.master_id = None
             return False
 
+    def master_level(self):
+        """The current default output's own volume, 0-100, or None if unknown."""
+        if not self.master:
+            return None
+        try:
+            return round(self.master.GetMasterVolumeLevelScalar() * 100)
+        except Exception:
+            return None
+
     def _set_master(self, device):
         """Point 'master' at `device`; returns True if it's a different device."""
         changed = device.id != self.master_id
@@ -177,13 +186,14 @@ class AudioController:
             if matches_category(key[1], self.session_paths.get(key, ''), cat_name):
                 yield key, vol_interface
 
-    def set_volume(self, mapping, volume_scalar, include_focused=True):
+    def set_volume(self, mapping, volume_scalar, include_focused=True, include_master=True):
         for name in mapping.get('apps', []):
-            if name == 'master' and self.master:
-                try:
-                    self.master.SetMasterVolumeLevelScalar(volume_scalar, None)
-                except Exception:
-                    self.master = None
+            if name == 'master':
+                if self.master and include_master:
+                    try:
+                        self.master.SetMasterVolumeLevelScalar(volume_scalar, None)
+                    except Exception:
+                        self.master = None
                 continue
 
             for key, vol_interface in list(self.session_cache.items()):

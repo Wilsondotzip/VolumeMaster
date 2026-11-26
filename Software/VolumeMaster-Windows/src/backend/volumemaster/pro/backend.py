@@ -86,6 +86,11 @@ class ProBackend(Backend):
         else:
             super().handle_command(cmd)
 
+    def on_volume_adopted(self, index, value):
+        # Encoders count from their own position, so the next tick steps from
+        # the new device's volume rather than the old one's.
+        self.encoder_positions[index] = value
+
     def reapply_volumes(self):
         super().reapply_volumes()
         self.actions.reapply_mutes()

@@ -773,6 +773,16 @@ function buildBuiltinActionFields(entry, fields) {
     commsRow.append(commsCheckbox, 'Also switch the communications device (Discord, Teams…)');
     wrapper.appendChild(commsRow);
 
+    // Off: each output keeps its own volume and master knobs pick it up.
+    // On: the master knob's current volume is applied to the new output.
+    const carryRow = document.createElement('label');
+    carryRow.className = 'flex items-center gap-2 mt-1 text-xs text-gray-400 cursor-pointer';
+    const carryCheckbox = document.createElement('input');
+    carryCheckbox.type = 'checkbox';
+    carryCheckbox.checked = entry.params.carryVolume === true;
+    carryRow.append(carryCheckbox, 'Track master volume across outputs');
+    wrapper.appendChild(carryRow);
+
     // The device list comes from the running backend (it owns the audio APIs).
     // Saved devices that aren't currently connected stay listed so re-saving
     // the action doesn't silently drop them.
@@ -832,6 +842,7 @@ function buildBuiltinActionFields(entry, fields) {
         device: d ? { id: d.id, name: d.name } : saved,
         devices: included,
         communications: commsCheckbox.checked,
+        carryVolume: carryCheckbox.checked,
       };
     };
   }
